@@ -28,6 +28,12 @@ function createContentSecurityPolicy(nonce: string, request: NextRequest): strin
 
 function applySecurityHeaders(response: NextResponse, policy: string): void {
   response.headers.set('Content-Security-Policy', policy);
+  response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+  response.headers.set(
+    'Permissions-Policy',
+    'camera=(), microphone=(), geolocation=(), payment=(), usb=()',
+  );
+  response.headers.set('X-Content-Type-Options', 'nosniff');
   if (process.env.NODE_ENV === 'production') {
     response.headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
   }

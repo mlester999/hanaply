@@ -568,6 +568,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      bootstrap_first_super_admin: {
+        Args: { confirmation: string; target_user_id: string }
+        Returns: boolean
+      }
       get_my_admin_access: {
         Args: never
         Returns: {

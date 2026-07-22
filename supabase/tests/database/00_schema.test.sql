@@ -87,13 +87,20 @@ select is(
   1,
   'administrator self-inspection is security definer'
 );
-select is(
-  (select count(*)::integer
+select ok(
+  (select bool_and(array_to_string(p.proconfig, ',') like '%search_path=%')
    from pg_proc p
    join pg_namespace n on n.oid = p.pronamespace
    where n.nspname in ('public', 'app_private')
-     and array_to_string(p.proconfig, ',') like '%search_path=%'),
-  6,
+     and p.proname in (
+       'set_updated_at',
+       'handle_new_auth_user',
+       'prevent_audit_event_mutation',
+       'is_account_active',
+       'get_my_admin_access',
+       'validate_entitlement_json_value',
+       'bootstrap_first_super_admin'
+     )),
   'security-sensitive foundation functions pin an empty search path'
 );
 

@@ -25,6 +25,7 @@
     "db:test": "supabase test db",
     "db:types": "supabase gen types typescript --local --schema public > packages/database/src/generated.types.ts",
     "db:types:check": "node tooling/check-database-types.mjs",
+    "admin:bootstrap": "node tooling/bootstrap-super-admin.mjs",
     "e2e": "playwright test --config tooling/playwright.config.ts",
     "openapi:check": "node tooling/check-openapi.mjs",
     "secrets:check": "node tooling/secret-scan.mjs",

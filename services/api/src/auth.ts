@@ -17,8 +17,24 @@ import { API_ENVIRONMENT } from './tokens.js';
 
 const REQUIRED_PERMISSIONS = 'hanaply.required_permissions';
 
-export const RequirePermissions = (...permissions: readonly Permission[]) =>
-  SetMetadata(REQUIRED_PERMISSIONS, permissions);
+interface PermissionRequirement {
+  mode: 'all' | 'any';
+  permissions: readonly Permission[];
+}
+
+export const RequirePermission = (permission: Permission) =>
+  SetMetadata(REQUIRED_PERMISSIONS, {
+    mode: 'all',
+    permissions: [permission],
+  } satisfies PermissionRequirement);
+
+export const RequireAllPermissions = (...permissions: readonly Permission[]) =>
+  SetMetadata(REQUIRED_PERMISSIONS, { mode: 'all', permissions } satisfies PermissionRequirement);
+
+export const RequireAnyPermission = (...permissions: readonly Permission[]) =>
+  SetMetadata(REQUIRED_PERMISSIONS, { mode: 'any', permissions } satisfies PermissionRequirement);
+
+export const RequirePermissions = RequireAllPermissions;
 
 function authenticationError(message = 'Authentication is required'): AppError {
   return new AppError({ code: 'AUTHENTICATION_REQUIRED', status: 401, message });
@@ -64,7 +80,7 @@ export class SupabaseAuthService {
 
   async authorizeAdmin(
     request: AuthenticatedRequest,
-    required: readonly Permission[],
+    requirement: PermissionRequirement,
   ): Promise<void> {
     const auth = request.auth;
     if (!auth) throw authenticationError();
@@ -77,7 +93,11 @@ export class SupabaseAuthService {
       });
     }
     const permissionSet = new Set(access.permissions);
-    if (required.some((permission) => !permissionSet.has(permission))) {
+    const permitted =
+      requirement.mode === 'any'
+        ? requirement.permissions.some((permission) => permissionSet.has(permission))
+        : requirement.permissions.every((permission) => permissionSet.has(permission));
+    if (!permitted) {
       throw new AppError({
         code: 'FORBIDDEN',
         status: 403,
@@ -112,12 +132,11 @@ export class AdminAuthorizationGuard implements CanActivate {
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
-    const required =
-      this.reflector.getAllAndOverride<readonly Permission[]>(REQUIRED_PERMISSIONS, [
-        context.getHandler(),
-        context.getClass(),
-      ]) ?? [];
-    await this.authService.authorizeAdmin(request, required);
+    const requirement = this.reflector.getAllAndOverride<PermissionRequirement>(
+      REQUIRED_PERMISSIONS,
+      [context.getHandler(), context.getClass()],
+    ) ?? { mode: 'all', permissions: [] };
+    await this.authService.authorizeAdmin(request, requirement);
     return true;
   }
 }

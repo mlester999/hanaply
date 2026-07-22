@@ -4,6 +4,7 @@ import { sanitizeRedirectPath } from '@hanaply/auth';
 import { redirect } from 'next/navigation';
 
 import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { assertTrustedMutationOrigin } from '@/lib/request-integrity';
 
 export interface LoginState {
   status: 'idle' | 'error';
@@ -14,6 +15,7 @@ export async function loginAction(
   _previousState: LoginState,
   formData: FormData,
 ): Promise<LoginState> {
+  await assertTrustedMutationOrigin();
   const email = formData.get('email');
   const password = formData.get('password');
   const requestedRedirect = formData.get('next');
