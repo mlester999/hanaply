@@ -1,0 +1,120 @@
+/* Generated from tokens.json. Do not edit directly. */
+export const tokens = {
+  "color": {
+    "brand": {
+      "cobalt": "#3157E8",
+      "cobaltDeep": "#1D2F8A",
+      "mint": "#22C7A9",
+      "coral": "#FF7A59"
+    },
+    "neutral": {
+      "ink": "#101828",
+      "canvasDark": "#0B1020",
+      "canvasSoft": "#F6F8FC",
+      "surface": "#FFFFFF",
+      "muted": "#667085",
+      "border": "#E4E7EC",
+      "subtle": "#EEF2F8"
+    },
+    "semantic": {
+      "success": "#087D68",
+      "successSoft": "#E8F8F4",
+      "warning": "#9A4A1A",
+      "warningSoft": "#FFF3ED",
+      "danger": "#B42318",
+      "dangerSoft": "#FEECEB",
+      "infoSoft": "#EBF0FF"
+    }
+  },
+  "font": {
+    "family": {
+      "marketing": "var(--font-manrope), Manrope, system-ui, sans-serif",
+      "product": "var(--font-inter), Inter, system-ui, sans-serif"
+    },
+    "size": {
+      "xs": "0.75rem",
+      "sm": "0.875rem",
+      "md": "1rem",
+      "lg": "1.125rem",
+      "xl": "1.25rem",
+      "2xl": "1.5rem",
+      "3xl": "2rem",
+      "4xl": "2.75rem",
+      "5xl": "3.5rem"
+    },
+    "lineHeight": {
+      "tight": "1.1",
+      "heading": "1.2",
+      "body": "1.6"
+    },
+    "weight": {
+      "regular": "400",
+      "medium": "500",
+      "semibold": "600",
+      "bold": "700",
+      "extrabold": "800"
+    }
+  },
+  "space": {
+    "0": "0",
+    "1": "0.25rem",
+    "2": "0.5rem",
+    "3": "0.75rem",
+    "4": "1rem",
+    "5": "1.25rem",
+    "6": "1.5rem",
+    "8": "2rem",
+    "10": "2.5rem",
+    "12": "3rem",
+    "16": "4rem",
+    "20": "5rem",
+    "24": "6rem"
+  },
+  "radius": {
+    "sm": "0.5rem",
+    "md": "0.75rem",
+    "lg": "1rem",
+    "xl": "1.5rem",
+    "pill": "999px"
+  },
+  "shadow": {
+    "sm": "0 1px 3px rgb(16 24 40 / 0.08)",
+    "md": "0 8px 24px rgb(16 24 40 / 0.10)",
+    "lg": "0 20px 48px rgb(11 16 32 / 0.16)",
+    "focus": "0 0 0 3px rgb(49 87 232 / 0.24)"
+  },
+  "motion": {
+    "duration": {
+      "micro": "180ms",
+      "interface": "320ms",
+      "story": "800ms"
+    },
+    "ease": {
+      "standard": "cubic-bezier(0.2, 0, 0, 1)",
+      "emphasized": "cubic-bezier(0.2, 0.8, 0.2, 1)"
+    }
+  },
+  "breakpoint": {
+    "sm": "640px",
+    "md": "768px",
+    "lg": "1024px",
+    "xl": "1280px",
+    "2xl": "1440px"
+  },
+  "container": {
+    "text": "45rem",
+    "content": "75rem",
+    "wide": "82rem"
+  },
+  "layer": {
+    "base": "0",
+    "navigation": "20",
+    "dropdown": "40",
+    "overlay": "50",
+    "modal": "60",
+    "toast": "70"
+  },
+  "target": {
+    "minimum": "2.75rem"
+  }
+} as const;

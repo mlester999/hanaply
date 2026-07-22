@@ -5,4 +5,6 @@ node_modules
 playwright-report
 test-results
 packages/database/src/generated.types.ts
+packages/design-tokens/src/generated/tokens.css
+packages/design-tokens/src/generated/tokens.ts
 pnpm-lock.yaml
