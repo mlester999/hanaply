@@ -1,4 +1,5 @@
 import {
+  parseAdminBootstrapEnvironment,
   parseApiEnvironment,
   parseBrowserEnvironment,
   parseEmailEnvironment,
@@ -66,6 +67,31 @@ describe('environment schemas', () => {
   it('requires Resend credentials only when that provider is selected', () => {
     expect(parseEmailEnvironment({ EMAIL_PROVIDER: 'disabled' }).EMAIL_PROVIDER).toBe('disabled');
     expect(() => parseEmailEnvironment({ EMAIL_PROVIDER: 'resend' })).toThrow();
+    expect(
+      parseEmailEnvironment({ EMAIL_PROVIDER: 'capture', HANAPLY_ENV: 'local' }).EMAIL_PROVIDER,
+    ).toBe('capture');
+    expect(() =>
+      parseEmailEnvironment({
+        EMAIL_PROVIDER: 'resend',
+        EMAIL_ALLOW_LIVE_SENDS: 'true',
+        HANAPLY_ENV: 'local',
+        RESEND_API_KEY: 're_test_key',
+        RESEND_FROM_ADDRESS: 'Hanaply <no-reply@example.com>',
+      }),
+    ).toThrow(/forbidden in local/u);
+  });
+
+  it('keeps the first-admin bootstrap explicitly disabled and single-targeted', () => {
+    expect(parseAdminBootstrapEnvironment({}).ADMIN_BOOTSTRAP_ENABLED).toBe(false);
+    expect(() => parseAdminBootstrapEnvironment({ ADMIN_BOOTSTRAP_ENABLED: 'true' })).toThrow(
+      /target email/u,
+    );
+    expect(
+      parseAdminBootstrapEnvironment({
+        ADMIN_BOOTSTRAP_ENABLED: 'true',
+        ADMIN_BOOTSTRAP_EMAIL: 'Owner@Example.com',
+      }).ADMIN_BOOTSTRAP_EMAIL,
+    ).toBe('owner@example.com');
   });
 
   it('strips server-only values from the browser environment', () => {

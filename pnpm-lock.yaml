@@ -264,6 +264,10 @@ importers:
         version: 6.0.3
 
   packages/auth:
+    dependencies:
+      zod:
+        specifier: 'catalog:'
+        version: 4.4.3
     devDependencies:
       typescript:
         specifier: 6.0.3

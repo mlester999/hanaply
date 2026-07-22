@@ -22,6 +22,15 @@ const booleanFromEnvironment = z.preprocess((value) => {
   return value;
 }, z.boolean());
 const portFromEnvironment = z.coerce.number().int().min(1).max(65_535);
+const mailboxSchema = z
+  .string()
+  .trim()
+  .min(3)
+  .max(320)
+  .refine((value) => {
+    const bracketed = /<([^<>]+)>$/u.exec(value);
+    return z.email().safeParse(bracketed?.[1] ?? value).success;
+  }, 'Use a valid email address or Name <email@example.com> format');
 
 const browserEnvironmentSchema = z.object({
   NEXT_PUBLIC_APP_URL: urlSchema,
@@ -63,24 +72,70 @@ const workerEnvironmentSchema = sharedServerEnvironmentSchema.extend({
 
 const emailEnvironmentSchema = z
   .object({
-    EMAIL_PROVIDER: z.enum(['disabled', 'resend']).default('disabled'),
+    HANAPLY_ENV: environmentNameSchema.default('local'),
+    EMAIL_PROVIDER: z.enum(['disabled', 'capture', 'resend']).default('disabled'),
+    EMAIL_ALLOW_LIVE_SENDS: booleanFromEnvironment.default(false),
     RESEND_API_KEY: z.string().trim().optional(),
-    RESEND_FROM_ADDRESS: z.string().trim().optional(),
+    RESEND_FROM_ADDRESS: mailboxSchema.optional(),
+    RESEND_REPLY_TO_ADDRESS: z.email().optional(),
+    RESEND_REQUEST_TIMEOUT_MS: z.coerce.number().int().min(1_000).max(30_000).default(8_000),
   })
   .superRefine((value, context) => {
-    if (value.EMAIL_PROVIDER !== 'resend') return;
-    if (!value.RESEND_API_KEY) {
+    if (value.EMAIL_PROVIDER === 'resend' && !value.RESEND_API_KEY) {
       context.addIssue({
         code: 'custom',
         path: ['RESEND_API_KEY'],
         message: 'Required for Resend',
       });
     }
-    if (!value.RESEND_FROM_ADDRESS) {
+    if (value.EMAIL_PROVIDER === 'resend' && !value.RESEND_FROM_ADDRESS) {
       context.addIssue({
         code: 'custom',
         path: ['RESEND_FROM_ADDRESS'],
         message: 'Required for Resend',
+      });
+    }
+    if (value.EMAIL_PROVIDER === 'resend' && !value.EMAIL_ALLOW_LIVE_SENDS) {
+      context.addIssue({
+        code: 'custom',
+        path: ['EMAIL_ALLOW_LIVE_SENDS'],
+        message: 'Live email delivery must be enabled explicitly',
+      });
+    }
+    if (
+      value.EMAIL_ALLOW_LIVE_SENDS &&
+      (value.HANAPLY_ENV === 'local' || value.HANAPLY_ENV === 'test')
+    ) {
+      context.addIssue({
+        code: 'custom',
+        path: ['EMAIL_ALLOW_LIVE_SENDS'],
+        message: 'Live email delivery is forbidden in local and test environments',
+      });
+    }
+    if (value.HANAPLY_ENV === 'production' && value.EMAIL_PROVIDER !== 'resend') {
+      context.addIssue({
+        code: 'custom',
+        path: ['EMAIL_PROVIDER'],
+        message: 'Production requires the reviewed Resend provider',
+      });
+    }
+  });
+
+const adminBootstrapEnvironmentSchema = z
+  .object({
+    HANAPLY_ENV: environmentNameSchema.default('local'),
+    ADMIN_BOOTSTRAP_ENABLED: booleanFromEnvironment.default(false),
+    ADMIN_BOOTSTRAP_EMAIL: z
+      .email()
+      .transform((value) => value.trim().toLowerCase())
+      .optional(),
+  })
+  .superRefine((value, context) => {
+    if (value.ADMIN_BOOTSTRAP_ENABLED && !value.ADMIN_BOOTSTRAP_EMAIL) {
+      context.addIssue({
+        code: 'custom',
+        path: ['ADMIN_BOOTSTRAP_EMAIL'],
+        message: 'A single verified target email is required when bootstrap is enabled',
       });
     }
   });
@@ -89,6 +144,7 @@ export type BrowserEnvironment = z.infer<typeof browserEnvironmentSchema>;
 export type ApiEnvironment = z.infer<typeof apiEnvironmentSchema>;
 export type WorkerEnvironment = z.infer<typeof workerEnvironmentSchema>;
 export type EmailEnvironment = z.infer<typeof emailEnvironmentSchema>;
+export type AdminBootstrapEnvironment = z.infer<typeof adminBootstrapEnvironmentSchema>;
 
 function enforceProductionUrls(
   environment: Pick<ApiEnvironment, 'HANAPLY_ENV' | 'APP_BASE_URL' | 'API_BASE_URL'>,
@@ -131,6 +187,12 @@ export function parseWorkerEnvironment(input: Record<string, unknown>): WorkerEn
 
 export function parseEmailEnvironment(input: Record<string, unknown>): EmailEnvironment {
   return emailEnvironmentSchema.parse(input);
+}
+
+export function parseAdminBootstrapEnvironment(
+  input: Record<string, unknown>,
+): AdminBootstrapEnvironment {
+  return adminBootstrapEnvironmentSchema.parse(input);
 }
 
 export const browserEnvironmentKeys = Object.freeze([

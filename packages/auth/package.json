@@ -15,6 +15,9 @@
     "dev": "tsup src/index.ts --format esm --dts --sourcemap --watch",
     "typecheck": "tsc --noEmit"
   },
+  "dependencies": {
+    "zod": "catalog:"
+  },
   "devDependencies": {
     "typescript": "6.0.3"
   }

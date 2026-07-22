@@ -1,8 +1,14 @@
 import {
+  evaluateAccountAccess,
   hasAnyPermission,
   hasEveryPermission,
   hasPermission,
+  maskEmail,
+  normalizeEmail,
+  passwordSchema,
   permissions,
+  profileUpdateSchema,
+  registrationSchema,
   rolePermissionMatrix,
   sanitizeRedirectPath,
 } from '@hanaply/auth';
@@ -48,5 +54,70 @@ describe('permission evaluation', () => {
       expect.arrayContaining(['admins.read', 'admins.manage']),
     );
     expect(rolePermissionMatrix.operations_administrator).toContain('admins.read');
+  });
+});
+
+describe('Phase 1 authentication validation', () => {
+  it('normalizes email without provider-specific rewriting', () => {
+    expect(normalizeEmail('  Person+Career@Example.COM ')).toBe('person+career@example.com');
+    expect(maskEmail('person@example.com')).toBe('pe****@example.com');
+  });
+
+  it('uses a clear, practical password policy', () => {
+    expect(passwordSchema.safeParse('long-enough-7').success).toBe(true);
+    expect(passwordSchema.safeParse('onlyletters').success).toBe(false);
+    expect(passwordSchema.safeParse('short7').success).toBe(false);
+  });
+
+  it('requires matching passwords and both legal agreements', () => {
+    const input = {
+      firstName: 'Ana',
+      lastName: 'Reyes',
+      email: 'ANA@EXAMPLE.COM',
+      password: 'CareerReady7',
+      passwordConfirmation: 'CareerReady7',
+      termsAccepted: true,
+      privacyAccepted: true,
+      marketingConsent: false,
+    };
+    expect(registrationSchema.parse(input).email).toBe('ana@example.com');
+    expect(registrationSchema.safeParse({ ...input, termsAccepted: false }).success).toBe(false);
+    expect(
+      registrationSchema.safeParse({ ...input, passwordConfirmation: 'Different7' }).success,
+    ).toBe(false);
+  });
+
+  it('validates safe profile fields and IANA timezones', () => {
+    expect(
+      profileUpdateSchema.safeParse({
+        firstName: 'Ana',
+        lastName: 'Reyes',
+        displayName: '',
+        countryCode: 'ph',
+        locale: 'en-PH',
+        timezone: 'Asia/Manila',
+      }).success,
+    ).toBe(true);
+    expect(
+      profileUpdateSchema.safeParse({
+        firstName: 'Ana',
+        lastName: 'Reyes',
+        displayName: null,
+        countryCode: 'PH',
+        locale: 'en-PH',
+        timezone: 'Not/AZone',
+      }).success,
+    ).toBe(false);
+  });
+
+  it('fails product access closed for every non-active account state', () => {
+    expect(evaluateAccountAccess('active').mayAccessProduct).toBe(true);
+    expect(evaluateAccountAccess('suspended')).toMatchObject({
+      mayAuthenticate: true,
+      mayAccessProduct: false,
+      route: '/account-suspended',
+    });
+    expect(evaluateAccountAccess('disabled').mayAuthenticate).toBe(false);
+    expect(evaluateAccountAccess('pending_deletion').mayAccessProduct).toBe(false);
   });
 });
