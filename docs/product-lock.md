@@ -1,17 +1,18 @@
 # Product lock
 
-This document separates implemented Phase 0 behavior from approved future scope. A page or empty state must not imply operational data that does not exist.
+This document separates implemented Phase 1 behavior from approved future scope. A page or empty state must not imply operational data that does not exist.
 
-## Phase 0 scope
+## Phase 1 scope
 
-- Working password login, logout, cookie refresh, auth callback, route protection, suspension handling, and admin enforcement.
+- Working registration, email verification/resend, login/logout, cookie refresh, password recovery/reset/change, and session revocation.
+- Required draft legal acknowledgements, optional preferences, profile settings, authentication/status history, and account-state enforcement.
 - Marketing, pricing, legal-draft, security, help, customer, activation, settings, and admin shells.
 - Database-backed public pricing and server-side entitlement evaluation.
-- Platform and feature configuration foundations.
-- Idle worker, disabled email provider, and disabled AI provider.
-- Security boundaries, migrations, RLS, tests, CI, and operational documentation.
+- Permissioned real-data admin overview, user directory/detail, suspend/restore, session revocation, audit directory, and safe security diagnostics.
+- Supabase Auth email templates, Mailpit local delivery, and production-gated capture/disabled/Resend application adapters.
+- Platform/feature foundations, idle worker, disabled AI provider, security boundaries, migrations, RLS, CI, and operational documentation.
 
-Registration, recovery, reset, and verification routes are polished Phase 1 placeholders. No job, user, revenue, payment, application, or AI statistics are invented.
+No job, revenue, payment, application, or AI statistic is invented. Admin identity/account totals and directory rows come from the local/hosted database. Activation Center pricing/subscription state is real, while payment instructions explicitly remain unavailable.
 
 ## Locked marketing language
 
@@ -57,16 +58,16 @@ Monthly and annual plans in the same tier share entitlement values. No free plan
 
 Entitlement values are configuration, not client input. Unknown, incomplete, or malformed active-plan configuration returns `SERVICE_UNAVAILABLE`.
 
-## Deferred product systems
+## Deferred Phase 2 and later systems
 
 - Career profile onboarding and resume/portfolio handling
 - Payment submission, review, activation, and accounting
 - Job-source ingestion, deduplication, taxonomy, matching, and alerts
 - AI extraction, analysis, document generation, and Truth Gate execution
-- Email delivery through Resend
+- Non-authentication notifications, hosted Resend/DNS operationalization, and provider webhooks/suppressions
 - Browser and mobile push delivery
 - Production queues and worker consumers
 - Native iOS/Android applications
 - Hosted deployment and production analytics
 
-These systems require later migrations, services, security review, and acceptance gates. Their contracts in Phase 0 are seams, not claims of availability.
+These systems require later migrations, services, security review, and acceptance gates. Existing contracts, entitlement names, settings, and empty states are seams, not claims of availability. Phase 2 must not begin without owner approval after the Phase 1 report.

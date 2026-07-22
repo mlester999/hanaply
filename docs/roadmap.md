@@ -6,23 +6,29 @@ Status: implemented locally.
 
 - Monorepo, strict tooling, contracts, design system, web/API/worker shells.
 - Supabase schema, RLS, plans, entitlements, flags, platforms, admin RBAC, and audit.
-- Login/logout and protected customer/admin boundaries.
+- Initial login/logout and protected customer/admin boundaries.
 - Local/CI validation, browser acceptance, and operational documentation.
 
-## Phase 1: account and career profile
+## Phase 1: authentication and SaaS core experience
 
-- Registration, email verification, recovery, and reset.
-- Account/settings completion and onboarding state machine.
-- Career Intelligence Profile, sub-careers, verified facts, and preferences.
-- Private resume/portfolio upload, quarantine, scanning, parsing, and preview controls.
-- Account deletion/export and owner-reviewed legal content.
+Status: implemented and passing locally; hosted Supabase/Resend/production-owner gates remain pending.
 
-## Phase 2: activation and payment review
+- Registration, email verification/resend, login/logout, recovery/reset/change, refresh, and session revocation.
+- Protected customer dashboard, allowlisted profile/preferences, and honest Activation Center.
+- Account-status enforcement across web, API, sessions, and RLS.
+- Admin login, database roles/permissions, real user directory/detail, suspend/restore, session revocation, audit, and secure first-owner bootstrap.
+- Supabase Auth email templates, Mailpit tests, and production-gated Resend application adapter.
+- Forward-only identity/security migrations, 137 pgTAP assertions, 85 unit/API tests, and 11 end-to-end scenarios with responsive/Axe checks.
+
+## Phase 2: activation and career foundation
 
 - Manual payment submission, private proof storage, review queues, and audit trails.
 - Authorized subscription activation, expiry, cancellation, and support tooling.
 - Idempotent provider/payment references and reconciliation.
-- Resend implementation for account and activation email categories.
+- Career Intelligence Profile, sub-careers, verified facts, and onboarding state machine.
+- Private resume/portfolio upload, quarantine, scanning, parsing, and preview controls.
+- Account deletion/export and owner-approved legal content.
+- Account/activation email orchestration and Resend webhook/suppression operations.
 
 ## Phase 3: opportunity discovery
 
@@ -53,3 +59,5 @@ Status: implemented locally.
 - iOS/Android store readiness, privacy declarations, and mobile-specific security testing.
 
 Each phase requires its own schema/security review, positive and negative tests, observability, operational runbooks, owner actions, and explicit release decision.
+
+Phase 2 is not started by this implementation. It requires explicit owner approval after hosted Phase 1 validation and the conditional gates in the Phase 1 report.

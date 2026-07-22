@@ -1,6 +1,6 @@
 # Mobile readiness
 
-Phase 0 does not create a mobile application. It establishes boundaries that let a future React Native client reuse contracts without inheriting browser assumptions.
+Phase 1 does not create a mobile application. It establishes working authentication, account-status, session, authorization, and contract boundaries that let a future React Native client reuse server behavior without inheriting browser assumptions.
 
 ## Reusable foundations
 
@@ -11,12 +11,13 @@ Phase 0 does not create a mobile application. It establishes boundaries that let
 - Entitlements, platform state, feature flags, and admin access are server evaluated.
 - Platform meta accepts `web`, `ios`, or `android` and an optional semantic client version.
 - iOS and Android begin in `planned` state; web is active.
+- Registration/profile/preference/session schemas and safe error envelopes are shared rather than duplicated in browser components.
 
 ## Secure mobile authentication
 
 A mobile client must use Supabase's supported PKCE/session flow and store refresh material only in iOS Keychain or Android Keystore-backed secure storage. Access tokens may live in memory. Tokens must not be placed in AsyncStorage, logs, analytics, crash metadata, deep-link parameters, screenshots, or clipboard flows. No service-role or provider key is ever shipped to a device.
 
-Logout must revoke/clear the Supabase session and remove local secure values. Device compromise, token rotation, account suspension, and remote sign-out behavior require explicit acceptance tests.
+Logout must revoke/clear the Supabase session and remove local secure values. The Phase 1 API verifies `session_id` against the database and rejects suspended accounts, but device compromise, token rotation, remote sign-out latency, and platform SDK behavior still require mobile-specific acceptance tests.
 
 ## Future device registration and push tokens
 
