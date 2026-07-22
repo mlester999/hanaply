@@ -774,6 +774,10 @@ a:hover {
   gap: var(--hanaply-space-5);
 }
 
+.auth-card--wide {
+  width: min(100%, 38rem);
+}
+
 .auth-card h1 {
   margin: 0;
   font: var(--hanaply-font-weight-extrabold) clamp(2rem, 5vw, 3rem) / 1.1
@@ -793,6 +797,73 @@ a:hover {
 .auth-form {
   display: grid;
   gap: var(--hanaply-space-5);
+}
+
+.auth-field-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--hanaply-space-4);
+}
+
+.auth-consents {
+  display: grid;
+  gap: var(--hanaply-space-3);
+  padding: 0;
+  margin: 0;
+  border: 0;
+}
+
+.auth-consents legend {
+  margin-bottom: var(--hanaply-space-3);
+  color: var(--hanaply-color-neutral-ink);
+  font-size: var(--hanaply-font-size-sm);
+  font-weight: var(--hanaply-font-weight-semibold);
+}
+
+.auth-consents label {
+  display: grid;
+  min-height: var(--hanaply-target-minimum);
+  align-items: start;
+  grid-template-columns: 1.25rem minmax(0, 1fr);
+  gap: var(--hanaply-space-3);
+  color: var(--hanaply-color-neutral-muted);
+  font-size: var(--hanaply-font-size-sm);
+  line-height: 1.5;
+}
+
+.auth-consents input {
+  width: 1.15rem;
+  height: 1.15rem;
+  margin: 0.15rem 0 0;
+  accent-color: var(--hanaply-color-brand-cobalt);
+}
+
+.auth-consent-error {
+  margin-top: calc(-1 * var(--hanaply-space-2));
+  color: var(--hanaply-color-semantic-danger);
+  font-size: var(--hanaply-font-size-xs);
+}
+
+.auth-form-footnote,
+.auth-support-copy {
+  margin: 0;
+  color: var(--hanaply-color-neutral-muted);
+  font-size: var(--hanaply-font-size-sm);
+  text-align: center;
+}
+
+.auth-feature-icon {
+  color: var(--hanaply-color-brand-cobalt);
+}
+
+.auth-steps {
+  display: grid;
+  gap: var(--hanaply-space-2);
+  padding-left: var(--hanaply-space-6);
+  margin: 0;
+  color: var(--hanaply-color-neutral-muted);
+  font-size: var(--hanaply-font-size-sm);
+  line-height: 1.6;
 }
 
 .auth-form-links {
@@ -1158,6 +1229,10 @@ a:hover {
   .auth-form-links {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .auth-field-grid {
+    grid-template-columns: 1fr;
   }
 
   .app-topbar {

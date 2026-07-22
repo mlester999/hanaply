@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Verify your Hanaply email</title>
+  </head>
+  <body style="margin: 0; background: #f6f8fc; color: #101828; font-family: Arial, sans-serif">
+    <div style="display: none; max-height: 0; overflow: hidden">
+      Verify your email to secure your Hanaply account.
+    </div>
+    <table
+      role="presentation"
+      width="100%"
+      cellspacing="0"
+      cellpadding="0"
+      style="background: #f6f8fc; padding: 24px 12px"
+    >
+      <tr>
+        <td align="center">
+          <table
+            role="presentation"
+            width="100%"
+            cellspacing="0"
+            cellpadding="0"
+            style="
+              max-width: 560px;
+              background: #fff;
+              border: 1px solid #e4e7ec;
+              border-radius: 16px;
+            "
+          >
+            <tr>
+              <td
+                style="padding: 30px 32px 12px; color: #3157e8; font-size: 24px; font-weight: 800"
+              >
+                Hanaply
+              </td>
+            </tr>
+            <tr>
+              <td style="padding: 8px 32px 32px">
+                <h1 style="margin: 0 0 16px; font-size: 28px; line-height: 1.2">
+                  Verify your email address
+                </h1>
+                <p style="margin: 0 0 24px; color: #475467; font-size: 16px; line-height: 1.6">
+                  Confirm this email address to finish securing your Hanaply account. This link
+                  expires in one hour and can be used only once.
+                </p>
+                <p style="margin: 0 0 24px">
+                  <a
+                    href="{{ .SiteURL }}/auth/callback?token_hash={{ .TokenHash }}&amp;type=signup&amp;next=/dashboard"
+                    style="
+                      display: inline-block;
+                      padding: 13px 20px;
+                      color: #fff;
+                      background: #3157e8;
+                      border-radius: 8px;
+                      font-weight: 700;
+                      text-decoration: none;
+                    "
+                    >Verify Email</a
+                  >
+                </p>
+                <p style="margin: 0; color: #667085; font-size: 14px; line-height: 1.6">
+                  If you did not create this account, you can ignore this email. Do not forward this
+                  link.
+                </p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>

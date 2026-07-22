@@ -39,6 +39,21 @@ const browserEnvironmentSchema = z.object({
   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: nonEmptyString,
 });
 
+const webServerEnvironmentSchema = browserEnvironmentSchema
+  .extend({
+    HANAPLY_ENV: environmentNameSchema.default('local'),
+    AUTH_RATE_LIMIT_PEPPER: z.string().min(16).default('local-only-rate-limit-pepper'),
+  })
+  .superRefine((value, context) => {
+    if (value.HANAPLY_ENV === 'production' && value.AUTH_RATE_LIMIT_PEPPER.length < 32) {
+      context.addIssue({
+        code: 'custom',
+        path: ['AUTH_RATE_LIMIT_PEPPER'],
+        message: 'Production rate-limit pepper must contain at least 32 characters',
+      });
+    }
+  });
+
 const sharedServerEnvironmentSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   HANAPLY_ENV: environmentNameSchema.default('local'),
@@ -141,6 +156,7 @@ const adminBootstrapEnvironmentSchema = z
   });
 
 export type BrowserEnvironment = z.infer<typeof browserEnvironmentSchema>;
+export type WebServerEnvironment = z.infer<typeof webServerEnvironmentSchema>;
 export type ApiEnvironment = z.infer<typeof apiEnvironmentSchema>;
 export type WorkerEnvironment = z.infer<typeof workerEnvironmentSchema>;
 export type EmailEnvironment = z.infer<typeof emailEnvironmentSchema>;
@@ -162,6 +178,10 @@ function enforceProductionUrls(
 
 export function parseBrowserEnvironment(input: Record<string, unknown>): BrowserEnvironment {
   return browserEnvironmentSchema.parse(input);
+}
+
+export function parseWebServerEnvironment(input: Record<string, unknown>): WebServerEnvironment {
+  return webServerEnvironmentSchema.parse(input);
 }
 
 export function parseApiEnvironment(input: Record<string, unknown>): ApiEnvironment {

@@ -3,6 +3,7 @@ import {
   parseApiEnvironment,
   parseBrowserEnvironment,
   parseEmailEnvironment,
+  parseWebServerEnvironment,
   parseWorkerEnvironment,
 } from '@hanaply/config';
 import { describe, expect, it } from 'vitest';
@@ -103,5 +104,28 @@ describe('environment schemas', () => {
       SUPABASE_SERVICE_ROLE_KEY: 'must-not-survive',
     });
     expect(parsed).not.toHaveProperty('SUPABASE_SERVICE_ROLE_KEY');
+  });
+
+  it('requires a strong production-only rate-limit pepper', () => {
+    const browser = {
+      NEXT_PUBLIC_APP_URL: 'https://hanaply.example',
+      NEXT_PUBLIC_API_URL: 'https://api.hanaply.example',
+      NEXT_PUBLIC_SUPABASE_URL: 'https://project.supabase.co',
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: 'publishable-test-key',
+    };
+    expect(() =>
+      parseWebServerEnvironment({
+        ...browser,
+        HANAPLY_ENV: 'production',
+        AUTH_RATE_LIMIT_PEPPER: 'too-short-for-production',
+      }),
+    ).toThrow(/32 characters/u);
+    expect(
+      parseWebServerEnvironment({
+        ...browser,
+        HANAPLY_ENV: 'production',
+        AUTH_RATE_LIMIT_PEPPER: 'a'.repeat(32),
+      }).HANAPLY_ENV,
+    ).toBe('production');
   });
 });
