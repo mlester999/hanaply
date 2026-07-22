@@ -15,6 +15,11 @@
     "dev": "tsup src/index.ts --format esm --dts --sourcemap --watch",
     "typecheck": "tsc --noEmit"
   },
+  "dependencies": {
+    "@hanaply/config": "workspace:*",
+    "resend": "catalog:",
+    "zod": "catalog:"
+  },
   "devDependencies": {
     "typescript": "6.0.3"
   }

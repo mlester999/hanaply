@@ -50,6 +50,7 @@ catalog:
   react: 19.2.8
   react-dom: 19.2.8
   reflect-metadata: 0.2.2
+  resend: 6.18.0
   rxjs: 7.8.2
   semver: 7.8.5
   zod: 4.4.3
@@ -75,3 +76,4 @@ minimumReleaseAgeExclude:
   - '@supabase/storage-js@2.110.8'
   - '@supabase/supabase-js@2.110.8'
   - next@16.2.11
+  - resend@6.18.0
