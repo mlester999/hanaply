@@ -1,0 +1,30 @@
+{
+  "name": "@hanaply/web",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev -p 3100",
+    "build": "next build",
+    "start": "next start -p 3100",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@hanaply/auth": "workspace:*",
+    "@hanaply/config": "workspace:*",
+    "@hanaply/contracts": "workspace:*",
+    "@hanaply/design-tokens": "workspace:*",
+    "@hanaply/ui": "workspace:*",
+    "@supabase/ssr": "catalog:",
+    "@supabase/supabase-js": "catalog:",
+    "lucide-react": "catalog:",
+    "next": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:"
+  },
+  "devDependencies": {
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "typescript": "6.0.3"
+  }
+}

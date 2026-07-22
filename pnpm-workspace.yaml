@@ -5,6 +5,7 @@ packages:
 
 allowBuilds:
   esbuild: true
+  sharp: true
 
 catalog:
   '@asteasolutions/zod-to-openapi': 9.1.0
@@ -54,3 +55,19 @@ minimumReleaseAgeExclude:
   - prettier@3.9.6
   - react-dom@19.2.8
   - react@19.2.8
+  - '@next/env@16.2.11'
+  - '@next/swc-darwin-arm64@16.2.11'
+  - '@next/swc-darwin-x64@16.2.11'
+  - '@next/swc-linux-arm64-gnu@16.2.11'
+  - '@next/swc-linux-arm64-musl@16.2.11'
+  - '@next/swc-linux-x64-gnu@16.2.11'
+  - '@next/swc-linux-x64-musl@16.2.11'
+  - '@next/swc-win32-arm64-msvc@16.2.11'
+  - '@next/swc-win32-x64-msvc@16.2.11'
+  - '@supabase/auth-js@2.110.8'
+  - '@supabase/functions-js@2.110.8'
+  - '@supabase/postgrest-js@2.110.8'
+  - '@supabase/realtime-js@2.110.8'
+  - '@supabase/storage-js@2.110.8'
+  - '@supabase/supabase-js@2.110.8'
+  - next@16.2.11
