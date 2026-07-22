@@ -1,0 +1,3 @@
+-- Static roles, plans, entitlements, flags, platforms, and branding are seeded by the
+-- forward-only foundation catalog migration so every environment receives the same baseline.
+-- Phase 0 intentionally seeds no users, subscriptions, payments, jobs, or product activity.
