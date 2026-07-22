@@ -1,0 +1,29 @@
+{
+  "name": "@hanaply/contracts",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./openapi": {
+      "types": "./dist/openapi.d.ts",
+      "import": "./dist/openapi.js"
+    }
+  },
+  "scripts": {
+    "build": "tsup src/index.ts src/openapi.ts --format esm --dts --sourcemap --clean",
+    "dev": "tsup src/index.ts src/openapi.ts --format esm --dts --sourcemap --watch",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@asteasolutions/zod-to-openapi": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "typescript": "6.0.3"
+  }
+}
