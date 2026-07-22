@@ -192,6 +192,15 @@ export class HanaplyRepository {
     return result.data ? mapProfile(result.data) : null;
   }
 
+  async isAuthSessionActive(userId: string, sessionId: string): Promise<boolean> {
+    const result = await this.serviceClient.rpc('is_auth_session_active', {
+      target_user_id: userId,
+      target_session_id: sessionId,
+    });
+    if (result.error) throw configurationError('Session service is unavailable');
+    return result.data;
+  }
+
   async getSubscription(
     accessToken: string,
     userId: string,

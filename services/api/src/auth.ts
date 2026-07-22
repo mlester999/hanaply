@@ -61,8 +61,17 @@ export class SupabaseAuthService {
     if (!accessToken || accessToken.includes(' '))
       throw authenticationError('Bearer token is invalid');
     const claimsResult = await this.verificationClient.auth.getClaims(accessToken);
-    const userId = claimsResult.data?.claims.sub;
-    if (claimsResult.error || !userId) throw authenticationError('Session is invalid or expired');
+    const claims = claimsResult.data?.claims;
+    const userId = claims?.sub;
+    if (claimsResult.error || !claims || !userId)
+      throw authenticationError('Session is invalid or expired');
+    const sessionId = claims.session_id;
+    if (
+      typeof sessionId !== 'string' ||
+      !(await this.repository.isAuthSessionActive(userId, sessionId))
+    ) {
+      throw authenticationError('Session is invalid or expired');
+    }
     const profile = await this.repository.getProfile(accessToken, userId);
     if (!profile) throw authenticationError('Account profile is unavailable');
     if (profile.accountStatus === 'suspended') {

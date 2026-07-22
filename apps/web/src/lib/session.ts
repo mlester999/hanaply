@@ -23,6 +23,20 @@ export async function getVerifiedWebSession(): Promise<VerifiedWebSession | null
 export async function requireUser() {
   const session = await getVerifiedWebSession();
   if (!session) redirect('/login?next=/dashboard');
+  const supabase = await createSupabaseServerClient();
+  const statusResult = await supabase
+    .from('profiles')
+    .select('account_status')
+    .eq('id', session.userId)
+    .maybeSingle();
+  if (statusResult.error || !statusResult.data) redirect('/login?error=profile');
+  if (statusResult.data.account_status === 'suspended') redirect('/account-suspended');
+  if (
+    statusResult.data.account_status === 'disabled' ||
+    statusResult.data.account_status === 'pending_deletion'
+  ) {
+    redirect('/account-unavailable');
+  }
   const environment = getBrowserEnvironment();
   const client = createApiClient({
     baseUrl: environment.NEXT_PUBLIC_API_URL,
@@ -30,7 +44,6 @@ export async function requireUser() {
   });
   try {
     const me = await client.me();
-    if (me.data.profile.accountStatus === 'suspended') redirect('/account-suspended');
     return { session, me: me.data };
   } catch (error) {
     if (error instanceof HanaplyApiError && error.envelope.error.code === 'ACCOUNT_SUSPENDED') {

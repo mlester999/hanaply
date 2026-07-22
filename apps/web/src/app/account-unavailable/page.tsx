@@ -1,16 +1,17 @@
 import { Button, LinkButton } from '@hanaply/ui';
-import { CirclePause } from 'lucide-react';
+import { ShieldOff } from 'lucide-react';
 
 import { logout } from '@/app/actions/auth';
 
-export default function AccountSuspendedPage() {
+export default function AccountUnavailablePage() {
   return (
     <main className="status-page" id="main-content" tabIndex={-1}>
-      <CirclePause aria-hidden="true" size={36} />
-      <span className="h-eyebrow">Account access paused</span>
-      <h1>Your account is currently suspended.</h1>
+      <ShieldOff aria-hidden="true" size={36} />
+      <span className="h-eyebrow">Account unavailable</span>
+      <h1>This account cannot access Hanaply.</h1>
       <p>
-        Protected services remain unavailable until an authorized administrator restores access.
+        Protected product services are unavailable for this account state. Contact support if you
+        believe this is unexpected.
       </p>
       <div className="status-actions">
         <LinkButton href="/help" variant="secondary">

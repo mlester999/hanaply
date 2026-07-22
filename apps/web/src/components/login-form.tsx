@@ -19,6 +19,7 @@ export function LoginForm({ nextPath, admin = false }: { nextPath?: string; admi
   return (
     <form action={action} className="auth-form" noValidate>
       <input name="next" type="hidden" value={nextPath ?? (admin ? '/admin' : '/dashboard')} />
+      <input name="intent" type="hidden" value={admin ? 'admin' : 'customer'} />
       {state.status === 'error' && state.message ? (
         <Alert title="Sign in was not completed" tone="danger">
           {state.message}
