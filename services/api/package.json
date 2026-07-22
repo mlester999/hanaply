@@ -1,0 +1,36 @@
+{
+  "name": "@hanaply/api",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/main.ts",
+    "build": "tsup src/main.ts --format esm --sourcemap --clean --platform node",
+    "start": "node dist/main.js",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@fastify/helmet": "catalog:",
+    "@hanaply/auth": "workspace:*",
+    "@hanaply/config": "workspace:*",
+    "@hanaply/contracts": "workspace:*",
+    "@hanaply/database": "workspace:*",
+    "@hanaply/entitlements": "workspace:*",
+    "@hanaply/observability": "workspace:*",
+    "@hanaply/platform": "workspace:*",
+    "@nestjs/common": "catalog:",
+    "@nestjs/core": "catalog:",
+    "@nestjs/platform-fastify": "catalog:",
+    "@nestjs/throttler": "catalog:",
+    "@supabase/supabase-js": "catalog:",
+    "fastify": "catalog:",
+    "reflect-metadata": "catalog:",
+    "rxjs": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@nestjs/testing": "catalog:",
+    "@types/node": "24.13.3",
+    "typescript": "6.0.3"
+  }
+}
