@@ -97,6 +97,25 @@ export function createApiClient(options: ApiClientOptions) {
     revokeOtherSessions: () => request(apiContract.revokeOtherSessions),
     entitlements: () => request(apiContract.entitlements),
     adminMe: () => request(apiContract.adminMe),
+    adminOverview: () => request(apiContract.adminOverview),
+    adminUsers: (query?: z.input<typeof apiContract.adminUsers.query>) =>
+      query
+        ? request(apiContract.adminUsers, { query: { ...query } })
+        : request(apiContract.adminUsers),
+    adminUser: (userId: string) => request(apiContract.adminUser, { params: { userId } }),
+    suspendAdminUser: (userId: string, body: z.input<typeof apiContract.adminSuspendUser.body>) =>
+      request(apiContract.adminSuspendUser, { params: { userId }, body }),
+    restoreAdminUser: (userId: string, body: z.input<typeof apiContract.adminRestoreUser.body>) =>
+      request(apiContract.adminRestoreUser, { params: { userId }, body }),
+    revokeAdminUserSessions: (
+      userId: string,
+      body: z.input<typeof apiContract.adminRevokeUserSessions.body>,
+    ) => request(apiContract.adminRevokeUserSessions, { params: { userId }, body }),
+    adminAudit: (query?: z.input<typeof apiContract.adminAudit.query>) =>
+      query
+        ? request(apiContract.adminAudit, { query: { ...query } })
+        : request(apiContract.adminAudit),
+    adminSecurity: () => request(apiContract.adminSecurity),
   });
 }
 

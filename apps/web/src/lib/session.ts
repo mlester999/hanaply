@@ -1,3 +1,4 @@
+import type { Permission } from '@hanaply/auth';
 import { createApiClient, HanaplyApiError } from '@hanaply/contracts';
 import { redirect } from 'next/navigation';
 
@@ -67,4 +68,18 @@ export async function requireAdmin() {
     if (error instanceof HanaplyApiError && error.status === 403) redirect('/forbidden');
     throw error;
   }
+}
+
+export async function requireAdminPermission(permission: Permission) {
+  const context = await requireAdmin();
+  if (!context.admin.permissions.includes(permission)) redirect('/forbidden');
+  return context;
+}
+
+export async function requireAnyAdminPermission(permissions: readonly Permission[]) {
+  const context = await requireAdmin();
+  if (!permissions.some((permission) => context.admin.permissions.includes(permission))) {
+    redirect('/forbidden');
+  }
+  return context;
 }

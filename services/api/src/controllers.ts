@@ -6,6 +6,7 @@ import {
   Get,
   Header,
   Inject,
+  Param,
   Patch,
   Post,
   Query,
@@ -15,10 +16,23 @@ import {
 import { SkipThrottle, Throttle } from '@nestjs/throttler';
 import type { FastifyRequest } from 'fastify';
 
-import { AdminAuthorizationGuard, SupabaseAuthGuard } from './auth.js';
+import {
+  AdminAuthorizationGuard,
+  RequireAnyPermission,
+  RequirePermission,
+  SupabaseAuthGuard,
+} from './auth.js';
 import { AppError } from './app-error.js';
 import { HanaplyService } from './app.service.js';
 import { successEnvelope, type AuthenticatedRequest } from './http.js';
+
+const adminUserPath = apiContract.adminUser.path.replace('{userId}', ':userId');
+const adminSuspendUserPath = apiContract.adminSuspendUser.path.replace('{userId}', ':userId');
+const adminRestoreUserPath = apiContract.adminRestoreUser.path.replace('{userId}', ':userId');
+const adminRevokeUserSessionsPath = apiContract.adminRevokeUserSessions.path.replace(
+  '{userId}',
+  ':userId',
+);
 
 @Controller()
 export class PublicController {
@@ -128,6 +142,86 @@ export class AdminController {
   adminMe(@Req() request: AuthenticatedRequest) {
     return apiContract.adminMe.response.parse(
       successEnvelope(request, this.service.adminMe(request)),
+    );
+  }
+
+  @Get(apiContract.adminOverview.path)
+  @RequirePermission('users.read')
+  async overview(@Req() request: AuthenticatedRequest) {
+    return apiContract.adminOverview.response.parse(
+      successEnvelope(request, await this.service.adminOverview(request)),
+    );
+  }
+
+  @Get(apiContract.adminUsers.path)
+  @RequirePermission('users.read')
+  @Throttle({ default: { limit: 60, ttl: 60_000 } })
+  async users(@Req() request: AuthenticatedRequest, @Query() query: Record<string, unknown>) {
+    return apiContract.adminUsers.response.parse(
+      successEnvelope(request, await this.service.adminUsers(request, query)),
+    );
+  }
+
+  @Get(adminUserPath)
+  @RequirePermission('users.read')
+  async user(@Req() request: AuthenticatedRequest, @Param() params: Record<string, unknown>) {
+    return apiContract.adminUser.response.parse(
+      successEnvelope(request, await this.service.adminUser(request, params)),
+    );
+  }
+
+  @Post(adminSuspendUserPath)
+  @RequirePermission('users.manage')
+  @Throttle({ default: { limit: 10, ttl: 3_600_000 } })
+  async suspendUser(
+    @Req() request: AuthenticatedRequest,
+    @Param() params: Record<string, unknown>,
+    @Body() body: unknown,
+  ) {
+    return apiContract.adminSuspendUser.response.parse(
+      successEnvelope(request, await this.service.suspendAdminUser(request, params, body)),
+    );
+  }
+
+  @Post(adminRestoreUserPath)
+  @RequirePermission('users.manage')
+  @Throttle({ default: { limit: 10, ttl: 3_600_000 } })
+  async restoreUser(
+    @Req() request: AuthenticatedRequest,
+    @Param() params: Record<string, unknown>,
+    @Body() body: unknown,
+  ) {
+    return apiContract.adminRestoreUser.response.parse(
+      successEnvelope(request, await this.service.restoreAdminUser(request, params, body)),
+    );
+  }
+
+  @Post(adminRevokeUserSessionsPath)
+  @RequireAnyPermission('users.manage', 'security.manage')
+  @Throttle({ default: { limit: 10, ttl: 3_600_000 } })
+  async revokeUserSessions(
+    @Req() request: AuthenticatedRequest,
+    @Param() params: Record<string, unknown>,
+    @Body() body: unknown,
+  ) {
+    return apiContract.adminRevokeUserSessions.response.parse(
+      successEnvelope(request, await this.service.revokeAdminUserSessions(request, params, body)),
+    );
+  }
+
+  @Get(apiContract.adminAudit.path)
+  @RequirePermission('audit.read')
+  async audit(@Req() request: AuthenticatedRequest, @Query() query: Record<string, unknown>) {
+    return apiContract.adminAudit.response.parse(
+      successEnvelope(request, await this.service.adminAudit(request, query)),
+    );
+  }
+
+  @Get(apiContract.adminSecurity.path)
+  @RequirePermission('security.manage')
+  security(@Req() request: AuthenticatedRequest) {
+    return apiContract.adminSecurity.response.parse(
+      successEnvelope(request, this.service.adminSecurity(request)),
     );
   }
 }

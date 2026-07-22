@@ -58,7 +58,13 @@ const subscriptionRow = {
   updated_at: now,
 };
 
-const state = { ready: true, subscription: true, sessionsRevoked: false };
+const state = {
+  ready: true,
+  subscription: true,
+  sessionsRevoked: false,
+  adminStatus: 'active' as 'active' | 'suspended',
+  adminSessionsRevoked: 0,
+};
 const fixture = planFixture();
 const repository = {
   isReady: () => Promise.resolve(state.ready),
@@ -130,6 +136,94 @@ const repository = {
     state.sessionsRevoked = true;
     return Promise.resolve();
   },
+  getAdminOverview: () =>
+    Promise.resolve({
+      registeredUsers: 2,
+      verifiedUsers: 2,
+      suspendedUsers: state.adminStatus === 'suspended' ? 1 : 0,
+      activeAdministrators: 1,
+      authenticationEventsLast24Hours: 3,
+      evaluatedAt: now,
+    }),
+  listAdminUsers: (_actorUserId: string, input: { page: number; pageSize: number }) =>
+    Promise.resolve({
+      items: [
+        {
+          userId,
+          email: 'member@example.com',
+          emailVerified: true,
+          emailVerifiedAt: now,
+          firstName: 'Phase',
+          lastName: 'One',
+          displayName: 'Phase One User',
+          accountStatus: state.adminStatus,
+          subscriptionPlanCode: 'plus_monthly',
+          subscriptionStatus: 'active' as const,
+          adminRoles: [],
+          createdAt: now,
+          updatedAt: now,
+        },
+      ],
+      pagination: { page: input.page, pageSize: input.pageSize, total: 1, totalPages: 1 },
+    }),
+  getAdminUser: (_actorUserId: string, requestedUserId: string) =>
+    Promise.resolve(
+      requestedUserId === userId
+        ? {
+            userId,
+            email: 'member@example.com',
+            emailVerified: true,
+            emailVerifiedAt: now,
+            firstName: 'Phase',
+            lastName: 'One',
+            displayName: 'Phase One User',
+            locale: 'en-PH',
+            timezone: 'Asia/Manila',
+            countryCode: 'PH',
+            onboardingStatus: 'not_started' as const,
+            accountStatus: state.adminStatus,
+            subscriptionPlanCode: 'plus_monthly',
+            subscriptionStatus: 'active' as const,
+            subscriptionStartsAt: now,
+            subscriptionEndsAt: '2026-08-01T00:00:00.000Z',
+            adminMembershipStatus: null,
+            adminRoles: [],
+            createdAt: now,
+            updatedAt: now,
+          }
+        : null,
+    ),
+  listAdminAuditEvents: (_actorUserId: string, input: { page: number; pageSize: number }) =>
+    Promise.resolve({
+      items: [
+        {
+          id: '30000000-0000-4000-8000-000000000040',
+          actorUserId: adminId,
+          actorType: 'admin' as const,
+          action: 'user.profile_updated',
+          targetType: 'profile',
+          targetId: userId,
+          requestId: '30000000-0000-4000-8000-000000000041',
+          before: {},
+          after: { displayName: 'Phase One User' },
+          metadata: {},
+          createdAt: now,
+        },
+      ],
+      pagination: { page: input.page, pageSize: input.pageSize, total: 1, totalPages: 1 },
+    }),
+  setAdminUserStatus: (
+    _actorUserId: string,
+    _requestedUserId: string,
+    status: 'active' | 'suspended',
+  ) => {
+    state.adminStatus = status;
+    return Promise.resolve(true);
+  },
+  revokeAdminUserSessions: () => {
+    state.adminSessionsRevoked = 2;
+    return Promise.resolve(2);
+  },
   getSubscription: () =>
     Promise.resolve(
       state.subscription
@@ -189,19 +283,19 @@ const authService = {
         }),
       );
     }
-    if (!['user-token', 'admin-token'].includes(token)) {
+    if (!['user-token', 'admin-token', 'reader-token'].includes(token)) {
       return Promise.reject(authenticationError('Bearer token is invalid'));
     }
     request.auth = {
-      userId: token === 'admin-token' ? adminId : userId,
+      userId: token === 'admin-token' || token === 'reader-token' ? adminId : userId,
       accessToken: token,
       accountStatus: 'active',
     };
     return Promise.resolve();
   },
-  authorizeAdmin(request: TestRequest, _requirement: unknown): Promise<void> {
-    void _requirement;
-    if (request.auth?.accessToken !== 'admin-token') {
+  authorizeAdmin(request: TestRequest, requirement: unknown): Promise<void> {
+    const auth = request.auth;
+    if (!auth || !['admin-token', 'reader-token'].includes(auth.accessToken)) {
       return Promise.reject(
         new AppError({
           code: 'FORBIDDEN',
@@ -210,10 +304,31 @@ const authService = {
         }),
       );
     }
+    const grantedPermissions =
+      auth.accessToken === 'reader-token' ? new Set(['users.read']) : new Set<string>(permissions);
+    const permissionRequirement = requirement as {
+      mode: 'all' | 'any';
+      permissions: readonly string[];
+    };
+    const permitted =
+      permissionRequirement.mode === 'any'
+        ? permissionRequirement.permissions.some((permission) => grantedPermissions.has(permission))
+        : permissionRequirement.permissions.every((permission) =>
+            grantedPermissions.has(permission),
+          );
+    if (!permitted) {
+      return Promise.reject(
+        new AppError({
+          code: 'FORBIDDEN',
+          status: 403,
+          message: 'Required administrator permission is missing',
+        }),
+      );
+    }
     request.auth = {
-      ...request.auth,
-      roles: ['super_admin'],
-      permissions: new Set(permissions),
+      ...auth,
+      roles: auth.accessToken === 'reader-token' ? ['read_only_analyst'] : ['super_admin'],
+      permissions: grantedPermissions,
     };
     return Promise.resolve();
   },
@@ -440,6 +555,127 @@ describe('Phase 1 API integration', () => {
     const body = apiContract.adminMe.response.parse(allowed.json());
     expect(body.data.roles).toEqual(['super_admin']);
     expect(body.data.permissions).toEqual([...permissions].sort());
+  });
+
+  it('serves real paginated admin user data and safe user detail', async () => {
+    const overview = await app.inject({
+      method: 'GET',
+      url: '/v1/admin/overview',
+      headers: { authorization: 'Bearer admin-token' },
+    });
+    expect(apiContract.adminOverview.response.parse(overview.json()).data).toMatchObject({
+      registeredUsers: 2,
+      verifiedUsers: 2,
+      activeAdministrators: 1,
+    });
+
+    const directory = await app.inject({
+      method: 'GET',
+      url: '/v1/admin/users?verification=verified&page=1&pageSize=25',
+      headers: { authorization: 'Bearer admin-token' },
+    });
+    const directoryBody = apiContract.adminUsers.response.parse(directory.json());
+    expect(directoryBody.data.items[0]).toMatchObject({ userId, emailVerified: true });
+    expect(directoryBody.data.pagination).toMatchObject({ page: 1, total: 1 });
+
+    const detail = await app.inject({
+      method: 'GET',
+      url: `/v1/admin/users/${userId}`,
+      headers: { authorization: 'Bearer admin-token' },
+    });
+    const detailBody = apiContract.adminUser.response.parse(detail.json());
+    expect(detailBody.data).toMatchObject({ userId, auditVisible: true });
+    expect(detailBody.data.recentAuditEvents).toHaveLength(1);
+
+    const missing = await app.inject({
+      method: 'GET',
+      url: '/v1/admin/users/30000000-0000-4000-8000-000000000099',
+      headers: { authorization: 'Bearer admin-token' },
+    });
+    expect(missing.statusCode).toBe(404);
+    expect(apiErrorEnvelopeSchema.parse(missing.json()).error.code).toBe('NOT_FOUND');
+  });
+
+  it('enforces admin permissions and canonical query validation', async () => {
+    const allowed = await app.inject({
+      method: 'GET',
+      url: '/v1/admin/users',
+      headers: { authorization: 'Bearer reader-token' },
+    });
+    expect(allowed.statusCode).toBe(200);
+
+    for (const url of [
+      '/v1/admin/audit-events',
+      `/v1/admin/users/${userId}/suspend`,
+      '/v1/admin/security',
+    ]) {
+      const denied = await app.inject({
+        method: url.endsWith('/suspend') ? 'POST' : 'GET',
+        url,
+        headers: { authorization: 'Bearer reader-token' },
+        ...(url.endsWith('/suspend') ? { payload: { reason: 'A reviewed test reason.' } } : {}),
+      });
+      expect(denied.statusCode).toBe(403);
+      expect(apiErrorEnvelopeSchema.parse(denied.json()).error.code).toBe('FORBIDDEN');
+    }
+
+    const invalidPage = await app.inject({
+      method: 'GET',
+      url: '/v1/admin/users?pageSize=101',
+      headers: { authorization: 'Bearer admin-token' },
+    });
+    expect(invalidPage.statusCode).toBe(400);
+    expect(apiErrorEnvelopeSchema.parse(invalidPage.json()).error.code).toBe('VALIDATION_ERROR');
+  });
+
+  it('audits admin suspend, restore, and session-revocation operations', async () => {
+    state.adminStatus = 'active';
+    const suspend = await app.inject({
+      method: 'POST',
+      url: `/v1/admin/users/${userId}/suspend`,
+      headers: { authorization: 'Bearer admin-token' },
+      payload: { reason: 'Confirmed account security investigation.' },
+    });
+    expect(apiContract.adminSuspendUser.response.parse(suspend.json()).data.changed).toBe(true);
+    expect(state.adminStatus).toBe('suspended');
+
+    const restore = await app.inject({
+      method: 'POST',
+      url: `/v1/admin/users/${userId}/restore`,
+      headers: { authorization: 'Bearer admin-token' },
+      payload: { reason: 'Security review completed successfully.' },
+    });
+    expect(apiContract.adminRestoreUser.response.parse(restore.json()).data.changed).toBe(true);
+    expect(state.adminStatus).toBe('active');
+
+    state.adminSessionsRevoked = 0;
+    const revoke = await app.inject({
+      method: 'POST',
+      url: `/v1/admin/users/${userId}/revoke-sessions`,
+      headers: { authorization: 'Bearer admin-token' },
+      payload: { reason: 'User requested a complete session reset.' },
+    });
+    expect(
+      apiContract.adminRevokeUserSessions.response.parse(revoke.json()).data.revokedSessionCount,
+    ).toBe(2);
+    expect(state.adminSessionsRevoked).toBe(2);
+
+    const audit = await app.inject({
+      method: 'GET',
+      url: `/v1/admin/audit-events?targetId=${userId}`,
+      headers: { authorization: 'Bearer admin-token' },
+    });
+    expect(apiContract.adminAudit.response.parse(audit.json()).data.items).toHaveLength(1);
+
+    const security = await app.inject({
+      method: 'GET',
+      url: '/v1/admin/security',
+      headers: { authorization: 'Bearer admin-token' },
+    });
+    expect(apiContract.adminSecurity.response.parse(security.json()).data).toMatchObject({
+      authentication: { provider: 'supabase', configured: true },
+      sessions: { bearerOnlyApi: true, databaseRevocationCheck: true },
+    });
   });
 
   it('generates OpenAPI 3.1 from every canonical route and serves local docs', async () => {

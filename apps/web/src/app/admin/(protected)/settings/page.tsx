@@ -2,9 +2,12 @@ import { Alert, Badge, Card, PageHeader } from '@hanaply/ui';
 import { MonitorSmartphone, Settings2 } from 'lucide-react';
 import type { Metadata } from 'next';
 
+import { requireAnyAdminPermission } from '@/lib/session';
+
 export const metadata: Metadata = { title: 'Admin Settings' };
 
-export default function AdminSettingsPage() {
+export default async function AdminSettingsPage() {
+  await requireAnyAdminPermission(['platforms.manage', 'feature_flags.manage']);
   return (
     <div className="workspace-page">
       <PageHeader

@@ -78,6 +78,9 @@ const apiEnvironmentSchema = sharedServerEnvironmentSchema.extend({
       .filter(Boolean),
   ),
   OPENAPI_ENABLED: booleanFromEnvironment.default(true),
+  EMAIL_PROVIDER: z.enum(['disabled', 'capture', 'resend']).default('disabled'),
+  EMAIL_ALLOW_LIVE_SENDS: booleanFromEnvironment.default(false),
+  ADMIN_BOOTSTRAP_ENABLED: booleanFromEnvironment.default(false),
 });
 
 const workerEnvironmentSchema = sharedServerEnvironmentSchema.extend({

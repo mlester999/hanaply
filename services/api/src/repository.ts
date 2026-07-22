@@ -20,8 +20,61 @@ type PlanRow = Database['public']['Tables']['plans']['Row'];
 type SubscriptionRow = Database['public']['Tables']['subscriptions']['Row'];
 type PreferenceRow = Database['public']['Tables']['user_notification_preferences']['Row'];
 
+interface AdminUsersInput {
+  search?: string | undefined;
+  verification: 'all' | 'verified' | 'unverified';
+  accountStatus?: PublicProfile['accountStatus'] | undefined;
+  createdFrom?: string | undefined;
+  createdTo?: string | undefined;
+  page: number;
+  pageSize: number;
+}
+
+interface AdminAuditInput {
+  actorUserId?: string | undefined;
+  action?: string | undefined;
+  targetType?: string | undefined;
+  targetId?: string | undefined;
+  requestId?: string | undefined;
+  occurredFrom?: string | undefined;
+  occurredTo?: string | undefined;
+  page: number;
+  pageSize: number;
+}
+
+type SafeAuditScalar = string | number | boolean | null;
+type SafeAuditValue = SafeAuditScalar | readonly SafeAuditScalar[];
+
 function configurationError(message: string): AppError {
   return new AppError({ code: 'SERVICE_UNAVAILABLE', status: 503, message });
+}
+
+function adminRpcError(error: { code?: string; message: string }, fallback: string): AppError {
+  if (error.code === '42501') {
+    return new AppError({
+      code: 'FORBIDDEN',
+      status: 403,
+      message: 'Administrator action is not permitted',
+    });
+  }
+  if (error.code === 'P0002') {
+    return new AppError({ code: 'NOT_FOUND', status: 404, message: 'User account was not found' });
+  }
+  if (error.code === '22023') {
+    return new AppError({
+      code: 'VALIDATION_ERROR',
+      status: 400,
+      message: 'Administrator request is invalid',
+    });
+  }
+  if (error.code?.startsWith('23')) {
+    return new AppError({
+      code: 'CONFLICT',
+      status: 409,
+      message: 'Administrator action conflicts with account state',
+    });
+  }
+  return configurationError(fallback);
 }
 
 function requireData<TData>(
@@ -75,6 +128,40 @@ function mapPreferences(row: PreferenceRow) {
     futureDailyDigest: false as const,
     updatedAt: row.updated_at,
   };
+}
+
+function sanitizeAuditMap(value: Json): Record<string, SafeAuditValue> {
+  if (!value || Array.isArray(value) || typeof value !== 'object') return {};
+  const result: Record<string, SafeAuditValue> = {};
+  for (const [key, entry] of Object.entries(value)) {
+    if (
+      /password|token|secret|credential|api.?key|document|payment|message.?body|url/iu.test(key)
+    ) {
+      result[key] = '[redacted]';
+    } else if (
+      entry === null ||
+      typeof entry === 'string' ||
+      typeof entry === 'number' ||
+      typeof entry === 'boolean'
+    ) {
+      result[key] = entry;
+    } else if (
+      Array.isArray(entry) &&
+      entry.length <= 20 &&
+      entry.every(
+        (item) =>
+          item === null ||
+          typeof item === 'string' ||
+          typeof item === 'number' ||
+          typeof item === 'boolean',
+      )
+    ) {
+      result[key] = entry;
+    } else {
+      result[key] = '[complex value omitted]';
+    }
+  }
+  return result;
 }
 
 @Injectable()
@@ -384,6 +471,167 @@ export class HanaplyRepository {
     if (result.error) throw configurationError('Administrator authorization is unavailable');
     const access = result.data?.[0];
     return access ? { roles: access.roles, permissions: access.permissions } : null;
+  }
+
+  async getAdminOverview(actorUserId: string) {
+    const result = await this.serviceClient.rpc('admin_overview', {
+      actor_user_id: actorUserId,
+    });
+    if (result.error) throw adminRpcError(result.error, 'Administrator overview is unavailable');
+    const row = result.data?.[0];
+    if (!row) throw configurationError('Administrator overview is unavailable');
+    return {
+      registeredUsers: row.registered_users,
+      verifiedUsers: row.verified_users,
+      suspendedUsers: row.suspended_users,
+      activeAdministrators: row.active_administrators,
+      authenticationEventsLast24Hours: row.auth_events_last_24_hours,
+      evaluatedAt: new Date().toISOString(),
+    };
+  }
+
+  async listAdminUsers(actorUserId: string, input: AdminUsersInput) {
+    const result = await this.serviceClient.rpc('admin_user_directory', {
+      actor_user_id: actorUserId,
+      verification_filter: input.verification,
+      page_size: input.pageSize,
+      page_offset: (input.page - 1) * input.pageSize,
+      ...(input.search ? { search_query: input.search } : {}),
+      ...(input.accountStatus ? { status_filter: input.accountStatus } : {}),
+      ...(input.createdFrom ? { created_from: input.createdFrom } : {}),
+      ...(input.createdTo ? { created_to: input.createdTo } : {}),
+    });
+    if (result.error) throw adminRpcError(result.error, 'User directory is unavailable');
+    const rows = result.data ?? [];
+    const total = rows[0]?.total_count ?? 0;
+    return {
+      items: rows.map((row) => ({
+        userId: row.user_id,
+        email: row.email ?? null,
+        emailVerified: row.email_verified,
+        emailVerifiedAt: row.email_verified_at ?? null,
+        firstName: row.first_name ?? null,
+        lastName: row.last_name ?? null,
+        displayName: row.display_name ?? null,
+        accountStatus: row.account_status,
+        subscriptionPlanCode: row.subscription_plan_code ?? null,
+        subscriptionStatus: row.subscription_status ?? null,
+        adminRoles: row.admin_roles ?? [],
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+      })),
+      pagination: {
+        page: input.page,
+        pageSize: input.pageSize,
+        total,
+        totalPages: total === 0 ? 0 : Math.ceil(total / input.pageSize),
+      },
+    };
+  }
+
+  async getAdminUser(actorUserId: string, userId: string) {
+    const result = await this.serviceClient.rpc('admin_user_detail', {
+      actor_user_id: actorUserId,
+      target_user_id: userId,
+    });
+    if (result.error) throw adminRpcError(result.error, 'User detail is unavailable');
+    const row = result.data?.[0];
+    if (!row) return null;
+    return {
+      userId: row.user_id,
+      email: row.email ?? null,
+      emailVerified: row.email_verified,
+      emailVerifiedAt: row.email_verified_at ?? null,
+      firstName: row.first_name ?? null,
+      lastName: row.last_name ?? null,
+      displayName: row.display_name ?? null,
+      locale: row.locale,
+      timezone: row.timezone,
+      countryCode: row.country_code,
+      onboardingStatus: row.onboarding_status,
+      accountStatus: row.account_status,
+      subscriptionPlanCode: row.subscription_plan_code ?? null,
+      subscriptionStatus: row.subscription_status ?? null,
+      subscriptionStartsAt: row.subscription_starts_at ?? null,
+      subscriptionEndsAt: row.subscription_ends_at ?? null,
+      adminMembershipStatus: row.admin_membership_status ?? null,
+      adminRoles: row.admin_roles ?? [],
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    };
+  }
+
+  async listAdminAuditEvents(actorUserId: string, input: AdminAuditInput) {
+    const result = await this.serviceClient.rpc('admin_audit_event_directory', {
+      actor_user_id: actorUserId,
+      page_size: input.pageSize,
+      page_offset: (input.page - 1) * input.pageSize,
+      ...(input.actorUserId ? { filter_actor_user_id: input.actorUserId } : {}),
+      ...(input.action ? { filter_action: input.action } : {}),
+      ...(input.targetType ? { filter_target_type: input.targetType } : {}),
+      ...(input.targetId ? { filter_target_id: input.targetId } : {}),
+      ...(input.requestId ? { filter_request_id: input.requestId } : {}),
+      ...(input.occurredFrom ? { occurred_from: input.occurredFrom } : {}),
+      ...(input.occurredTo ? { occurred_to: input.occurredTo } : {}),
+    });
+    if (result.error) throw adminRpcError(result.error, 'Audit events are unavailable');
+    const rows = result.data ?? [];
+    const total = rows[0]?.total_count ?? 0;
+    return {
+      items: rows.map((row) => ({
+        id: row.event_id,
+        actorUserId: row.event_actor_user_id ?? null,
+        actorType: row.event_actor_type,
+        action: row.action,
+        targetType: row.target_type,
+        targetId: row.target_id ?? null,
+        requestId: row.request_id ?? null,
+        before: sanitizeAuditMap(row.before_state),
+        after: sanitizeAuditMap(row.after_state),
+        metadata: sanitizeAuditMap(row.metadata),
+        createdAt: row.created_at,
+      })),
+      pagination: {
+        page: input.page,
+        pageSize: input.pageSize,
+        total,
+        totalPages: total === 0 ? 0 : Math.ceil(total / input.pageSize),
+      },
+    };
+  }
+
+  async setAdminUserStatus(
+    actorUserId: string,
+    userId: string,
+    status: 'active' | 'suspended',
+    reason: string,
+    requestId: string,
+  ): Promise<boolean> {
+    const result = await this.serviceClient.rpc('admin_set_account_status', {
+      actor_user_id: actorUserId,
+      target_user_id: userId,
+      requested_status: status,
+      action_reason: reason,
+      action_request_id: requestId,
+    });
+    if (result.error) throw adminRpcError(result.error, 'Account status update is unavailable');
+    return result.data;
+  }
+
+  async revokeAdminUserSessions(
+    actorUserId: string,
+    userId: string,
+    reason: string,
+    requestId: string,
+  ): Promise<number> {
+    const result = await this.serviceClient.rpc('admin_revoke_user_sessions', {
+      actor_user_id: actorUserId,
+      target_user_id: userId,
+      action_reason: reason,
+      action_request_id: requestId,
+    });
+    if (result.error) throw adminRpcError(result.error, 'Session revocation is unavailable');
+    return result.data;
   }
 }
 

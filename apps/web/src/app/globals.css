@@ -1326,6 +1326,240 @@ a:hover {
   margin-bottom: var(--hanaply-space-4);
 }
 
+.admin-metric-grid,
+.admin-security-grid,
+.admin-detail-grid {
+  display: grid;
+  gap: var(--hanaply-space-5);
+}
+
+.admin-metric-grid {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.admin-metric-card {
+  display: grid;
+  min-width: 0;
+  gap: var(--hanaply-space-2);
+  padding: var(--hanaply-space-5);
+}
+
+.admin-metric-card > svg,
+.admin-security-card > svg,
+.admin-detail-heading > svg,
+.admin-system-card > svg {
+  color: var(--hanaply-color-brand-cobalt);
+}
+
+.admin-metric-card strong {
+  margin-top: var(--hanaply-space-2);
+  color: var(--hanaply-color-neutral-ink);
+  font-size: clamp(1.75rem, 3vw, 2.35rem);
+  line-height: 1;
+}
+
+.admin-metric-card span,
+.admin-system-card p,
+.admin-system-card small {
+  color: var(--hanaply-color-neutral-muted);
+  font-size: var(--hanaply-font-size-sm);
+}
+
+.admin-system-card {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--hanaply-space-5);
+  padding: clamp(1.25rem, 4vw, 2rem);
+}
+
+.admin-system-card > div {
+  display: grid;
+  gap: var(--hanaply-space-2);
+}
+
+.admin-system-card h2 {
+  margin: 0;
+  font-size: var(--hanaply-font-size-xl);
+}
+
+.admin-system-card p {
+  max-width: 55rem;
+  margin: 0;
+}
+
+.admin-filter-panel {
+  display: grid;
+  align-items: end;
+  grid-template-columns: minmax(14rem, 2fr) repeat(4, minmax(9rem, 1fr)) auto;
+  gap: var(--hanaply-space-4);
+  padding: var(--hanaply-space-5);
+  background: var(--hanaply-color-neutral-surface);
+  border: 1px solid var(--hanaply-color-neutral-border);
+  border-radius: var(--hanaply-radius-lg);
+  box-shadow: var(--hanaply-shadow-sm);
+}
+
+.admin-filter-panel--audit {
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+}
+
+.admin-filter-panel label,
+.admin-search-field {
+  display: grid;
+  min-width: 0;
+  gap: var(--hanaply-space-2);
+}
+
+.admin-filter-panel label > span {
+  color: var(--hanaply-color-neutral-ink);
+  font-size: var(--hanaply-font-size-xs);
+  font-weight: var(--hanaply-font-weight-semibold);
+}
+
+.admin-filter-panel input,
+.admin-filter-panel select,
+.admin-search-field > div {
+  width: 100%;
+  min-width: 0;
+  min-height: var(--hanaply-target-minimum);
+  color: var(--hanaply-color-neutral-ink);
+  background: var(--hanaply-color-neutral-surface);
+  border: 1px solid var(--hanaply-color-neutral-border-strong);
+  border-radius: var(--hanaply-radius-sm);
+}
+
+.admin-filter-panel input,
+.admin-filter-panel select {
+  padding: var(--hanaply-space-2) var(--hanaply-space-3);
+}
+
+.admin-search-field > div {
+  display: flex;
+  align-items: center;
+  padding-left: var(--hanaply-space-3);
+}
+
+.admin-search-field > div > svg {
+  flex: 0 0 auto;
+  color: var(--hanaply-color-neutral-muted);
+}
+
+.admin-search-field > div > input {
+  min-height: 2.6rem;
+  border: 0;
+  outline: 0;
+}
+
+.admin-filter-panel input:focus-visible,
+.admin-filter-panel select:focus-visible,
+.admin-search-field > div:focus-within {
+  border-color: var(--hanaply-color-brand-cobalt);
+  outline: 3px solid rgb(49 87 232 / 0.2);
+  outline-offset: 1px;
+}
+
+.admin-table-secondary {
+  display: block;
+  margin-top: var(--hanaply-space-1);
+  color: var(--hanaply-color-neutral-muted);
+  font-size: var(--hanaply-font-size-xs);
+  overflow-wrap: anywhere;
+}
+
+.admin-pagination {
+  display: grid;
+  min-height: var(--hanaply-target-minimum);
+  align-items: center;
+  grid-template-columns: 1fr auto 1fr;
+  gap: var(--hanaply-space-4);
+  color: var(--hanaply-color-neutral-muted);
+  font-size: var(--hanaply-font-size-sm);
+  text-align: center;
+}
+
+.admin-pagination > :last-child {
+  justify-self: end;
+}
+
+.admin-detail-grid,
+.admin-security-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.admin-detail-card,
+.admin-security-card {
+  min-width: 0;
+  padding: clamp(1.25rem, 4vw, 2rem);
+}
+
+.admin-detail-heading {
+  display: flex;
+  align-items: center;
+  gap: var(--hanaply-space-3);
+}
+
+.admin-detail-heading h2,
+.admin-security-card h2 {
+  margin: 0;
+  font-size: var(--hanaply-font-size-xl);
+}
+
+.admin-detail-card dl,
+.admin-security-card dl {
+  display: grid;
+  gap: var(--hanaply-space-3);
+  margin: var(--hanaply-space-6) 0 0;
+}
+
+.admin-detail-card dl > div,
+.admin-security-card dl > div {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: minmax(8rem, 0.75fr) minmax(0, 1.25fr);
+  gap: var(--hanaply-space-4);
+  padding-bottom: var(--hanaply-space-3);
+  border-bottom: 1px solid var(--hanaply-color-neutral-border);
+}
+
+.admin-detail-card dt,
+.admin-security-card dt {
+  color: var(--hanaply-color-neutral-muted);
+}
+
+.admin-detail-card dd,
+.admin-security-card dd {
+  min-width: 0;
+  margin: 0;
+  font-weight: var(--hanaply-font-weight-semibold);
+  overflow-wrap: anywhere;
+}
+
+.admin-security-card > svg {
+  margin-bottom: var(--hanaply-space-4);
+}
+
+.admin-user-actions,
+.admin-confirmation-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--hanaply-space-3);
+}
+
+.admin-confirmation-form {
+  align-items: stretch;
+  flex-direction: column;
+}
+
+.admin-confirmation-form .h-button {
+  align-self: flex-end;
+}
+
+.admin-audit-context {
+  max-width: 22rem;
+  color: var(--hanaply-color-neutral-muted);
+  overflow-wrap: anywhere;
+}
+
 .drawer-signout {
   margin-top: var(--hanaply-space-8);
 }
@@ -1423,6 +1657,14 @@ a:hover {
   .topbar-identity {
     margin-left: 0;
   }
+
+  .admin-metric-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .admin-filter-panel {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 768px) {
@@ -1469,8 +1711,15 @@ a:hover {
 
   .settings-form-grid--regional,
   .dashboard-overview-grid,
-  .activation-plan-grid {
+  .activation-plan-grid,
+  .admin-detail-grid,
+  .admin-security-grid {
     grid-template-columns: 1fr;
+  }
+
+  .admin-metric-grid,
+  .admin-filter-panel {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
@@ -1576,8 +1825,27 @@ a:hover {
   }
 
   .future-capabilities-card,
-  .activation-status-card {
+  .activation-status-card,
+  .admin-system-card {
     flex-direction: column;
+  }
+
+  .admin-metric-grid,
+  .admin-filter-panel {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-filter-panel .h-button,
+  .admin-user-actions,
+  .admin-user-actions .h-button,
+  .admin-confirmation-form .h-button {
+    width: 100%;
+  }
+
+  .admin-detail-card dl > div,
+  .admin-security-card dl > div {
+    grid-template-columns: 1fr;
+    gap: var(--hanaply-space-1);
   }
 }
 

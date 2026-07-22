@@ -1,5 +1,6 @@
 'use client';
 
+import type { Permission } from '@hanaply/auth';
 import { Button, Drawer, NavigationItem } from '@hanaply/ui';
 import {
   BadgeCheck,
@@ -27,16 +28,41 @@ const customerItems = [
 ] as const;
 
 const adminItems = [
-  { href: '/admin', label: 'Overview', icon: Home },
-  { href: '/admin/settings', label: 'Platform Settings', icon: SlidersHorizontal },
-  { href: '/admin#users', label: 'Users', icon: Users },
-  { href: '/admin#flags', label: 'Feature Flags', icon: Flag },
-  { href: '/admin#audit', label: 'Audit Logs', icon: ShieldCheck },
-] as const;
+  { href: '/admin', label: 'Overview', icon: Home, permissions: ['users.read'] },
+  { href: '/admin/users', label: 'Users', icon: Users, permissions: ['users.read'] },
+  {
+    href: '/admin/security',
+    label: 'Security',
+    icon: ShieldCheck,
+    permissions: ['security.manage'],
+  },
+  { href: '/admin/audit', label: 'Audit Logs', icon: Flag, permissions: ['audit.read'] },
+  {
+    href: '/admin/settings',
+    label: 'Platform Settings',
+    icon: SlidersHorizontal,
+    permissions: ['platforms.manage', 'feature_flags.manage'],
+  },
+] as const satisfies readonly {
+  href: string;
+  label: string;
+  icon: typeof Home;
+  permissions: readonly Permission[];
+}[];
 
-function ShellNavigation({ admin }: { admin: boolean }) {
+function ShellNavigation({
+  admin,
+  adminPermissions = [],
+}: {
+  admin: boolean;
+  adminPermissions?: readonly string[];
+}) {
   const pathname = usePathname();
-  const items = admin ? adminItems : customerItems;
+  const items = admin
+    ? adminItems.filter((item) =>
+        item.permissions.some((permission) => adminPermissions.includes(permission)),
+      )
+    : customerItems;
   return (
     <nav
       aria-label={admin ? 'Admin navigation' : 'Dashboard navigation'}
@@ -65,11 +91,17 @@ function ShellNavigation({ admin }: { admin: boolean }) {
 
 export interface AppShellProps {
   admin?: boolean;
+  adminPermissions?: readonly string[];
   displayName: string;
   children: ReactNode;
 }
 
-export function AppShell({ admin = false, displayName, children }: AppShellProps) {
+export function AppShell({
+  admin = false,
+  adminPermissions = [],
+  displayName,
+  children,
+}: AppShellProps) {
   return (
     <div className="app-shell">
       <aside className="app-sidebar">
@@ -78,7 +110,7 @@ export function AppShell({ admin = false, displayName, children }: AppShellProps
           <BadgeCheck aria-hidden="true" size={16} />
           <span>{admin ? 'Administration' : 'Customer workspace'}</span>
         </div>
-        <ShellNavigation admin={admin} />
+        <ShellNavigation admin={admin} adminPermissions={adminPermissions} />
         <form action={logout} className="sidebar-signout">
           <Button block type="submit" variant="quiet">
             Sign Out
@@ -98,7 +130,7 @@ export function AppShell({ admin = false, displayName, children }: AppShellProps
                 </Button>
               }
             >
-              <ShellNavigation admin={admin} />
+              <ShellNavigation admin={admin} adminPermissions={adminPermissions} />
               <form action={logout} className="drawer-signout">
                 <Button block type="submit" variant="secondary">
                   Sign Out

@@ -179,18 +179,102 @@ export class HanaplyService {
   }
 
   adminMe(request: AuthenticatedRequest) {
-    const auth = this.requireAuthentication(request);
-    if (!auth.roles || !auth.permissions) {
-      throw new AppError({
-        code: 'FORBIDDEN',
-        status: 403,
-        message: 'Administrator access is required',
-      });
-    }
+    const auth = this.requireAdministrator(request);
     return {
       userId: auth.userId,
       roles: [...auth.roles].sort(),
       permissions: [...auth.permissions].sort(),
+    };
+  }
+
+  async adminOverview(request: AuthenticatedRequest) {
+    const auth = this.requireAdministrator(request);
+    return this.repository.getAdminOverview(auth.userId);
+  }
+
+  async adminUsers(request: AuthenticatedRequest, query: unknown) {
+    const auth = this.requireAdministrator(request);
+    const parsed = apiContract.adminUsers.query.parse(query);
+    return this.repository.listAdminUsers(auth.userId, parsed);
+  }
+
+  async adminUser(request: AuthenticatedRequest, params: unknown) {
+    const auth = this.requireAdministrator(request);
+    const parsed = apiContract.adminUser.params.parse(params);
+    const user = await this.repository.getAdminUser(auth.userId, parsed.userId);
+    if (!user) {
+      throw new AppError({ code: 'NOT_FOUND', status: 404, message: 'User account was not found' });
+    }
+    const auditVisible = auth.permissions.has('audit.read');
+    const audit = auditVisible
+      ? await this.repository.listAdminAuditEvents(auth.userId, {
+          targetId: parsed.userId,
+          page: 1,
+          pageSize: 10,
+        })
+      : { items: [] };
+    return { ...user, recentAuditEvents: audit.items, auditVisible };
+  }
+
+  async suspendAdminUser(request: AuthenticatedRequest, params: unknown, body: unknown) {
+    const auth = this.requireAdministrator(request);
+    const parsedParams = apiContract.adminSuspendUser.params.parse(params);
+    const parsedBody = apiContract.adminSuspendUser.body.parse(body);
+    const changed = await this.repository.setAdminUserStatus(
+      auth.userId,
+      parsedParams.userId,
+      'suspended',
+      parsedBody.reason,
+      request.id,
+    );
+    return { changed };
+  }
+
+  async restoreAdminUser(request: AuthenticatedRequest, params: unknown, body: unknown) {
+    const auth = this.requireAdministrator(request);
+    const parsedParams = apiContract.adminRestoreUser.params.parse(params);
+    const parsedBody = apiContract.adminRestoreUser.body.parse(body);
+    const changed = await this.repository.setAdminUserStatus(
+      auth.userId,
+      parsedParams.userId,
+      'active',
+      parsedBody.reason,
+      request.id,
+    );
+    return { changed };
+  }
+
+  async revokeAdminUserSessions(request: AuthenticatedRequest, params: unknown, body: unknown) {
+    const auth = this.requireAdministrator(request);
+    const parsedParams = apiContract.adminRevokeUserSessions.params.parse(params);
+    const parsedBody = apiContract.adminRevokeUserSessions.body.parse(body);
+    const revokedSessionCount = await this.repository.revokeAdminUserSessions(
+      auth.userId,
+      parsedParams.userId,
+      parsedBody.reason,
+      request.id,
+    );
+    return { revokedSessionCount };
+  }
+
+  async adminAudit(request: AuthenticatedRequest, query: unknown) {
+    const auth = this.requireAdministrator(request);
+    const parsed = apiContract.adminAudit.query.parse(query);
+    return this.repository.listAdminAuditEvents(auth.userId, parsed);
+  }
+
+  adminSecurity(request: AuthenticatedRequest) {
+    this.requireAdministrator(request);
+    return {
+      authentication: { provider: 'supabase' as const, configured: true as const },
+      email: {
+        provider: this.environment.EMAIL_PROVIDER,
+        liveDeliveryEnabled: this.environment.EMAIL_ALLOW_LIVE_SENDS,
+      },
+      bootstrap: { enabled: this.environment.ADMIN_BOOTSTRAP_ENABLED },
+      rowLevelSecurity: { enforcement: 'database' as const, validation: 'ci' as const },
+      sessions: { bearerOnlyApi: true as const, databaseRevocationCheck: true as const },
+      passwordRecovery: { enabled: true as const, tokenLogging: false as const },
     };
   }
 
@@ -207,5 +291,17 @@ export class HanaplyService {
       });
     }
     return request.auth;
+  }
+
+  private requireAdministrator(request: AuthenticatedRequest) {
+    const auth = this.requireAuthentication(request);
+    if (!auth.roles || !auth.permissions) {
+      throw new AppError({
+        code: 'FORBIDDEN',
+        status: 403,
+        message: 'Administrator access is required',
+      });
+    }
+    return { ...auth, roles: auth.roles, permissions: auth.permissions };
   }
 }
