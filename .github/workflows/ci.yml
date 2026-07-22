@@ -1,4 +1,4 @@
-name: Phase 0 validation
+name: Phase 1 validation
 
 on:
   push:
@@ -9,12 +9,12 @@ permissions:
   contents: read
 
 concurrency:
-  group: phase-0-${{ github.workflow }}-${{ github.ref }}
+  group: phase-1-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   validate:
-    name: Validate foundation
+    name: Validate authentication and SaaS core
     runs-on: ubuntu-latest
     timeout-minutes: 35
     env:
@@ -25,6 +25,9 @@ jobs:
       NEXT_PUBLIC_API_URL: http://localhost:3101
       NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
       NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ci-build-publishable-placeholder
+      EMAIL_PROVIDER: capture
+      EMAIL_ALLOW_LIVE_SENDS: false
+      ADMIN_BOOTSTRAP_ENABLED: false
 
     steps:
       - name: Check out repository

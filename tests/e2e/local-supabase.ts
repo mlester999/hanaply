@@ -3,6 +3,7 @@ import { execFileSync } from 'node:child_process';
 export interface LocalSupabaseEnvironment {
   apiUrl: string;
   databaseUrl: string;
+  mailpitUrl: string;
   publishableKey: string;
   serviceRoleKey: string;
 }
@@ -25,10 +26,11 @@ export function readLocalSupabaseEnvironment(): LocalSupabaseEnvironment {
   }
   const apiUrl = values.get('API_URL');
   const databaseUrl = values.get('DB_URL');
+  const mailpitUrl = values.get('MAILPIT_URL') ?? values.get('INBUCKET_URL');
   const publishableKey = values.get('PUBLISHABLE_KEY') ?? values.get('ANON_KEY');
   const serviceRoleKey = values.get('SERVICE_ROLE_KEY');
-  if (!apiUrl || !databaseUrl || !publishableKey || !serviceRoleKey) {
+  if (!apiUrl || !databaseUrl || !mailpitUrl || !publishableKey || !serviceRoleKey) {
     throw new Error('Local Supabase is not running or did not return all required status values');
   }
-  return { apiUrl, databaseUrl, publishableKey, serviceRoleKey };
+  return { apiUrl, databaseUrl, mailpitUrl, publishableKey, serviceRoleKey };
 }

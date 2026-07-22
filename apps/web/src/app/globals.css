@@ -990,6 +990,7 @@ a:hover {
 
 .workspace-page {
   display: grid;
+  min-width: 0;
   gap: var(--hanaply-space-8);
 }
 
@@ -1322,6 +1323,10 @@ a:hover {
   background: var(--hanaply-color-semantic-info-soft);
 }
 
+.activation-status-card p {
+  color: var(--hanaply-color-neutral-ink);
+}
+
 .activation-plan-card dl {
   margin-bottom: var(--hanaply-space-4);
 }
@@ -1603,6 +1608,12 @@ a:hover {
 @keyframes radar-scan {
   to {
     transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 1280px) {
+  .admin-filter-panel {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 

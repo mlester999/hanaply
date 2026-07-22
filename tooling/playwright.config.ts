@@ -29,6 +29,9 @@ const serviceEnvironment = {
   RATE_LIMIT_STORE: 'memory',
   OPENAPI_ENABLED: 'true',
   BUILD_SHA: 'e2e',
+  EMAIL_PROVIDER: 'capture',
+  EMAIL_ALLOW_LIVE_SENDS: 'false',
+  ADMIN_BOOTSTRAP_ENABLED: 'false',
 };
 
 export default defineConfig({

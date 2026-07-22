@@ -1,3 +1,6 @@
+import { execFileSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
+
 import { testAccounts } from './accounts.js';
 import { readLocalSupabaseEnvironment } from './local-supabase.js';
 
@@ -37,16 +40,40 @@ async function existingTestUsers(): Promise<AuthUser[]> {
   return (body.users ?? []).filter((user) => user.email && emails.has(user.email));
 }
 
+export async function getAuthUserByEmail(email: string): Promise<AuthUser | undefined> {
+  const response = await request('/auth/v1/admin/users?page=1&per_page=1000');
+  const body = (await response.json()) as { users?: AuthUser[] };
+  return body.users?.find((user) => user.email?.toLowerCase() === email.toLowerCase());
+}
+
+export async function getServiceRows<T>(path: string): Promise<T> {
+  const response = await request(path);
+  return (await response.json()) as T;
+}
+
 export async function removeTestUsers(): Promise<void> {
   for (const user of await existingTestUsers()) {
     await request(`/auth/v1/admin/users/${user.id}`, { method: 'DELETE' });
   }
 }
 
-async function createUser(account: { email: string; password: string }): Promise<AuthUser> {
+async function createUser(
+  account: { email: string; password: string },
+  firstName: string,
+  lastName: string,
+): Promise<AuthUser> {
   const response = await request('/auth/v1/admin/users', {
     method: 'POST',
-    body: JSON.stringify({ email: account.email, password: account.password, email_confirm: true }),
+    body: JSON.stringify({
+      email: account.email,
+      password: account.password,
+      email_confirm: true,
+      user_metadata: {
+        first_name: firstName,
+        last_name: lastName,
+        display_name: `${firstName} ${lastName}`,
+      },
+    }),
   });
   const user = (await response.json()) as AuthUser;
   if (!user.id) throw new Error(`Local Supabase did not return an ID for ${account.email}`);
@@ -55,9 +82,11 @@ async function createUser(account: { email: string; password: string }): Promise
 
 export async function createTestUsers(): Promise<void> {
   await removeTestUsers();
-  const customer = await createUser(testAccounts.customer);
-  const admin = await createUser(testAccounts.admin);
-  const suspended = await createUser(testAccounts.suspended);
+  const customer = await createUser(testAccounts.customer, 'Customer', 'Member');
+  const admin = await createUser(testAccounts.admin, 'Admin', 'Owner');
+  const suspended = await createUser(testAccounts.suspended, 'Suspended', 'Member');
+  await createUser(testAccounts.recovery, 'Recovery', 'Member');
+  await createUser(testAccounts.managed, 'Managed', 'Member');
 
   const planResponse = await request('/rest/v1/plans?select=id&code=eq.plus_monthly');
   const plans = (await planResponse.json()) as { id: string }[];
@@ -83,11 +112,42 @@ export async function createTestUsers(): Promise<void> {
     body: JSON.stringify({ account_status: 'suspended' }),
   });
 
-  await request('/rest/v1/rpc/bootstrap_first_super_admin', {
+  const bootstrapScript = fileURLToPath(
+    new URL('../../tooling/bootstrap-super-admin.mjs', import.meta.url),
+  );
+  execFileSync(
+    process.execPath,
+    [bootstrapScript, '--user', admin.id, '--confirm', 'ASSIGN_FIRST_SUPER_ADMIN'],
+    {
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        SUPABASE_URL: environment.apiUrl,
+        SUPABASE_SERVICE_ROLE_KEY: environment.serviceRoleKey,
+        ADMIN_BOOTSTRAP_ENABLED: 'true',
+        ADMIN_BOOTSTRAP_EMAIL: testAccounts.admin.email,
+      },
+      stdio: ['ignore', 'pipe', 'pipe'],
+    },
+  );
+
+  const bootstrapAudit = await request(
+    `/rest/v1/audit_events?select=id&action=eq.admin.bootstrap_completed&target_id=eq.${admin.id}`,
+  );
+  const events = (await bootstrapAudit.json()) as { id: string }[];
+  if (events.length !== 1) {
+    throw new Error('The Super Admin bootstrap did not create exactly one audit event');
+  }
+
+  const idempotentResult = await request('/rest/v1/rpc/bootstrap_first_super_admin', {
     method: 'POST',
     body: JSON.stringify({
       target_user_id: admin.id,
+      target_email: testAccounts.admin.email,
       confirmation: 'ASSIGN_FIRST_SUPER_ADMIN',
     }),
   });
+  if ((await idempotentResult.json()) !== false) {
+    throw new Error('The Super Admin bootstrap was not idempotent');
+  }
 }
