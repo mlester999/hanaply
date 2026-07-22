@@ -1,15 +1,28 @@
 import type { Metadata } from 'next';
 
-import { AuthPlaceholder } from '@/components/auth-placeholder';
+import { Alert, Badge } from '@hanaply/ui';
+
+import { ForgotPasswordForm } from '@/components/forgot-password-form';
 
 export const metadata: Metadata = { title: 'Forgot Password' };
 
-export default function ForgotPasswordPage() {
+export default async function ForgotPasswordPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ status?: string }>;
+}) {
+  const { status } = await searchParams;
   return (
-    <AuthPlaceholder
-      description="Password recovery will always return a generic response so account existence is not exposed."
-      eyebrow="Recovery foundation"
-      title="Secure recovery is being prepared."
-    />
+    <div className="auth-card">
+      <Badge tone="brand">Account recovery</Badge>
+      <h1>Reset your password.</h1>
+      <p>Enter your email address. The response stays generic to protect account privacy.</p>
+      {status === 'invalid' ? (
+        <Alert title="That recovery link is invalid or expired" tone="warning">
+          Request a fresh link below. Only the newest valid link should be used.
+        </Alert>
+      ) : null}
+      <ForgotPasswordForm />
+    </div>
   );
 }

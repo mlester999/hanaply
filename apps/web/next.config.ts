@@ -10,6 +10,10 @@ const nextConfig: NextConfig = {
   output: 'standalone',
   reactStrictMode: true,
   poweredByHeader: false,
+  logging: {
+    incomingRequests: { ignore: [/\/auth\/callback/u] },
+    serverFunctions: false,
+  },
   transpilePackages: ['@hanaply/auth', '@hanaply/config', '@hanaply/contracts', '@hanaply/ui'],
   experimental: {
     optimizePackageImports: ['lucide-react'],
