@@ -41,7 +41,11 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
   return (
-    <html className={`${inter.variable} ${manrope.variable}`} lang="en-PH">
+    <html
+      className={`${inter.variable} ${manrope.variable}`}
+      data-scroll-behavior="smooth"
+      lang="en-PH"
+    >
       <body>
         <a className="skip-link" href="#main-content">
           Skip to main content

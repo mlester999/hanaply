@@ -1,0 +1,29 @@
+{
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "jsx": "react-jsx",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": false,
+    "baseUrl": "..",
+    "paths": {
+      "@hanaply/ai": ["packages/ai/src/index.ts"],
+      "@hanaply/auth": ["packages/auth/src/index.ts"],
+      "@hanaply/config": ["packages/config/src/index.ts"],
+      "@hanaply/contracts": ["packages/contracts/src/index.ts"],
+      "@hanaply/contracts/openapi": ["packages/contracts/src/openapi.ts"],
+      "@hanaply/database": ["packages/database/src/index.ts"],
+      "@hanaply/email": ["packages/email/src/index.ts"],
+      "@hanaply/entitlements": ["packages/entitlements/src/index.ts"],
+      "@hanaply/observability": ["packages/observability/src/index.ts"],
+      "@hanaply/platform": ["packages/platform/src/index.ts"],
+      "@hanaply/testing": ["packages/testing/src/index.ts"],
+      "@hanaply/ui": ["packages/ui/src/index.ts"],
+      "@/*": ["apps/web/src/*"]
+    },
+    "types": ["node", "vitest/globals", "@testing-library/jest-dom"]
+  },
+  "include": ["./**/*.ts", "./**/*.tsx", "../tooling/**/*.ts"]
+}

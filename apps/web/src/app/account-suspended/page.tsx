@@ -3,7 +3,7 @@ import { CirclePause } from 'lucide-react';
 
 export default function AccountSuspendedPage() {
   return (
-    <main className="status-page" id="main-content">
+    <main className="status-page" id="main-content" tabIndex={-1}>
       <CirclePause aria-hidden="true" size={36} />
       <span className="h-eyebrow">Account access paused</span>
       <h1>Your account is currently suspended.</h1>

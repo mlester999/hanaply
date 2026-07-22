@@ -1,0 +1,86 @@
+name: Phase 0 validation
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: phase-0-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Validate foundation
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      CI: true
+      HANAPLY_ENV: test
+      LOG_LEVEL: silent
+      NEXT_PUBLIC_APP_URL: http://localhost:3100
+      NEXT_PUBLIC_API_URL: http://localhost:3101
+      NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ci-build-publishable-placeholder
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.10.0
+
+      - name: Install Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.11.0
+          cache: pnpm
+
+      - name: Install Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: 2.109.1
+
+      - name: Install dependencies from lockfile
+        run: pnpm install --frozen-lockfile
+
+      - name: Run formatting, lint, types, tests, builds, and artifact checks
+        run: pnpm validate
+
+      - name: Audit production dependencies
+        run: pnpm audit:prod
+
+      - name: Start local Supabase
+        run: pnpm db:start
+
+      - name: Reset and lint database
+        run: pnpm db:reset && pnpm db:lint
+
+      - name: Run pgTAP and generated-type drift checks
+        run: pnpm db:test && pnpm db:types:check
+
+      - name: Install Chromium system dependencies
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Run Playwright and Axe acceptance tests
+        run: pnpm e2e
+
+      - name: Upload browser diagnostics on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-diagnostics
+          path: |
+            playwright-report
+            test-results
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Stop local Supabase
+        if: always()
+        run: pnpm db:stop

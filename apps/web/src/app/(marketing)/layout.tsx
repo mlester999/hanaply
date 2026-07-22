@@ -8,7 +8,9 @@ export default function MarketingLayout({ children }: { children: ReactNode }) {
   return (
     <div className="marketing-shell">
       <MarketingHeader />
-      <main id="main-content">{children}</main>
+      <main id="main-content" tabIndex={-1}>
+        {children}
+      </main>
       <footer className="marketing-footer">
         <div className="marketing-footer-inner">
           <div>

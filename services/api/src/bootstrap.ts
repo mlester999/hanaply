@@ -4,7 +4,7 @@ import { randomUUID } from 'node:crypto';
 import { NestFactory } from '@nestjs/core';
 import { FastifyAdapter, type NestFastifyApplication } from '@nestjs/platform-fastify';
 
-import { AppModule } from './app.module.js';
+import { AppModule, type ApiRuntimeOverrides } from './app.module.js';
 import {
   ApiExceptionFilter,
   createApiLogger,
@@ -12,7 +12,10 @@ import {
   RequestContextInterceptor,
 } from './infrastructure.js';
 
-export async function createApiApplication(environment: ApiEnvironment) {
+export async function createApiApplication(
+  environment: ApiEnvironment,
+  overrides: ApiRuntimeOverrides = {},
+) {
   const adapter = new FastifyAdapter({
     bodyLimit: 256 * 1024,
     genReqId: () => randomUUID(),
@@ -20,7 +23,7 @@ export async function createApiApplication(environment: ApiEnvironment) {
     trustProxy: false,
   });
   const app = await NestFactory.create<NestFastifyApplication>(
-    AppModule.register(environment),
+    AppModule.register(environment, overrides),
     adapter,
     {
       bufferLogs: true,

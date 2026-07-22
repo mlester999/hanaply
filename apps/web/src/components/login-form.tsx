@@ -3,7 +3,7 @@
 import { Alert, Button, FormField, Input } from '@hanaply/ui';
 import { LockKeyhole } from 'lucide-react';
 import Link from 'next/link';
-import { useActionState } from 'react';
+import { useActionState, useEffect } from 'react';
 
 import { loginAction, type LoginState } from '@/app/(auth)/login/actions';
 
@@ -11,6 +11,11 @@ const initialState: LoginState = { status: 'idle', message: null };
 
 export function LoginForm({ nextPath, admin = false }: { nextPath?: string; admin?: boolean }) {
   const [state, action, pending] = useActionState(loginAction, initialState);
+  useEffect(() => {
+    if (state.status === 'redirect' && state.redirectTo) {
+      window.location.replace(state.redirectTo);
+    }
+  }, [state]);
   return (
     <form action={action} className="auth-form" noValidate>
       <input name="next" type="hidden" value={nextPath ?? (admin ? '/admin' : '/dashboard')} />

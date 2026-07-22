@@ -14,7 +14,7 @@ export default async function AdminLoginPage({
 }) {
   const { next } = await searchParams;
   return (
-    <main className="admin-login-page" id="main-content">
+    <main className="admin-login-page" id="main-content" tabIndex={-1}>
       <div className="admin-login-brand">
         <BrandLogo />
         <span>

@@ -16,7 +16,7 @@ export default function ErrorPage({
   }, [error.digest]);
 
   return (
-    <main className="status-page" id="main-content">
+    <main className="status-page" id="main-content" tabIndex={-1}>
       <CircleAlert aria-hidden="true" size={36} />
       <span className="h-eyebrow">Something needs attention</span>
       <h1>This page could not be loaded safely.</h1>

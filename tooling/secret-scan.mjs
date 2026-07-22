@@ -1,7 +1,17 @@
 import { readFile, readdir } from 'node:fs/promises';
 import { extname, join, relative } from 'node:path';
 
-const ignored = new Set(['.git', '.next', 'coverage', 'dist', 'node_modules', 'playwright-report']);
+const ignored = new Set([
+  '.artifacts',
+  '.git',
+  '.next',
+  '.turbo',
+  'coverage',
+  'dist',
+  'node_modules',
+  'playwright-report',
+  'test-results',
+]);
 const textExtensions = new Set([
   '.css',
   '.html',

@@ -114,7 +114,7 @@ export function AppShell({ admin = false, displayName, children }: AppShellProps
             {admin ? 'Settings' : 'Get help'}
           </Link>
         </header>
-        <main className="app-content" id="main-content">
+        <main className="app-content" id="main-content" tabIndex={-1}>
           {children}
         </main>
       </div>

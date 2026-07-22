@@ -81,6 +81,17 @@ export class HanaplyService {
           code: clientInputError ? 'VALIDATION_ERROR' : 'SERVICE_UNAVAILABLE',
           status: clientInputError ? 400 : 503,
           message: clientInputError ? error.message : 'Platform configuration is unavailable',
+          ...(clientInputError
+            ? {
+                details: [
+                  {
+                    path: ['clientVersion'],
+                    code: 'invalid_semver',
+                    message: error.message,
+                  },
+                ],
+              }
+            : {}),
         });
       }
       throw error;

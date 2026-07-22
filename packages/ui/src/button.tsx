@@ -42,6 +42,7 @@ export function Button({
 }: ButtonProps) {
   return (
     <button
+      aria-busy={loading || undefined}
       className={cn(buttonVariants({ variant, size, block }), className)}
       disabled={loading ? true : disabled}
       type={type}

@@ -46,6 +46,7 @@ const sharedServerEnvironmentSchema = z.object({
 
 const apiEnvironmentSchema = sharedServerEnvironmentSchema.extend({
   API_PORT: portFromEnvironment.default(3101),
+  RATE_LIMIT_STORE: z.literal('memory').default('memory'),
   CORS_ALLOWED_ORIGINS: nonEmptyString.transform((value) =>
     value
       .split(',')
@@ -112,6 +113,9 @@ export function parseApiEnvironment(input: Record<string, unknown>): ApiEnvironm
   enforceProductionUrls(environment);
   if (environment.HANAPLY_ENV === 'production' && environment.CORS_ALLOWED_ORIGINS.includes('*')) {
     throw new Error('Wildcard CORS is forbidden in production');
+  }
+  if (environment.HANAPLY_ENV === 'production' && environment.RATE_LIMIT_STORE === 'memory') {
+    throw new Error('A distributed API rate-limit store is required in production');
   }
   return environment;
 }

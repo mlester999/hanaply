@@ -2,7 +2,7 @@ import { LoadingIndicator } from '@hanaply/ui';
 
 export default function LoadingPage() {
   return (
-    <main className="status-page" id="main-content">
+    <main className="status-page" id="main-content" tabIndex={-1}>
       <LoadingIndicator label="Loading Hanaply" />
     </main>
   );

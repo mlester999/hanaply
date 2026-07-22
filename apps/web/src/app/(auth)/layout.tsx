@@ -6,7 +6,7 @@ import { BrandLogo } from '@/components/brand-logo';
 
 export default function AuthLayout({ children }: { children: ReactNode }) {
   return (
-    <main className="auth-shell" id="main-content">
+    <main className="auth-shell" id="main-content" tabIndex={-1}>
       <section className="auth-brand-panel">
         <BrandLogo />
         <div className="auth-brand-copy">

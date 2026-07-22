@@ -1,4 +1,9 @@
-import { taskEnvelopeSchema, type TaskEnvelope } from '@hanaply/contracts';
+import {
+  deadLetterMetadataSchema,
+  taskEnvelopeSchema,
+  type DeadLetterMetadata,
+  type TaskEnvelope,
+} from '@hanaply/contracts';
 
 export interface TaskQueue {
   enqueue(task: TaskEnvelope): Promise<void>;
@@ -32,8 +37,7 @@ export class DisabledQueueAdapter implements TaskQueue {
 
 export class InMemoryTaskQueue implements TaskQueue {
   private readonly tasks: TaskEnvelope[] = [];
-  private readonly deadLetters: { task: TaskEnvelope; errorCode: string; errorMessage: string }[] =
-    [];
+  private readonly deadLetters: DeadLetterMetadata[] = [];
 
   enqueue(task: TaskEnvelope): Promise<void> {
     this.tasks.push(taskEnvelopeSchema.parse(task));
@@ -46,7 +50,16 @@ export class InMemoryTaskQueue implements TaskQueue {
   }
 
   deadLetter(task: TaskEnvelope, errorCode: string, errorMessage: string): Promise<void> {
-    this.deadLetters.push({ task, errorCode, errorMessage: errorMessage.slice(0, 500) });
+    const { payload: _sensitivePayload, ...safeTaskMetadata } = taskEnvelopeSchema.parse(task);
+    void _sensitivePayload;
+    this.deadLetters.push(
+      deadLetterMetadataSchema.parse({
+        ...safeTaskMetadata,
+        failedAt: new Date().toISOString(),
+        errorCode,
+        errorMessage: errorMessage.slice(0, 500),
+      }),
+    );
     return Promise.resolve();
   }
 
@@ -57,6 +70,10 @@ export class InMemoryTaskQueue implements TaskQueue {
 
   deadLetterCount(): number {
     return this.deadLetters.length;
+  }
+
+  deadLetterMetadata(): readonly DeadLetterMetadata[] {
+    return this.deadLetters.map((metadata) => ({ ...metadata }));
   }
 }
 
