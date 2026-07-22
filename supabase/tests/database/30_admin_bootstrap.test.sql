@@ -15,7 +15,7 @@ exception when others then
 end;
 $$;
 
-select plan(8);
+select plan(10);
 
 insert into auth.users (
   instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,
@@ -28,7 +28,7 @@ values
 set local role authenticated;
 select set_config('request.jwt.claims', '{"sub":"20000000-0000-0000-0000-000000000001","role":"authenticated"}', true);
 select ok(
-  pg_temp.operation_fails($statement$select public.bootstrap_first_super_admin('20000000-0000-0000-0000-000000000001', 'ASSIGN_FIRST_SUPER_ADMIN')$statement$),
+  pg_temp.operation_fails($statement$select public.bootstrap_first_super_admin('20000000-0000-0000-0000-000000000001', 'owner-one@hanaply.test', 'ASSIGN_FIRST_SUPER_ADMIN')$statement$),
   'authenticated callers cannot execute bootstrap'
 );
 
@@ -37,6 +37,7 @@ select set_config('request.jwt.claims', '{"role":"service_role"}', true);
 select is(
   public.bootstrap_first_super_admin(
     '20000000-0000-0000-0000-000000000001',
+    'owner-one@hanaply.test',
     'ASSIGN_FIRST_SUPER_ADMIN'
   ),
   true,
@@ -57,26 +58,36 @@ select is(
   'bootstrap assigns the expanded Super Admin role'
 );
 select is(
-  (select count(*)::integer from public.audit_events where action = 'admin.bootstrap_super_admin' and target_id = '20000000-0000-0000-0000-000000000001'),
+  (select count(*)::integer from public.audit_events where action = 'admin.bootstrap_completed' and target_id = '20000000-0000-0000-0000-000000000001'),
   1,
   'bootstrap appends its audit event'
 );
 select is(
   public.bootstrap_first_super_admin(
     '20000000-0000-0000-0000-000000000001',
+    'owner-one@hanaply.test',
     'ASSIGN_FIRST_SUPER_ADMIN'
   ),
   false,
   'same-user retry is idempotent'
 );
 select is(
-  (select count(*)::integer from public.audit_events where action = 'admin.bootstrap_super_admin'),
+  (select count(*)::integer from public.audit_events where action = 'admin.bootstrap_completed'),
   1,
   'idempotent retry does not duplicate audit history'
 );
 select ok(
-  pg_temp.operation_fails($statement$select public.bootstrap_first_super_admin('20000000-0000-0000-0000-000000000002', 'WRONG')$statement$),
+  pg_temp.operation_fails($statement$select public.bootstrap_first_super_admin('20000000-0000-0000-0000-000000000002', 'owner-two@hanaply.test', 'WRONG')$statement$),
   'wrong confirmation is rejected'
+);
+select ok(
+  pg_temp.operation_fails($statement$select public.bootstrap_first_super_admin('20000000-0000-0000-0000-000000000002', 'wrong@hanaply.test', 'ASSIGN_FIRST_SUPER_ADMIN')$statement$),
+  'a mismatched configured email is rejected'
+);
+select is(
+  (select count(*)::integer from public.authentication_events where event_type = 'admin.bootstrap_completed'),
+  1,
+  'bootstrap records a safe authentication event'
 );
 
 select * from finish();

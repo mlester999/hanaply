@@ -15,6 +15,15 @@ const userId = argumentValue('--user');
 const confirmation = argumentValue('--confirm');
 const supabaseUrl = process.env.SUPABASE_URL;
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const bootstrapEnabled = process.env.ADMIN_BOOTSTRAP_ENABLED === 'true';
+const bootstrapEmail = process.env.ADMIN_BOOTSTRAP_EMAIL?.normalize('NFKC').trim().toLowerCase();
+
+if (!bootstrapEnabled) {
+  fail('ADMIN_BOOTSTRAP_ENABLED must be exactly true for this controlled operation.');
+}
+if (!bootstrapEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/u.test(bootstrapEmail)) {
+  fail('ADMIN_BOOTSTRAP_EMAIL must contain the single verified owner target.');
+}
 
 if (!userId || !uuidPattern.test(userId)) {
   fail('Provide an owner-selected auth UUID with --user <uuid>.');
@@ -54,13 +63,25 @@ const userResponse = await fetch(new URL(`/auth/v1/admin/users/${userId}`, norma
 if (!userResponse.ok) {
   fail(`The selected auth user could not be verified (HTTP ${userResponse.status}).`);
 }
+const userBody = await userResponse.json();
+const selectedUser = userBody.user ?? userBody;
+if (selectedUser.email?.normalize('NFKC').trim().toLowerCase() !== bootstrapEmail) {
+  fail('The selected auth UUID does not match ADMIN_BOOTSTRAP_EMAIL.');
+}
+if (!selectedUser.email_confirmed_at) {
+  fail('The selected auth user must verify their email before bootstrap.');
+}
 
 const rpcResponse = await fetch(
   new URL('/rest/v1/rpc/bootstrap_first_super_admin', normalizedUrl),
   {
     method: 'POST',
     headers,
-    body: JSON.stringify({ target_user_id: userId, confirmation: REQUIRED_CONFIRMATION }),
+    body: JSON.stringify({
+      target_user_id: userId,
+      target_email: bootstrapEmail,
+      confirmation: REQUIRED_CONFIRMATION,
+    }),
   },
 );
 if (!rpcResponse.ok) {

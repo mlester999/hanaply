@@ -9,6 +9,75 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      account_status_history: {
+        Row: {
+          changed_by: string | null
+          created_at: string
+          id: string
+          new_status: Database["public"]["Enums"]["account_status"]
+          previous_status: Database["public"]["Enums"]["account_status"]
+          reason: string
+          request_id: string | null
+          user_id: string | null
+        }
+        Insert: {
+          changed_by?: string | null
+          created_at?: string
+          id?: string
+          new_status: Database["public"]["Enums"]["account_status"]
+          previous_status: Database["public"]["Enums"]["account_status"]
+          reason: string
+          request_id?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          changed_by?: string | null
+          created_at?: string
+          id?: string
+          new_status?: Database["public"]["Enums"]["account_status"]
+          previous_status?: Database["public"]["Enums"]["account_status"]
+          reason?: string
+          request_id?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      account_suspensions: {
+        Row: {
+          id: string
+          reason: string
+          resolution_note: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          status: string
+          suspended_at: string
+          suspended_by: string
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          reason: string
+          resolution_note?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          status?: string
+          suspended_at?: string
+          suspended_by: string
+          user_id: string
+        }
+        Update: {
+          id?: string
+          reason?: string
+          resolution_note?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          status?: string
+          suspended_at?: string
+          suspended_by?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       admin_memberships: {
         Row: {
           created_at: string
@@ -201,6 +270,42 @@ export type Database = {
         }
         Relationships: []
       }
+      authentication_events: {
+        Row: {
+          event_type: string
+          id: string
+          ip_address: unknown
+          metadata: Json
+          occurred_at: string
+          outcome: string
+          request_id: string | null
+          user_agent: string | null
+          user_id: string | null
+        }
+        Insert: {
+          event_type: string
+          id?: string
+          ip_address?: unknown
+          metadata?: Json
+          occurred_at?: string
+          outcome: string
+          request_id?: string | null
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          event_type?: string
+          id?: string
+          ip_address?: unknown
+          metadata?: Json
+          occurred_at?: string
+          outcome?: string
+          request_id?: string | null
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       branding_settings: {
         Row: {
           brand_name: string
@@ -234,6 +339,54 @@ export type Database = {
           tagline?: string
           theme_overrides?: Json
           updated_at?: string
+        }
+        Relationships: []
+      }
+      email_delivery_events: {
+        Row: {
+          category: string
+          created_at: string
+          failure_code: string | null
+          id: string
+          idempotency_key_hash: string
+          metadata: Json
+          provider: string
+          provider_message_id: string | null
+          status: string
+          template_id: string
+          template_version: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          failure_code?: string | null
+          id?: string
+          idempotency_key_hash: string
+          metadata?: Json
+          provider: string
+          provider_message_id?: string | null
+          status: string
+          template_id: string
+          template_version: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          failure_code?: string | null
+          id?: string
+          idempotency_key_hash?: string
+          metadata?: Json
+          provider?: string
+          provider_message_id?: string | null
+          status?: string
+          template_id?: string
+          template_version?: string
+          updated_at?: string
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -486,7 +639,11 @@ export type Database = {
           country_code: string
           created_at: string
           display_name: string | null
+          email_verified_at: string | null
+          first_name: string | null
           id: string
+          last_name: string | null
+          last_password_changed_at: string | null
           locale: string
           onboarding_status: Database["public"]["Enums"]["onboarding_status"]
           timezone: string
@@ -497,7 +654,11 @@ export type Database = {
           country_code?: string
           created_at?: string
           display_name?: string | null
+          email_verified_at?: string | null
+          first_name?: string | null
           id: string
+          last_name?: string | null
+          last_password_changed_at?: string | null
           locale?: string
           onboarding_status?: Database["public"]["Enums"]["onboarding_status"]
           timezone?: string
@@ -508,7 +669,11 @@ export type Database = {
           country_code?: string
           created_at?: string
           display_name?: string | null
+          email_verified_at?: string | null
+          first_name?: string | null
           id?: string
+          last_name?: string | null
+          last_password_changed_at?: string | null
           locale?: string
           onboarding_status?: Database["public"]["Enums"]["onboarding_status"]
           timezone?: string
@@ -563,14 +728,196 @@ export type Database = {
           },
         ]
       }
+      user_legal_acceptances: {
+        Row: {
+          accepted_at: string
+          created_at: string
+          id: string
+          policy_type: string
+          policy_version: string
+          source: string
+          user_id: string
+        }
+        Insert: {
+          accepted_at: string
+          created_at?: string
+          id?: string
+          policy_type: string
+          policy_version: string
+          source: string
+          user_id: string
+        }
+        Update: {
+          accepted_at?: string
+          created_at?: string
+          id?: string
+          policy_type?: string
+          policy_version?: string
+          source?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_notification_preferences: {
+        Row: {
+          created_at: string
+          future_daily_digest: boolean
+          future_job_alerts: boolean
+          marketing_emails: boolean
+          product_updates: boolean
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          future_daily_digest?: boolean
+          future_job_alerts?: boolean
+          marketing_emails?: boolean
+          product_updates?: boolean
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          future_daily_digest?: boolean
+          future_job_alerts?: boolean
+          marketing_emails?: boolean
+          product_updates?: boolean
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      bootstrap_first_super_admin: {
-        Args: { confirmation: string; target_user_id: string }
+      admin_audit_event_directory: {
+        Args: {
+          actor_user_id: string
+          filter_action?: string
+          filter_actor_user_id?: string
+          filter_request_id?: string
+          filter_target_id?: string
+          filter_target_type?: string
+          occurred_from?: string
+          occurred_to?: string
+          page_offset?: number
+          page_size?: number
+        }
+        Returns: {
+          action: string
+          after_state: Json
+          before_state: Json
+          created_at: string
+          event_actor_type: Database["public"]["Enums"]["audit_actor_type"]
+          event_actor_user_id: string
+          event_id: string
+          metadata: Json
+          request_id: string
+          target_id: string
+          target_type: string
+          total_count: number
+        }[]
+      }
+      admin_overview: {
+        Args: { actor_user_id: string }
+        Returns: {
+          active_administrators: number
+          auth_events_last_24_hours: number
+          registered_users: number
+          suspended_users: number
+          verified_users: number
+        }[]
+      }
+      admin_revoke_user_sessions: {
+        Args: {
+          action_reason: string
+          action_request_id?: string
+          actor_user_id: string
+          target_user_id: string
+        }
+        Returns: number
+      }
+      admin_set_account_status: {
+        Args: {
+          action_reason: string
+          action_request_id?: string
+          actor_user_id: string
+          requested_status: Database["public"]["Enums"]["account_status"]
+          target_user_id: string
+        }
         Returns: boolean
+      }
+      admin_user_detail: {
+        Args: { actor_user_id: string; target_user_id: string }
+        Returns: {
+          account_status: Database["public"]["Enums"]["account_status"]
+          admin_membership_status: string
+          admin_roles: string[]
+          country_code: string
+          created_at: string
+          display_name: string
+          email: string
+          email_verified: boolean
+          email_verified_at: string
+          first_name: string
+          last_name: string
+          locale: string
+          onboarding_status: Database["public"]["Enums"]["onboarding_status"]
+          subscription_ends_at: string
+          subscription_plan_code: string
+          subscription_starts_at: string
+          subscription_status: string
+          timezone: string
+          updated_at: string
+          user_id: string
+        }[]
+      }
+      admin_user_directory: {
+        Args: {
+          actor_user_id: string
+          created_from?: string
+          created_to?: string
+          page_offset?: number
+          page_size?: number
+          search_query?: string
+          status_filter?: Database["public"]["Enums"]["account_status"]
+          verification_filter?: string
+        }
+        Returns: {
+          account_status: Database["public"]["Enums"]["account_status"]
+          admin_roles: string[]
+          created_at: string
+          display_name: string
+          email: string
+          email_verified: boolean
+          email_verified_at: string
+          first_name: string
+          last_name: string
+          subscription_plan_code: string
+          subscription_status: string
+          total_count: number
+          updated_at: string
+          user_id: string
+        }[]
+      }
+      bootstrap_first_super_admin: {
+        Args: {
+          confirmation: string
+          target_email: string
+          target_user_id: string
+        }
+        Returns: boolean
+      }
+      consume_auth_rate_limit: {
+        Args: { rate_bucket: string; rate_key_hash: string }
+        Returns: {
+          allowed: boolean
+          remaining: number
+          retry_after_seconds: number
+        }[]
       }
       get_my_admin_access: {
         Args: never
@@ -579,9 +926,50 @@ export type Database = {
           roles: string[]
         }[]
       }
+      is_auth_session_active: {
+        Args: { target_session_id: string; target_user_id: string }
+        Returns: boolean
+      }
+      list_my_sessions: {
+        Args: never
+        Returns: {
+          created_at: string
+          current_session: boolean
+          last_seen_at: string
+          session_id: string
+          user_agent: string
+        }[]
+      }
+      reconcile_my_profile: { Args: never; Returns: boolean }
+      record_my_auth_event: {
+        Args: { requested_event_type: string; requested_request_id?: string }
+        Returns: string
+      }
+      update_my_notification_preferences: {
+        Args: {
+          requested_marketing_emails: boolean
+          requested_product_updates: boolean
+          requested_request_id?: string
+        }
+        Returns: {
+          created_at: string
+          future_daily_digest: boolean
+          future_job_alerts: boolean
+          marketing_emails: boolean
+          product_updates: boolean
+          updated_at: string
+          user_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "user_notification_preferences"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
     }
     Enums: {
-      account_status: "active" | "suspended" | "closed"
+      account_status: "active" | "suspended" | "disabled" | "pending_deletion"
       admin_membership_status: "active" | "suspended" | "revoked"
       audit_actor_type: "user" | "admin" | "service" | "system"
       billing_period: "monthly" | "annual"
@@ -728,7 +1116,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      account_status: ["active", "suspended", "closed"],
+      account_status: ["active", "suspended", "disabled", "pending_deletion"],
       admin_membership_status: ["active", "suspended", "revoked"],
       audit_actor_type: ["user", "admin", "service", "system"],
       billing_period: ["monthly", "annual"],

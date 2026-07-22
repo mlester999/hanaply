@@ -40,12 +40,16 @@ function entitlementValue(value: Json): boolean | number | string {
 function mapProfile(row: ProfileRow): PublicProfile {
   return {
     id: row.id,
+    firstName: row.first_name,
+    lastName: row.last_name,
     displayName: row.display_name,
     locale: row.locale,
     timezone: row.timezone,
     countryCode: row.country_code,
     onboardingStatus: row.onboarding_status,
     accountStatus: row.account_status,
+    emailVerifiedAt: row.email_verified_at,
+    lastPasswordChangedAt: row.last_password_changed_at,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };

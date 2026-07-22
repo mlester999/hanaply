@@ -8,7 +8,7 @@ export const subscriptionStatusSchema = z.enum([
   'cancelled',
   'suspended',
 ]);
-export const accountStatusSchema = z.enum(['active', 'suspended', 'closed']);
+export const accountStatusSchema = z.enum(['active', 'suspended', 'disabled', 'pending_deletion']);
 export const platformSchema = z.enum(['web', 'ios', 'android']);
 export const platformLifecycleSchema = z.enum(['planned', 'active', 'maintenance', 'retired']);
 export const platformAvailabilitySchema = z.enum([
@@ -38,12 +38,16 @@ export const planSchema = z.object({
 
 export const publicProfileSchema = z.object({
   id: z.uuid(),
+  firstName: z.string().trim().min(1).max(80).nullable(),
+  lastName: z.string().trim().min(1).max(80).nullable(),
   displayName: z.string().nullable(),
   locale: z.string().trim().min(2),
   timezone: z.string().trim().min(1),
   countryCode: z.string().length(2),
   onboardingStatus: z.enum(['not_started', 'in_progress', 'complete']),
   accountStatus: accountStatusSchema,
+  emailVerifiedAt: z.iso.datetime({ offset: true }).nullable(),
+  lastPasswordChangedAt: z.iso.datetime({ offset: true }).nullable(),
   createdAt: z.iso.datetime({ offset: true }),
   updatedAt: z.iso.datetime({ offset: true }),
 });

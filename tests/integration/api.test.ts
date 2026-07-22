@@ -31,12 +31,16 @@ const environment = parseApiEnvironment({
 
 const profile = {
   id: userId,
+  firstName: 'Phase',
+  lastName: 'One',
   displayName: 'Phase Zero User',
   locale: 'en-PH',
   timezone: 'Asia/Manila',
   countryCode: 'PH',
   onboardingStatus: 'not_started' as const,
   accountStatus: 'active' as const,
+  emailVerifiedAt: now,
+  lastPasswordChangedAt: null,
   createdAt: now,
   updatedAt: now,
 };

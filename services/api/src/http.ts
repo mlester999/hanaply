@@ -4,7 +4,7 @@ import type { FastifyRequest } from 'fastify';
 export interface AuthContext {
   userId: string;
   accessToken: string;
-  accountStatus: 'active' | 'suspended' | 'closed';
+  accountStatus: 'active' | 'suspended' | 'disabled' | 'pending_deletion';
   roles?: readonly string[];
   permissions?: ReadonlySet<string>;
 }
