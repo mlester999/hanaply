@@ -1,4 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
+import type { NotificationPreferencesInput, ProfileUpdateInput } from '@hanaply/auth';
 import type { ApiEnvironment } from '@hanaply/config';
 import type { Plan, Platform, PublicProfile, SubscriptionSummary } from '@hanaply/contracts';
 import {
@@ -17,6 +18,7 @@ import { API_ENVIRONMENT } from './tokens.js';
 type ProfileRow = Database['public']['Tables']['profiles']['Row'];
 type PlanRow = Database['public']['Tables']['plans']['Row'];
 type SubscriptionRow = Database['public']['Tables']['subscriptions']['Row'];
+type PreferenceRow = Database['public']['Tables']['user_notification_preferences']['Row'];
 
 function configurationError(message: string): AppError {
   return new AppError({ code: 'SERVICE_UNAVAILABLE', status: 503, message });
@@ -61,6 +63,17 @@ function mapSubscription(row: SubscriptionRow, planCode: string | null): Subscri
     status: row.status,
     startsAt: row.starts_at,
     endsAt: row.ends_at,
+  };
+}
+
+function mapPreferences(row: PreferenceRow) {
+  return {
+    productUpdates: row.product_updates,
+    marketingEmails: row.marketing_emails,
+    securityEmails: true as const,
+    futureJobAlerts: false as const,
+    futureDailyDigest: false as const,
+    updatedAt: row.updated_at,
   };
 }
 
@@ -199,6 +212,104 @@ export class HanaplyRepository {
     });
     if (result.error) throw configurationError('Session service is unavailable');
     return result.data;
+  }
+
+  async updateProfile(
+    accessToken: string,
+    userId: string,
+    input: ProfileUpdateInput,
+  ): Promise<PublicProfile> {
+    const client = createUserDatabaseClient(
+      this.environment.SUPABASE_URL,
+      this.environment.SUPABASE_PUBLISHABLE_KEY,
+      accessToken,
+    );
+    const result = await client
+      .from('profiles')
+      .update({
+        first_name: input.firstName,
+        last_name: input.lastName,
+        display_name: input.displayName,
+        country_code: input.countryCode,
+        locale: input.locale,
+        timezone: input.timezone,
+      })
+      .eq('id', userId)
+      .select('*')
+      .single();
+    if (result.error || !result.data) throw configurationError('Profile update is unavailable');
+    return mapProfile(result.data);
+  }
+
+  async getNotificationPreferences(
+    accessToken: string,
+    userId: string,
+  ): Promise<ReturnType<typeof mapPreferences>> {
+    const client = createUserDatabaseClient(
+      this.environment.SUPABASE_URL,
+      this.environment.SUPABASE_PUBLISHABLE_KEY,
+      accessToken,
+    );
+    const result = await client
+      .from('user_notification_preferences')
+      .select('*')
+      .eq('user_id', userId)
+      .maybeSingle();
+    if (result.error || !result.data)
+      throw configurationError('Notification preferences are unavailable');
+    return mapPreferences(result.data);
+  }
+
+  async updateNotificationPreferences(
+    accessToken: string,
+    input: NotificationPreferencesInput,
+    requestId: string,
+  ): Promise<ReturnType<typeof mapPreferences>> {
+    const client = createUserDatabaseClient(
+      this.environment.SUPABASE_URL,
+      this.environment.SUPABASE_PUBLISHABLE_KEY,
+      accessToken,
+    );
+    const result = await client.rpc('update_my_notification_preferences', {
+      requested_product_updates: input.productUpdates,
+      requested_marketing_emails: input.marketingEmails,
+      requested_request_id: requestId,
+    });
+    if (result.error || !result.data)
+      throw configurationError('Notification preference update is unavailable');
+    return mapPreferences(result.data);
+  }
+
+  async listSessions(accessToken: string) {
+    const client = createUserDatabaseClient(
+      this.environment.SUPABASE_URL,
+      this.environment.SUPABASE_PUBLISHABLE_KEY,
+      accessToken,
+    );
+    const result = await client.rpc('list_my_sessions');
+    if (result.error) throw configurationError('Session service is unavailable');
+    return (result.data ?? []).map((session) => ({
+      id: session.session_id,
+      createdAt: session.created_at,
+      lastSeenAt: session.last_seen_at,
+      userAgent: session.user_agent || null,
+      current: session.current_session,
+    }));
+  }
+
+  async revokeOtherSessions(accessToken: string, requestId: string): Promise<void> {
+    const revocation = await this.serviceClient.auth.admin.signOut(accessToken, 'others');
+    if (revocation.error) throw configurationError('Session revocation is unavailable');
+    const client = createUserDatabaseClient(
+      this.environment.SUPABASE_URL,
+      this.environment.SUPABASE_PUBLISHABLE_KEY,
+      accessToken,
+    );
+    const audit = await client.rpc('record_my_auth_event', {
+      requested_event_type: 'user.sessions_revoked',
+      requested_request_id: requestId,
+    });
+    if (audit.error) throw configurationError('Session revocation could not be audited');
   }
 
   async getSubscription(

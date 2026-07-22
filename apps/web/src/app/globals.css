@@ -1039,6 +1039,293 @@ a:hover {
   font-weight: var(--hanaply-font-weight-semibold);
 }
 
+.settings-card .h-button {
+  margin-top: var(--hanaply-space-5);
+}
+
+.settings-form,
+.settings-section {
+  display: grid;
+  gap: var(--hanaply-space-6);
+  padding: clamp(1.25rem, 4vw, 2rem);
+  background: var(--hanaply-color-neutral-surface);
+  border: 1px solid var(--hanaply-color-neutral-border);
+  border-radius: var(--hanaply-radius-lg);
+  box-shadow: var(--hanaply-shadow-sm);
+}
+
+.settings-form-grid,
+.security-summary-grid,
+.dashboard-overview-grid,
+.activation-plan-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--hanaply-space-5);
+}
+
+.settings-form-grid--regional {
+  grid-template-columns: minmax(7rem, 0.55fr) minmax(10rem, 1fr) minmax(12rem, 1.45fr);
+}
+
+.settings-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: var(--hanaply-space-2);
+  border-top: 1px solid var(--hanaply-color-neutral-border);
+}
+
+.preference-list {
+  display: grid;
+  gap: var(--hanaply-space-3);
+  padding: 0;
+  margin: 0;
+  border: 0;
+}
+
+.preference-list legend {
+  padding: 0;
+  margin-bottom: var(--hanaply-space-4);
+  color: var(--hanaply-color-neutral-ink);
+  font-size: var(--hanaply-font-size-lg);
+  font-weight: var(--hanaply-font-weight-bold);
+}
+
+.preference-row {
+  display: flex;
+  min-height: 4.75rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--hanaply-space-5);
+  padding: var(--hanaply-space-4);
+  background: var(--hanaply-color-neutral-surface);
+  border: 1px solid var(--hanaply-color-neutral-border);
+  border-radius: var(--hanaply-radius-md);
+  cursor: pointer;
+}
+
+.preference-row > span {
+  display: grid;
+  gap: var(--hanaply-space-1);
+}
+
+.preference-row small,
+.session-row span,
+.session-row small,
+.settings-section-heading p,
+.activation-status-card p,
+.activation-plan-card p,
+.future-capabilities-card p {
+  color: var(--hanaply-color-neutral-muted);
+}
+
+.preference-row input {
+  width: 1.25rem;
+  height: 1.25rem;
+  flex: 0 0 auto;
+  accent-color: var(--hanaply-color-brand-cobalt);
+}
+
+.preference-row:focus-within {
+  outline: 3px solid rgb(49 87 232 / 0.24);
+  outline-offset: 2px;
+}
+
+.preference-row--locked,
+.preference-row--future {
+  cursor: not-allowed;
+}
+
+.preference-row--locked {
+  background: var(--hanaply-color-semantic-success-soft);
+}
+
+.preference-row--future {
+  background: var(--hanaply-color-neutral-canvas-soft);
+  opacity: 0.72;
+}
+
+.security-summary-grid .settings-card {
+  margin: 0;
+}
+
+.settings-section-heading {
+  display: grid;
+  gap: var(--hanaply-space-2);
+}
+
+.settings-section-heading h2,
+.dashboard-card-heading h2,
+.activation-status-card h2,
+.activation-plan-card h2,
+.future-capabilities-card h2 {
+  margin: 0;
+  color: var(--hanaply-color-neutral-ink);
+  font-size: var(--hanaply-font-size-xl);
+  line-height: 1.25;
+}
+
+.settings-section-heading p,
+.activation-status-card p,
+.activation-plan-card p,
+.future-capabilities-card p {
+  margin: 0;
+}
+
+.settings-section .settings-form {
+  padding: 0;
+  border: 0;
+  box-shadow: none;
+}
+
+.session-list,
+.session-actions-panel {
+  display: grid;
+  gap: var(--hanaply-space-3);
+}
+
+.session-row {
+  display: grid;
+  min-width: 0;
+  align-items: center;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: var(--hanaply-space-4);
+  padding: var(--hanaply-space-4);
+  background: var(--hanaply-color-neutral-canvas-soft);
+  border: 1px solid var(--hanaply-color-neutral-border);
+  border-radius: var(--hanaply-radius-md);
+}
+
+.session-row > svg,
+.dashboard-card-heading > svg,
+.activation-status-card > svg,
+.activation-plan-heading > svg,
+.future-capabilities-card > svg {
+  color: var(--hanaply-color-brand-cobalt);
+}
+
+.session-row > div {
+  display: grid;
+  min-width: 0;
+  gap: var(--hanaply-space-1);
+}
+
+.session-row span,
+.session-row small {
+  overflow-wrap: anywhere;
+  font-size: var(--hanaply-font-size-sm);
+}
+
+.session-action-buttons,
+.dashboard-shortcut-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--hanaply-space-3);
+}
+
+.dashboard-welcome-card,
+.dashboard-access-card,
+.activation-status-card,
+.activation-plan-card,
+.future-capabilities-card {
+  padding: clamp(1.25rem, 4vw, 2rem);
+}
+
+.dashboard-card-heading,
+.activation-plan-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--hanaply-space-4);
+}
+
+.dashboard-card-heading > div,
+.activation-plan-heading > div {
+  display: grid;
+  gap: var(--hanaply-space-2);
+}
+
+.account-checklist {
+  display: grid;
+  gap: var(--hanaply-space-3);
+  padding: 0;
+  margin: var(--hanaply-space-6) 0 0;
+  list-style: none;
+}
+
+.account-checklist li {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--hanaply-space-3);
+}
+
+.account-checklist li > svg {
+  flex: 0 0 auto;
+  margin-top: 0.1rem;
+  color: var(--hanaply-color-semantic-success);
+}
+
+.account-checklist .account-checklist--pending > svg {
+  color: var(--hanaply-color-semantic-warning);
+}
+
+.account-checklist .account-checklist--future > svg {
+  color: var(--hanaply-color-neutral-muted);
+}
+
+.dashboard-facts,
+.activation-plan-card dl {
+  display: grid;
+  gap: var(--hanaply-space-3);
+  margin: var(--hanaply-space-6) 0;
+}
+
+.dashboard-facts > div,
+.activation-plan-card dl > div {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--hanaply-space-4);
+  padding-bottom: var(--hanaply-space-3);
+  border-bottom: 1px solid var(--hanaply-color-neutral-border);
+}
+
+.dashboard-facts dt,
+.activation-plan-card dt {
+  color: var(--hanaply-color-neutral-muted);
+}
+
+.dashboard-facts dd,
+.activation-plan-card dd {
+  margin: 0;
+  font-weight: var(--hanaply-font-weight-bold);
+  text-align: right;
+}
+
+.dashboard-shortcuts {
+  display: grid;
+  gap: var(--hanaply-space-5);
+}
+
+.future-capabilities-card,
+.activation-status-card {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--hanaply-space-5);
+}
+
+.future-capabilities-card > div,
+.activation-status-card > div {
+  display: grid;
+  gap: var(--hanaply-space-2);
+}
+
+.activation-status-card {
+  background: var(--hanaply-color-semantic-info-soft);
+}
+
+.activation-plan-card dl {
+  margin-bottom: var(--hanaply-space-4);
+}
+
 .drawer-signout {
   margin-top: var(--hanaply-space-8);
 }
@@ -1179,6 +1466,12 @@ a:hover {
   .pricing-card {
     min-height: auto;
   }
+
+  .settings-form-grid--regional,
+  .dashboard-overview-grid,
+  .activation-plan-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 640px) {
@@ -1251,6 +1544,40 @@ a:hover {
 
   .topbar-help {
     margin-left: auto;
+  }
+
+  .settings-form-grid,
+  .security-summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .settings-form-actions,
+  .settings-form-actions .h-button,
+  .session-action-buttons,
+  .session-action-buttons form,
+  .session-action-buttons .h-button,
+  .dashboard-shortcut-grid,
+  .dashboard-shortcut-grid .h-button {
+    width: 100%;
+  }
+
+  .preference-row {
+    align-items: flex-start;
+  }
+
+  .session-row {
+    align-items: flex-start;
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .session-row .h-badge {
+    grid-column: 2;
+    justify-self: start;
+  }
+
+  .future-capabilities-card,
+  .activation-status-card {
+    flex-direction: column;
   }
 }
 

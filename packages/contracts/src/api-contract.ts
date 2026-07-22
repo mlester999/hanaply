@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { notificationPreferencesSchema, profileUpdateSchema } from '@hanaply/auth';
 
 import {
   entitlementSnapshotSchema,
@@ -14,13 +15,15 @@ import { successEnvelopeSchema } from './errors.js';
 export type ApiAuthRequirement = 'public' | 'user' | 'admin';
 
 export interface ApiRoute<TResponse extends z.ZodType = z.ZodType> {
-  readonly method: 'GET';
+  readonly method: 'GET' | 'PATCH' | 'POST' | 'DELETE';
   readonly path: `/v1/${string}`;
   readonly operationId: string;
   readonly summary: string;
   readonly auth: ApiAuthRequirement;
   readonly successStatus: 200;
   readonly query?: z.ZodObject;
+  readonly params?: z.ZodObject;
+  readonly body?: z.ZodType;
   readonly response: TResponse;
 }
 
@@ -59,6 +62,21 @@ const metaDataSchema = z.object({
 const meDataSchema = z.object({
   profile: publicProfileSchema,
   subscription: subscriptionSummarySchema,
+});
+
+const notificationPreferencesDataSchema = notificationPreferencesSchema.extend({
+  securityEmails: z.literal(true),
+  futureJobAlerts: z.literal(false),
+  futureDailyDigest: z.literal(false),
+  updatedAt: z.iso.datetime({ offset: true }),
+});
+
+const sessionDataSchema = z.object({
+  id: z.uuid(),
+  createdAt: z.iso.datetime({ offset: true }),
+  lastSeenAt: z.iso.datetime({ offset: true }),
+  userAgent: z.string().max(200).nullable(),
+  current: z.boolean(),
 });
 
 const adminMeDataSchema = z.object({
@@ -126,6 +144,53 @@ export const apiContract = Object.freeze({
     auth: 'user',
     successStatus: 200,
     response: successEnvelopeSchema(meDataSchema),
+  }),
+  updateMe: defineRoute({
+    method: 'PATCH',
+    path: '/v1/me',
+    operationId: 'updateMe',
+    summary: 'Update safe current-user profile fields',
+    auth: 'user',
+    successStatus: 200,
+    body: profileUpdateSchema,
+    response: successEnvelopeSchema(publicProfileSchema),
+  }),
+  preferences: defineRoute({
+    method: 'GET',
+    path: '/v1/me/preferences',
+    operationId: 'getMyPreferences',
+    summary: 'Current user notification preferences',
+    auth: 'user',
+    successStatus: 200,
+    response: successEnvelopeSchema(notificationPreferencesDataSchema),
+  }),
+  updatePreferences: defineRoute({
+    method: 'PATCH',
+    path: '/v1/me/preferences',
+    operationId: 'updateMyPreferences',
+    summary: 'Update optional current-user notification preferences',
+    auth: 'user',
+    successStatus: 200,
+    body: notificationPreferencesSchema,
+    response: successEnvelopeSchema(notificationPreferencesDataSchema),
+  }),
+  sessions: defineRoute({
+    method: 'GET',
+    path: '/v1/me/sessions',
+    operationId: 'getMySessions',
+    summary: 'Safe current-user session summaries',
+    auth: 'user',
+    successStatus: 200,
+    response: successEnvelopeSchema(z.array(sessionDataSchema)),
+  }),
+  revokeOtherSessions: defineRoute({
+    method: 'POST',
+    path: '/v1/me/sessions/revoke-others',
+    operationId: 'revokeMyOtherSessions',
+    summary: 'Revoke every session except the current session',
+    auth: 'user',
+    successStatus: 200,
+    response: successEnvelopeSchema(z.object({ revoked: z.literal(true) })),
   }),
   entitlements: defineRoute({
     method: 'GET',

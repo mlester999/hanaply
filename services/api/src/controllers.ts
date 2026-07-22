@@ -1,6 +1,17 @@
 import { apiContract, metaQuerySchema } from '@hanaply/contracts';
 import { generateOpenApiDocument } from '@hanaply/contracts/openapi';
-import { Controller, Get, Header, Inject, Query, Req, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Header,
+  Inject,
+  Patch,
+  Post,
+  Query,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import { SkipThrottle, Throttle } from '@nestjs/throttler';
 import type { FastifyRequest } from 'fastify';
 
@@ -60,6 +71,44 @@ export class UserController {
   @Get(apiContract.me.path)
   async me(@Req() request: AuthenticatedRequest) {
     return apiContract.me.response.parse(successEnvelope(request, await this.service.me(request)));
+  }
+
+  @Patch(apiContract.updateMe.path)
+  @Throttle({ default: { limit: 20, ttl: 3_600_000 } })
+  async updateMe(@Req() request: AuthenticatedRequest, @Body() body: unknown) {
+    return apiContract.updateMe.response.parse(
+      successEnvelope(request, await this.service.updateMe(request, body)),
+    );
+  }
+
+  @Get(apiContract.preferences.path)
+  async preferences(@Req() request: AuthenticatedRequest) {
+    return apiContract.preferences.response.parse(
+      successEnvelope(request, await this.service.preferences(request)),
+    );
+  }
+
+  @Patch(apiContract.updatePreferences.path)
+  @Throttle({ default: { limit: 20, ttl: 3_600_000 } })
+  async updatePreferences(@Req() request: AuthenticatedRequest, @Body() body: unknown) {
+    return apiContract.updatePreferences.response.parse(
+      successEnvelope(request, await this.service.updatePreferences(request, body)),
+    );
+  }
+
+  @Get(apiContract.sessions.path)
+  async sessions(@Req() request: AuthenticatedRequest) {
+    return apiContract.sessions.response.parse(
+      successEnvelope(request, await this.service.sessions(request)),
+    );
+  }
+
+  @Post(apiContract.revokeOtherSessions.path)
+  @Throttle({ default: { limit: 10, ttl: 3_600_000 } })
+  async revokeOtherSessions(@Req() request: AuthenticatedRequest) {
+    return apiContract.revokeOtherSessions.response.parse(
+      successEnvelope(request, await this.service.revokeOtherSessions(request)),
+    );
   }
 
   @Get(apiContract.entitlements.path)

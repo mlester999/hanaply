@@ -9,6 +9,14 @@ export interface VerifiedWebSession {
   accessToken: string;
 }
 
+export function createAuthenticatedApiClient(session: VerifiedWebSession) {
+  const environment = getBrowserEnvironment();
+  return createApiClient({
+    baseUrl: environment.NEXT_PUBLIC_API_URL,
+    getAccessToken: () => Promise.resolve(session.accessToken),
+  });
+}
+
 export async function getVerifiedWebSession(): Promise<VerifiedWebSession | null> {
   const supabase = await createSupabaseServerClient();
   const claimsResult = await supabase.auth.getClaims();
@@ -37,11 +45,7 @@ export async function requireUser() {
   ) {
     redirect('/account-unavailable');
   }
-  const environment = getBrowserEnvironment();
-  const client = createApiClient({
-    baseUrl: environment.NEXT_PUBLIC_API_URL,
-    getAccessToken: () => Promise.resolve(session.accessToken),
-  });
+  const client = createAuthenticatedApiClient(session);
   try {
     const me = await client.me();
     return { session, me: me.data };
@@ -55,11 +59,7 @@ export async function requireUser() {
 
 export async function requireAdmin() {
   const { session, me } = await requireUser();
-  const environment = getBrowserEnvironment();
-  const client = createApiClient({
-    baseUrl: environment.NEXT_PUBLIC_API_URL,
-    getAccessToken: () => Promise.resolve(session.accessToken),
-  });
+  const client = createAuthenticatedApiClient(session);
   try {
     const admin = await client.adminMe();
     return { session, me, admin: admin.data };

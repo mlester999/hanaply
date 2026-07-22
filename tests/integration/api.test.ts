@@ -58,7 +58,7 @@ const subscriptionRow = {
   updated_at: now,
 };
 
-const state = { ready: true, subscription: true };
+const state = { ready: true, subscription: true, sessionsRevoked: false };
 const fixture = planFixture();
 const repository = {
   isReady: () => Promise.resolve(state.ready),
@@ -84,6 +84,52 @@ const repository = {
     }),
   getProfile: (_accessToken: string, requestedUserId: string) =>
     Promise.resolve({ ...profile, id: requestedUserId }),
+  updateProfile: (
+    _accessToken: string,
+    requestedUserId: string,
+    input: {
+      firstName: string;
+      lastName: string;
+      displayName: string | null;
+      locale: string;
+      timezone: string;
+      countryCode: string;
+    },
+  ) => Promise.resolve({ ...profile, ...input, id: requestedUserId, updatedAt: now }),
+  getNotificationPreferences: () =>
+    Promise.resolve({
+      productUpdates: false,
+      marketingEmails: false,
+      securityEmails: true as const,
+      futureJobAlerts: false as const,
+      futureDailyDigest: false as const,
+      updatedAt: now,
+    }),
+  updateNotificationPreferences: (
+    _accessToken: string,
+    input: { productUpdates: boolean; marketingEmails: boolean },
+  ) =>
+    Promise.resolve({
+      ...input,
+      securityEmails: true as const,
+      futureJobAlerts: false as const,
+      futureDailyDigest: false as const,
+      updatedAt: now,
+    }),
+  listSessions: () =>
+    Promise.resolve([
+      {
+        id: '30000000-0000-4000-8000-000000000030',
+        createdAt: now,
+        lastSeenAt: now,
+        userAgent: 'Integration test browser',
+        current: true,
+      },
+    ]),
+  revokeOtherSessions: () => {
+    state.sessionsRevoked = true;
+    return Promise.resolve();
+  },
   getSubscription: () =>
     Promise.resolve(
       state.subscription
@@ -173,7 +219,7 @@ const authService = {
   },
 };
 
-describe('Phase 0 API integration', () => {
+describe('Phase 1 API integration', () => {
   let app: Awaited<ReturnType<typeof createApiApplication>>;
 
   beforeAll(async () => {
@@ -258,6 +304,104 @@ describe('Phase 0 API integration', () => {
     expect(body.data.subscription.planCode).toBe('plus_monthly');
   });
 
+  it('updates only schema-allowlisted profile fields', async () => {
+    const response = await app.inject({
+      method: 'PATCH',
+      url: '/v1/me',
+      headers: { authorization: 'Bearer user-token' },
+      payload: {
+        firstName: 'Updated',
+        lastName: 'Member',
+        displayName: 'Updated Member',
+        locale: 'en-PH',
+        timezone: 'Asia/Manila',
+        countryCode: 'ph',
+      },
+    });
+    expect(response.statusCode).toBe(200);
+    const body = apiContract.updateMe.response.parse(response.json());
+    expect(body.data).toMatchObject({
+      id: userId,
+      firstName: 'Updated',
+      countryCode: 'PH',
+      accountStatus: 'active',
+    });
+    expect(response.headers['x-request-id']).toBe(body.meta.requestId);
+
+    const escalation = await app.inject({
+      method: 'PATCH',
+      url: '/v1/me',
+      headers: { authorization: 'Bearer user-token' },
+      payload: {
+        firstName: 'Updated',
+        lastName: 'Member',
+        displayName: null,
+        locale: 'en-PH',
+        timezone: 'Asia/Manila',
+        countryCode: 'PH',
+        accountStatus: 'active',
+      },
+    });
+    expect(escalation.statusCode).toBe(400);
+    expect(apiErrorEnvelopeSchema.parse(escalation.json()).error.code).toBe('VALIDATION_ERROR');
+  });
+
+  it('reads and updates explicit optional notification consent', async () => {
+    const current = await app.inject({
+      method: 'GET',
+      url: '/v1/me/preferences',
+      headers: { authorization: 'Bearer user-token' },
+    });
+    expect(apiContract.preferences.response.parse(current.json()).data).toMatchObject({
+      productUpdates: false,
+      marketingEmails: false,
+      securityEmails: true,
+    });
+
+    const update = await app.inject({
+      method: 'PATCH',
+      url: '/v1/me/preferences',
+      headers: { authorization: 'Bearer user-token' },
+      payload: { productUpdates: true, marketingEmails: false },
+    });
+    expect(apiContract.updatePreferences.response.parse(update.json()).data).toMatchObject({
+      productUpdates: true,
+      marketingEmails: false,
+      securityEmails: true,
+    });
+
+    const protectedCategory = await app.inject({
+      method: 'PATCH',
+      url: '/v1/me/preferences',
+      headers: { authorization: 'Bearer user-token' },
+      payload: { productUpdates: false, marketingEmails: false, securityEmails: false },
+    });
+    expect(protectedCategory.statusCode).toBe(400);
+    expect(apiErrorEnvelopeSchema.parse(protectedCategory.json()).error.code).toBe(
+      'VALIDATION_ERROR',
+    );
+  });
+
+  it('returns safe session metadata and revokes other sessions', async () => {
+    const sessions = await app.inject({
+      method: 'GET',
+      url: '/v1/me/sessions',
+      headers: { authorization: 'Bearer user-token' },
+    });
+    expect(apiContract.sessions.response.parse(sessions.json()).data).toEqual([
+      expect.objectContaining({ current: true, userAgent: 'Integration test browser' }),
+    ]);
+
+    state.sessionsRevoked = false;
+    const revoked = await app.inject({
+      method: 'POST',
+      url: '/v1/me/sessions/revoke-others',
+      headers: { authorization: 'Bearer user-token' },
+    });
+    expect(apiContract.revokeOtherSessions.response.parse(revoked.json()).data.revoked).toBe(true);
+    expect(state.sessionsRevoked).toBe(true);
+  });
+
   it('evaluates caller entitlements and denies by default without a subscription', async () => {
     const active = await app.inject({
       method: 'GET',
@@ -323,7 +467,7 @@ describe('Phase 0 API integration', () => {
     expect(apiErrorEnvelopeSchema.parse(response.json()).error.code).toBe('NOT_FOUND');
   });
 
-  it('enforces the in-memory Phase 0 rate limit with a safe envelope', async () => {
+  it('enforces the in-memory local rate limit with a safe envelope', async () => {
     let limitedResponse: Awaited<ReturnType<typeof app.inject>> | undefined;
     for (let attempt = 0; attempt < 140; attempt += 1) {
       const response = await app.inject({ method: 'GET', url: '/v1/plans' });

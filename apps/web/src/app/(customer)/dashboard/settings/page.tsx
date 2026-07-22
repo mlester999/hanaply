@@ -1,5 +1,5 @@
-import { Alert, Card, PageHeader } from '@hanaply/ui';
-import { Globe2, LockKeyhole, Settings } from 'lucide-react';
+import { Card, LinkButton, PageHeader } from '@hanaply/ui';
+import { Bell, Globe2, LockKeyhole } from 'lucide-react';
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = { title: 'Account Settings' };
@@ -8,42 +8,34 @@ export default function SettingsPage() {
   return (
     <div className="workspace-page">
       <PageHeader
-        description="Account preferences will expand during the Phase 1 experience."
+        description="Manage your profile, security, and explicit email preferences."
         eyebrow="Customer dashboard"
         title="Settings"
       />
-      <Alert title="Settings are currently read-only" tone="info">
-        The foundation stores configurable locale, timezone, and country defaults without exposing
-        unsafe account-status fields.
-      </Alert>
       <div className="settings-grid">
         <Card className="settings-card">
           <Globe2 aria-hidden="true" size={22} />
-          <h2>Regional defaults</h2>
-          <dl>
-            <div>
-              <dt>Locale</dt>
-              <dd>English (Philippines)</dd>
-            </div>
-            <div>
-              <dt>Timezone</dt>
-              <dd>Asia/Manila</dd>
-            </div>
-            <div>
-              <dt>Currency</dt>
-              <dd>PHP</dd>
-            </div>
-          </dl>
+          <h2>Profile</h2>
+          <p>Names, country, locale, and timezone with server validation and RLS.</p>
+          <LinkButton href="/dashboard/settings/profile" size="sm" variant="secondary">
+            Edit Profile
+          </LinkButton>
         </Card>
         <Card className="settings-card">
           <LockKeyhole aria-hidden="true" size={22} />
-          <h2>Session controls</h2>
-          <p>Session history and revocation controls arrive in Phase 1.</p>
+          <h2>Security</h2>
+          <p>Change your password and revoke other refresh sessions.</p>
+          <LinkButton href="/dashboard/settings/security" size="sm" variant="secondary">
+            Review Security
+          </LinkButton>
         </Card>
         <Card className="settings-card">
-          <Settings aria-hidden="true" size={22} />
-          <h2>Career preferences</h2>
-          <p>Main career, sub-careers, keywords, and exclusions arrive in Phase 3.</p>
+          <Bell aria-hidden="true" size={22} />
+          <h2>Notifications</h2>
+          <p>Control optional product and marketing email consent.</p>
+          <LinkButton href="/dashboard/settings/notifications" size="sm" variant="secondary">
+            Email Preferences
+          </LinkButton>
         </Card>
       </div>
     </div>

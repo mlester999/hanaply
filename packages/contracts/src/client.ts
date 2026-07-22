@@ -36,23 +36,40 @@ function addQuery(url: URL, query: Record<string, unknown> | undefined): void {
   }
 }
 
+function addParams(path: string, params: Record<string, string> | undefined): string {
+  if (!params) return path;
+  return Object.entries(params).reduce(
+    (result, [key, value]) => result.replaceAll(`{${key}}`, encodeURIComponent(value)),
+    path,
+  );
+}
+
 export function createApiClient(options: ApiClientOptions) {
   const fetchImplementation = options.fetch ?? globalThis.fetch;
   const baseUrl = options.baseUrl.endsWith('/') ? options.baseUrl : `${options.baseUrl}/`;
 
   async function request<TRoute extends ApiContractRoute>(
     route: TRoute,
-    requestOptions: { query?: Record<string, unknown>; signal?: AbortSignal } = {},
+    requestOptions: {
+      query?: Record<string, unknown>;
+      params?: Record<string, string>;
+      body?: unknown;
+      signal?: AbortSignal;
+    } = {},
   ): Promise<ParsedRouteResponse<TRoute>> {
-    const url = new URL(route.path.replace(/^\//u, ''), baseUrl);
+    const path = addParams(route.path, requestOptions.params);
+    if (path.includes('{')) throw new TypeError(`Missing path parameter for ${route.path}`);
+    const url = new URL(path.replace(/^\//u, ''), baseUrl);
     addQuery(url, requestOptions.query);
     const token = await options.getAccessToken?.();
     const headers = new Headers({ Accept: 'application/json' });
+    if (requestOptions.body !== undefined) headers.set('Content-Type', 'application/json');
     if (token) headers.set('Authorization', `Bearer ${token}`);
 
     const response = await fetchImplementation(url, {
       method: route.method,
       headers,
+      ...(requestOptions.body === undefined ? {} : { body: JSON.stringify(requestOptions.body) }),
       ...(requestOptions.signal ? { signal: requestOptions.signal } : {}),
     });
     const body: unknown = await response.json();
@@ -71,6 +88,13 @@ export function createApiClient(options: ApiClientOptions) {
       query ? request(apiContract.meta, { query: { ...query } }) : request(apiContract.meta),
     plans: () => request(apiContract.plans),
     me: () => request(apiContract.me),
+    updateMe: (body: z.input<typeof apiContract.updateMe.body>) =>
+      request(apiContract.updateMe, { body }),
+    preferences: () => request(apiContract.preferences),
+    updatePreferences: (body: z.input<typeof apiContract.updatePreferences.body>) =>
+      request(apiContract.updatePreferences, { body }),
+    sessions: () => request(apiContract.sessions),
+    revokeOtherSessions: () => request(apiContract.revokeOtherSessions),
     entitlements: () => request(apiContract.entitlements),
     adminMe: () => request(apiContract.adminMe),
   });

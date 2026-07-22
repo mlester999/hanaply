@@ -11,20 +11,20 @@ import { apiErrorEnvelopeSchema } from './errors.js';
 extendZodWithOpenApi(z);
 
 function registerRoute(registry: OpenAPIRegistry, route: ApiContractRoute): void {
-  const request = route.query
-    ? {
-        query: route.query,
-      }
-    : undefined;
+  const request = {
+    ...(route.query ? { query: route.query } : {}),
+    ...(route.params ? { params: route.params } : {}),
+    ...(route.body ? { body: { content: { 'application/json': { schema: route.body } } } } : {}),
+  };
   registry.registerPath({
-    method: 'get',
+    method: route.method.toLowerCase() as Lowercase<ApiContractRoute['method']>,
     path: route.path,
     operationId: route.operationId,
     summary: route.summary,
     tags: [route.auth === 'admin' ? 'Admin' : route.auth === 'user' ? 'User' : 'Public'],
-    ...(request ? { request } : {}),
+    ...(Object.keys(request).length > 0 ? { request } : {}),
     responses: {
-      200: {
+      [route.successStatus]: {
         description: 'Successful response',
         content: { 'application/json': { schema: route.response } },
       },

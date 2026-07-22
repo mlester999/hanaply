@@ -288,6 +288,9 @@ importers:
       '@asteasolutions/zod-to-openapi':
         specifier: 'catalog:'
         version: 9.1.0(zod@4.4.3)
+      '@hanaply/auth':
+        specifier: workspace:*
+        version: link:../auth
       zod:
         specifier: 'catalog:'
         version: 4.4.3

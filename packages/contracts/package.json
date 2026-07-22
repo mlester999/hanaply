@@ -21,6 +21,7 @@
   },
   "dependencies": {
     "@asteasolutions/zod-to-openapi": "catalog:",
+    "@hanaply/auth": "workspace:*",
     "zod": "catalog:"
   },
   "devDependencies": {

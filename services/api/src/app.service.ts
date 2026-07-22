@@ -120,6 +120,34 @@ export class HanaplyService {
     };
   }
 
+  async updateMe(request: AuthenticatedRequest, body: unknown) {
+    const auth = this.requireAuthentication(request);
+    const parsed = apiContract.updateMe.body.parse(body);
+    return this.repository.updateProfile(auth.accessToken, auth.userId, parsed);
+  }
+
+  async preferences(request: AuthenticatedRequest) {
+    const auth = this.requireAuthentication(request);
+    return this.repository.getNotificationPreferences(auth.accessToken, auth.userId);
+  }
+
+  async updatePreferences(request: AuthenticatedRequest, body: unknown) {
+    const auth = this.requireAuthentication(request);
+    const parsed = apiContract.updatePreferences.body.parse(body);
+    return this.repository.updateNotificationPreferences(auth.accessToken, parsed, request.id);
+  }
+
+  async sessions(request: AuthenticatedRequest) {
+    const auth = this.requireAuthentication(request);
+    return this.repository.listSessions(auth.accessToken);
+  }
+
+  async revokeOtherSessions(request: AuthenticatedRequest) {
+    const auth = this.requireAuthentication(request);
+    await this.repository.revokeOtherSessions(auth.accessToken, request.id);
+    return { revoked: true as const };
+  }
+
   async entitlements(request: AuthenticatedRequest) {
     const auth = this.requireAuthentication(request);
     const subscription = await this.repository.getSubscription(auth.accessToken, auth.userId);

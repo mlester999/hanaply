@@ -147,19 +147,46 @@ export const passwordUpdateSchema = z
     }
   });
 
-export const profileUpdateSchema = z.object({
-  firstName: personNameSchema,
-  lastName: personNameSchema,
-  displayName: optionalDisplayNameSchema,
-  countryCode: countryCodeSchema,
-  locale: localeSchema,
-  timezone: timezoneSchema,
-});
+export const changePasswordSchema = z
+  .object({
+    currentPassword: z.string().min(1, 'Enter your current password.').max(128),
+    password: passwordSchema,
+    passwordConfirmation: z.string(),
+  })
+  .superRefine((value, context) => {
+    if (value.password !== value.passwordConfirmation) {
+      context.addIssue({
+        code: 'custom',
+        path: ['passwordConfirmation'],
+        message: 'Passwords must match.',
+      });
+    }
+    if (value.password === value.currentPassword) {
+      context.addIssue({
+        code: 'custom',
+        path: ['password'],
+        message: 'Choose a password different from your current password.',
+      });
+    }
+  });
 
-export const notificationPreferencesSchema = z.object({
-  productUpdates: z.boolean(),
-  marketingEmails: z.boolean(),
-});
+export const profileUpdateSchema = z
+  .object({
+    firstName: personNameSchema,
+    lastName: personNameSchema,
+    displayName: optionalDisplayNameSchema,
+    countryCode: countryCodeSchema,
+    locale: localeSchema,
+    timezone: timezoneSchema,
+  })
+  .strict();
+
+export const notificationPreferencesSchema = z
+  .object({
+    productUpdates: z.boolean(),
+    marketingEmails: z.boolean(),
+  })
+  .strict();
 
 export type RegistrationInput = z.infer<typeof registrationSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;

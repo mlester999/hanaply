@@ -1,4 +1,5 @@
 import {
+  changePasswordSchema,
   evaluateAccountAccess,
   hasAnyPermission,
   hasEveryPermission,
@@ -67,6 +68,23 @@ describe('Phase 1 authentication validation', () => {
     expect(passwordSchema.safeParse('long-enough-7').success).toBe(true);
     expect(passwordSchema.safeParse('onlyletters').success).toBe(false);
     expect(passwordSchema.safeParse('short7').success).toBe(false);
+  });
+
+  it('requires current-password confirmation for an in-session password change', () => {
+    expect(
+      changePasswordSchema.safeParse({
+        currentPassword: 'CurrentPass7',
+        password: 'NewSecurePass8',
+        passwordConfirmation: 'NewSecurePass8',
+      }).success,
+    ).toBe(true);
+    expect(
+      changePasswordSchema.safeParse({
+        currentPassword: 'SamePassword7',
+        password: 'SamePassword7',
+        passwordConfirmation: 'SamePassword7',
+      }).success,
+    ).toBe(false);
   });
 
   it('requires matching passwords and both legal agreements', () => {
