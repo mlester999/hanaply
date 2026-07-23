@@ -5,7 +5,7 @@ import { testAccounts } from './accounts.js';
 import { clearMailbox, firstActionLink, waitForEmail } from './mailpit.js';
 import { getAuthUserByEmail, getServiceRows } from './test-data.js';
 
-const requiredWidths = [1440, 1280, 1024, 768, 430, 390, 360] as const;
+const requiredWidths = [1600, 1440, 1280, 1024, 768, 430, 390, 360] as const;
 const replacementPassword = 'Hanaply-New-Recovery-2026!';
 let clientAddressSequence = 10;
 
@@ -22,10 +22,8 @@ async function signIn(
   });
   await page.goto(options.admin ? '/admin/login' : '/login');
   await page.getByLabel('Email address').fill(account.email);
-  await page.getByLabel('Password').fill(account.password);
-  await page
-    .getByRole('button', { name: options.admin ? 'Continue to Admin' : 'Sign In Securely' })
-    .click();
+  await page.locator('input[name="password"]').fill(account.password);
+  await page.getByRole('button', { name: options.admin ? 'Continue to Admin' : 'Sign in' }).click();
   const expected = options.expected ?? (options.admin ? '/admin' : '/dashboard');
   if (expected !== false) await expect(page).toHaveURL(expected);
 }
@@ -54,15 +52,18 @@ test('completes registration, legal consent, verification, safe link reuse, and 
   page,
 }) => {
   await clearMailbox();
-  await page.goto('/register');
+  await page.goto('/register?plan=pro&billing=annual');
+  await expect(page.getByLabel('Pro plan selected')).toContainText('Selected plan');
+  await expect(page.getByLabel('Pro plan selected')).toContainText('₱9,599/year');
   await page.getByLabel('First name').fill('Registration');
   await page.getByLabel('Last name').fill('Member');
   await page.getByLabel('Email address').fill(testAccounts.registration.email);
   await page.getByLabel(/^Password/iu).fill(testAccounts.registration.password);
   await page.getByLabel(/^Confirm password/iu).fill(testAccounts.registration.password);
-  await page.getByRole('button', { name: 'Create My Account' }).click();
-  await expect(page.getByText('You must agree to the Terms of Service.')).toBeVisible();
-  await expect(page.getByText('You must agree to the Privacy Policy.')).toBeVisible();
+  await page.getByRole('button', { name: 'Create my account' }).click();
+  await expect(
+    page.getByText('You must agree to the Terms of Service and Privacy Policy.'),
+  ).toBeVisible();
 
   await page.getByLabel('First name').fill('Registration');
   await page.getByLabel('Last name').fill('Member');
@@ -70,8 +71,7 @@ test('completes registration, legal consent, verification, safe link reuse, and 
   await page.getByLabel(/^Password/iu).fill(testAccounts.registration.password);
   await page.getByLabel(/^Confirm password/iu).fill(testAccounts.registration.password);
   await page.getByLabel(/I agree to the Terms of Service/iu).check();
-  await page.getByLabel(/I agree to the Privacy Policy/iu).check();
-  await page.getByRole('button', { name: 'Create My Account' }).click();
+  await page.getByRole('button', { name: 'Create my account' }).click();
   await expect(page).toHaveURL('/verify-email?registered=1');
   await expect(page.getByRole('heading', { name: 'Check your inbox.' })).toBeVisible();
 
@@ -88,6 +88,7 @@ test('completes registration, legal consent, verification, safe link reuse, and 
 
   const registered = await getAuthUserByEmail(testAccounts.registration.email);
   expect(registered?.id).toBeTruthy();
+  expect(registered?.user_metadata?.selected_plan_code).toBe('pro_annual');
   const legal = await getServiceRows<{ policy_type: string; policy_version: string }[]>(
     `/rest/v1/user_legal_acceptances?select=policy_type,policy_version&user_id=eq.${registered?.id ?? ''}`,
   );
@@ -125,7 +126,7 @@ test('uses generic recovery, changes the password, revokes sessions, and rejects
   await expect(page).toHaveURL('/reset-password');
   await page.getByLabel(/^New password/iu).fill(replacementPassword);
   await page.getByLabel(/^Confirm new password/iu).fill(replacementPassword);
-  await page.getByRole('button', { name: 'Save New Password' }).click();
+  await page.getByRole('button', { name: 'Save new password' }).click();
   await expect(page).toHaveURL('/login?password=changed');
   await expect(page.getByText('Password changed')).toBeVisible();
 
@@ -139,8 +140,8 @@ test('uses generic recovery, changes the password, revokes sessions, and rejects
   await expect(page).toHaveURL('/login');
   await expect(page.getByText('We could not sign you in with those details.')).toBeVisible();
   await page.getByLabel('Email address').fill(testAccounts.recovery.email);
-  await page.getByLabel('Password').fill(replacementPassword);
-  await page.getByRole('button', { name: 'Sign In Securely' }).click();
+  await page.locator('input[name="password"]').fill(replacementPassword);
+  await page.getByRole('button', { name: 'Sign in' }).click();
   await expect(page).toHaveURL('/dashboard');
   await signOut(page);
 });
@@ -218,7 +219,7 @@ test('uses real admin data and audits suspend, restore, and session revocation',
     .fill('Confirmed account security review for the end-to-end test.');
   await page.getByRole('button', { name: 'Confirm Suspension' }).click();
   await expect(page.getByRole('button', { name: 'Restore Account' })).toBeVisible();
-  await expect(page.getByText('user.account_suspended', { exact: true })).toBeVisible();
+  await expect(page.getByText('user.account_suspended', { exact: true }).first()).toBeVisible();
 
   const managedContext = await browser.newContext({ baseURL: 'http://localhost:3100' });
   const managedPage = await managedContext.newPage();
@@ -241,22 +242,41 @@ test('uses real admin data and audits suspend, restore, and session revocation',
   await expect(page.getByText(/^\d+ sessions? revoked\.$/iu)).toBeVisible();
 
   await page.goto('/admin/audit?action=user.account_suspended');
-  await expect(page.getByText('user.account_suspended', { exact: true })).toBeVisible();
+  await expect(page.getByText('user.account_suspended', { exact: true }).first()).toBeVisible();
   await page.goto('/admin/security');
   await expect(page.getByRole('heading', { name: 'Security' })).toBeVisible();
   await expect(page.getByText('Admin bootstrap is disabled')).toBeVisible();
   await expectAxeClean(page);
 });
 
-test('loads database-backed pricing and an honest Activation Center', async ({ page }) => {
+test('keeps pricing on the landing page and an honest Activation Center', async ({ page }) => {
   await page.context().clearCookies();
   await page.goto('/pricing');
-  for (const name of ['Plus Monthly', 'Plus Annual', 'Pro Monthly', 'Pro Annual']) {
-    await expect(page.getByRole('heading', { name })).toBeVisible();
+  await expect(page).toHaveURL(/\/#pricing$/u);
+  for (const name of ['Plus', 'Pro']) {
+    await expect(page.getByRole('heading', { name, exact: true })).toBeVisible();
   }
-  await expect(page.getByText('₱499')).toBeVisible();
-  await expect(page.getByText('₱9,599')).toBeVisible();
-  await expect(page.getByText('Plan catalog is temporarily unavailable')).not.toBeVisible();
+  await expect(page.getByRole('link', { name: 'Start with Plus' })).toHaveAttribute(
+    'href',
+    '/register?plan=plus&billing=annual',
+  );
+  await expect(page.getByRole('link', { name: 'Start with Pro' })).toHaveAttribute(
+    'href',
+    '/register?plan=pro&billing=annual',
+  );
+
+  await page.getByRole('button', { name: 'Monthly', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Monthly', exact: true })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
+  await expect(page.locator('#pricing .billing-summary')).toHaveCount(0);
+  await expect(page.getByText('billed monthly', { exact: true })).toHaveCount(0);
+
+  await page.getByRole('link', { name: 'Start with Plus' }).click();
+  await expect(page).toHaveURL(/\/register\?plan=plus&billing=monthly$/u);
+  await expect(page.getByLabel('Plus plan selected')).toContainText('Selected plan');
+  await expect(page.getByLabel('Plus plan selected')).toContainText('₱499/month');
 
   await signIn(page, testAccounts.customer);
   await expect(page).toHaveURL('/dashboard');
@@ -264,6 +284,133 @@ test('loads database-backed pricing and an honest Activation Center', async ({ p
   await expect(page.getByText('Do not send payment yet')).toBeVisible();
   await expect(page.getByText('Annual savings')).toHaveCount(2);
   await expectAxeClean(page);
+});
+
+test('provides clear auth plan context and accessible password controls', async ({ page }) => {
+  await page.goto('/register?plan=pro&billing=annual');
+  const selectedPlan = page.getByLabel('Pro plan selected');
+  await expect(selectedPlan).toContainText('Selected plan');
+  await expect(selectedPlan).toContainText('₱9,599/year');
+  await expect(selectedPlan.getByRole('link', { name: 'Change' })).toHaveAttribute(
+    'href',
+    '/#pricing',
+  );
+
+  const password = page.locator('#registrationPassword');
+  const confirmation = page.locator('#passwordConfirmation');
+  await expect(page.getByText('Password requirements')).toHaveCount(0);
+  await password.fill('CareerReady7');
+  await expect(page.getByText('Password requirements')).toBeVisible();
+  await expect(page.getByText('At least 10 characters')).toBeVisible();
+  await expect(page.getByText('Includes a letter')).toBeVisible();
+  await expect(page.getByText('Includes a number')).toBeVisible();
+  await expect(page.getByText('Passwords match')).toBeVisible();
+  await confirmation.fill('CareerReady7');
+
+  const passwordToggle = page.getByRole('button', { name: 'Show password' });
+  await passwordToggle.click();
+  await expect(password).toHaveAttribute('type', 'text');
+  await expect(page.getByRole('button', { name: 'Hide password' })).toHaveAttribute(
+    'type',
+    'button',
+  );
+
+  await page.goto('/login');
+  const loginPassword = page.locator('#password');
+  await loginPassword.fill('Visible7Test');
+  await page.getByRole('button', { name: 'Show password' }).click();
+  await expect(loginPassword).toHaveAttribute('type', 'text');
+  await expect(page.getByRole('link', { name: 'Forgot password?' })).toHaveAttribute(
+    'href',
+    '/forgot-password',
+  );
+  await expect(page.getByRole('link', { name: 'Create an account' })).toHaveAttribute(
+    'href',
+    '/register',
+  );
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/register?plan=pro&billing=annual');
+  await expect(page.getByLabel('Pro plan selected')).toBeVisible();
+  await expect(page.getByLabel(/I agree to the Terms of Service/iu)).toBeVisible();
+  const firstNameBox = await page.getByLabel('First name').boundingBox();
+  const lastNameBox = await page.getByLabel('Last name').boundingBox();
+  expect(firstNameBox).not.toBeNull();
+  expect(lastNameBox).not.toBeNull();
+  expect((lastNameBox?.y ?? 0) > (firstNameBox?.y ?? 0)).toBe(true);
+});
+
+test('explains release status and provides keyboard previews and an accessible FAQ', async ({
+  page,
+}) => {
+  test.setTimeout(90_000);
+  await page.goto('/');
+  await expect(
+    page.getByRole('heading', { name: 'Your career radar never stops searching.' }),
+  ).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Create your account' })).toHaveAttribute(
+    'href',
+    '/register',
+  );
+  await expect(page.getByRole('link', { name: 'See how Hanaply works' })).toHaveAttribute(
+    'href',
+    '#how-it-works',
+  );
+  await expect(page.getByRole('link', { name: 'View build status' })).toHaveAttribute(
+    'href',
+    '#roadmap',
+  );
+  await expect(
+    page.getByRole('heading', {
+      name: 'One trusted profile. One clearer path from discovery to application.',
+    }),
+  ).toBeVisible();
+  await expect(page.getByText('Account foundation', { exact: true })).toBeVisible();
+  await expect(page.getByText('In development', { exact: true })).toBeVisible();
+  await expect(page.getByText('Career intelligence', { exact: true })).toBeVisible();
+  await expect(page.locator('.hero-visual > .preview-label')).toHaveText(
+    'Product preview · Demonstration data',
+  );
+
+  const previewTrigger = page.getByRole('button', { name: 'Enlarge Career Radar preview' });
+  await previewTrigger.focus();
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('dialog', { name: 'Career Radar' })).toBeVisible();
+  const previewAxe = await new AxeBuilder({ page }).include('[role="dialog"]').analyze();
+  expect(previewAxe.violations).toEqual([]);
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog', { name: 'Career Radar' })).toHaveCount(0);
+  await expect(previewTrigger).toBeFocused();
+
+  const faqQuestion = page.locator('.faq-list details').nth(1).locator('summary');
+  await faqQuestion.focus();
+  await page.keyboard.press('Enter');
+  await expect(page.getByText(/Hanaply will prepare materials for your review/iu)).toBeVisible();
+  await expect(
+    page.getByRole('heading', {
+      name: 'Build the Career Profile your next application can trust.',
+    }),
+  ).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Create your Hanaply account' })).toHaveAttribute(
+    'href',
+    '/register',
+  );
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/');
+  await page.evaluate(() => {
+    document.documentElement.style.scrollBehavior = 'auto';
+    document.querySelector('#career-radar')?.scrollIntoView({ block: 'start' });
+  });
+  await page.getByRole('button', { name: 'Enlarge Career Radar preview' }).click();
+  const dialogBox = await page.getByRole('dialog', { name: 'Career Radar' }).boundingBox();
+  const closeBox = await page.getByRole('button', { name: 'Close' }).boundingBox();
+  expect(dialogBox).not.toBeNull();
+  expect(closeBox).not.toBeNull();
+  expect((dialogBox?.x ?? -1) >= 0).toBe(true);
+  expect((dialogBox?.x ?? 0) + (dialogBox?.width ?? 1000) <= 390).toBe(true);
+  expect((closeBox?.x ?? 1000) + (closeBox?.width ?? 1000) <= 390).toBe(true);
+  await page.keyboard.press('Escape');
 });
 
 test('has no horizontal overflow on every required public and authentication route', async ({

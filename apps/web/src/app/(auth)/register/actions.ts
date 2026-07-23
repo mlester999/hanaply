@@ -39,8 +39,8 @@ export async function registerAction(
     email: formData.get('email'),
     password: formData.get('password'),
     passwordConfirmation: formData.get('passwordConfirmation'),
-    termsAccepted: checkbox(formData, 'termsAccepted'),
-    privacyAccepted: checkbox(formData, 'privacyAccepted'),
+    selectedPlanCode: formData.get('selectedPlanCode'),
+    legalAccepted: checkbox(formData, 'legalAccepted'),
     marketingConsent: checkbox(formData, 'marketingConsent'),
   });
   if (!parsed.success) {
@@ -76,6 +76,7 @@ export async function registerAction(
         privacy_accepted: true,
         privacy_version: legalPolicyVersions.privacy,
         marketing_consent: parsed.data.marketingConsent,
+        selected_plan_code: parsed.data.selectedPlanCode,
       },
     },
   });

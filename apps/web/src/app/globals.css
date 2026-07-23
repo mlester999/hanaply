@@ -113,6 +113,18 @@ a:hover {
   color: var(--hanaply-color-neutral-ink);
 }
 
+.brand-logo-image {
+  display: block;
+  width: auto;
+  height: 1.85rem;
+}
+
+.brand-logo-mark-image {
+  display: block;
+  width: 2rem;
+  height: 2rem;
+}
+
 .brand-logo-mark {
   display: grid;
   width: 2.25rem;
@@ -728,12 +740,16 @@ a:hover {
   color: var(--hanaply-color-neutral-surface);
 }
 
+.auth-brand-panel .brand-logo-image {
+  height: 2.15rem;
+}
+
 .auth-brand-copy {
   max-width: 34rem;
   margin-block: var(--hanaply-space-16);
 }
 
-.auth-brand-copy h1 {
+.auth-brand-copy h2 {
   margin: var(--hanaply-space-5) 0;
   font: var(--hanaply-font-weight-extrabold) clamp(2.3rem, 5vw, 4rem) / 1.05
     var(--hanaply-font-family-marketing);
@@ -744,6 +760,62 @@ a:hover {
   margin: 0;
   color: #b8c1d6;
   font-size: var(--hanaply-font-size-lg);
+  line-height: 1.65;
+}
+
+.auth-benefits {
+  display: grid;
+  gap: 0.65rem;
+  margin-top: var(--hanaply-space-8);
+}
+
+.auth-benefits > div {
+  display: grid;
+  grid-template-columns: 2.35rem minmax(0, 1fr);
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  border: 1px solid rgb(125 146 202 / 0.2);
+  border-radius: 0.75rem;
+  background: rgb(255 255 255 / 0.035);
+}
+
+.auth-benefits svg,
+.auth-login-signal svg {
+  color: var(--hanaply-color-brand-mint);
+}
+
+.auth-benefits > div > svg {
+  justify-self: center;
+}
+
+.auth-benefits span {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.auth-benefits strong {
+  color: #f7f9ff;
+  font-size: 0.85rem;
+}
+
+.auth-benefits small {
+  color: #95a3c0;
+  font-size: 0.75rem;
+  line-height: 1.45;
+}
+
+.auth-login-signal {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  margin-top: var(--hanaply-space-8);
+  padding: 0.8rem 0;
+  color: #aebbd4;
+  border-top: 1px solid rgb(125 146 202 / 0.2);
+  border-bottom: 1px solid rgb(125 146 202 / 0.2);
+  font-size: 0.82rem;
+  line-height: 1.5;
 }
 
 .auth-trust-note,
@@ -794,9 +866,174 @@ a:hover {
   justify-self: start;
 }
 
+.auth-card-kicker {
+  margin: 0;
+  color: var(--hanaply-color-brand-cobalt);
+  font-size: var(--hanaply-font-size-sm);
+  font-weight: var(--hanaply-font-weight-semibold);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.auth-plan-chip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--hanaply-space-3);
+  padding: 0.65rem 0.9rem;
+  border: 1px solid #d5ddff;
+  border-radius: 10px;
+  background: #f3f6ff;
+}
+
+.auth-plan-chip__eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-bottom: 0.1rem;
+  color: var(--hanaply-color-brand-cobalt);
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.auth-plan-chip__eyebrow::before {
+  content: '';
+  width: 0.35rem;
+  height: 0.35rem;
+  border-radius: 999px;
+  background: var(--hanaply-color-brand-cobalt);
+}
+
+.auth-plan-chip__main strong {
+  display: block;
+  color: var(--hanaply-color-neutral-ink);
+  font-size: 0.95rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+.auth-plan-chip__side {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-shrink: 0;
+}
+
+.auth-plan-chip__side > span {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.2rem;
+  color: var(--hanaply-color-neutral-ink);
+  font-size: 0.92rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+
+.auth-plan-chip__side small {
+  color: var(--hanaply-color-neutral-muted);
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+
+.auth-plan-chip__side a {
+  color: var(--hanaply-color-brand-cobalt);
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.auth-plan-chip__side a:hover {
+  text-decoration: underline;
+}
+
 .auth-form {
   display: grid;
   gap: var(--hanaply-space-5);
+}
+
+.password-input-shell {
+  position: relative;
+}
+
+.password-input-shell .h-input {
+  padding-right: 3.4rem;
+}
+
+.password-visibility-toggle {
+  position: absolute;
+  top: 50%;
+  right: 0.25rem;
+  width: 2.75rem;
+  height: 2.75rem;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  color: #596579;
+  background: transparent;
+  border: 0;
+  border-radius: 0.55rem;
+  cursor: pointer;
+  transform: translateY(-50%);
+}
+
+.password-visibility-toggle:hover {
+  color: var(--hanaply-color-brand-cobalt-deep);
+  background: #eef2ff;
+}
+
+.password-visibility-toggle:focus-visible {
+  outline: 2px solid var(--hanaply-color-brand-cobalt);
+  outline-offset: 1px;
+}
+
+.password-requirements {
+  display: grid;
+  gap: 0.5rem;
+  margin-top: 0.6rem;
+  padding: 0.75rem;
+  color: #667085;
+  background: #f7f9fc;
+  border: 1px solid #e0e5ed;
+  border-radius: 0.7rem;
+  font-size: 0.75rem;
+}
+
+.password-requirements > span {
+  color: #344054;
+  font-weight: 700;
+}
+
+.password-requirements ul {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.45rem 0.75rem;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.password-requirements li {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.password-requirements li svg {
+  flex: 0 0 auto;
+  color: #b54747;
+}
+
+.password-requirements li.is-met {
+  color: #126c5c;
+}
+
+.password-requirements li.is-met svg {
+  color: #168b77;
 }
 
 .auth-field-grid {
@@ -807,14 +1044,14 @@ a:hover {
 
 .auth-consents {
   display: grid;
-  gap: var(--hanaply-space-3);
+  gap: 0.45rem;
   padding: 0;
   margin: 0;
   border: 0;
 }
 
 .auth-consents legend {
-  margin-bottom: var(--hanaply-space-3);
+  margin-bottom: 0.35rem;
   color: var(--hanaply-color-neutral-ink);
   font-size: var(--hanaply-font-size-sm);
   font-weight: var(--hanaply-font-weight-semibold);
@@ -822,20 +1059,44 @@ a:hover {
 
 .auth-consents label {
   display: grid;
-  min-height: var(--hanaply-target-minimum);
   align-items: start;
-  grid-template-columns: 1.25rem minmax(0, 1fr);
-  gap: var(--hanaply-space-3);
+  grid-template-columns: 1.15rem minmax(0, 1fr);
+  gap: 0.65rem;
   color: var(--hanaply-color-neutral-muted);
   font-size: var(--hanaply-font-size-sm);
-  line-height: 1.5;
+  line-height: 1.35;
 }
 
-.auth-consents input {
+.auth-consents input[type='checkbox'] {
+  appearance: none;
   width: 1.15rem;
   height: 1.15rem;
   margin: 0.15rem 0 0;
-  accent-color: var(--hanaply-color-brand-cobalt);
+  border: 1.5px solid var(--hanaply-color-neutral-border);
+  border-radius: 0.3rem;
+  background: #fff;
+  color: #fff;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.auth-consents input[type='checkbox']:hover {
+  border-color: var(--hanaply-color-brand-cobalt);
+}
+
+.auth-consents input[type='checkbox']:focus-visible {
+  outline: 2px solid var(--hanaply-color-brand-cobalt);
+  outline-offset: 2px;
+}
+
+.auth-consents input[type='checkbox']:checked {
+  border-color: var(--hanaply-color-brand-cobalt);
+  background: var(--hanaply-color-brand-cobalt)
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23fff' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3.5 8.5 6.5 11.5 12.5 4.5'/%3E%3C/svg%3E")
+    center / 0.85rem no-repeat;
 }
 
 .auth-consent-error {
@@ -1699,16 +1960,47 @@ a:hover {
 
   .auth-brand-panel {
     min-height: auto;
-    padding-block: var(--hanaply-space-8);
+    padding: max(var(--hanaply-space-6), env(safe-area-inset-top)) var(--hanaply-space-6)
+      var(--hanaply-space-6);
   }
 
   .auth-brand-copy {
-    margin-block: var(--hanaply-space-12);
+    max-width: 34rem;
+    margin-block: var(--hanaply-space-8);
+  }
+
+  .auth-brand-copy h2 {
+    margin-block: var(--hanaply-space-4);
+    font-size: clamp(2.05rem, 8.5vw, 3rem);
+  }
+
+  .auth-brand-copy p {
+    font-size: 1rem;
+  }
+
+  .auth-benefits {
+    gap: 0.45rem;
+    margin-top: var(--hanaply-space-5);
+  }
+
+  .auth-benefits > div {
+    grid-template-columns: 1.8rem minmax(0, 1fr);
+    gap: 0.55rem;
+    padding: 0.5rem 0.65rem;
+  }
+
+  .auth-benefits small {
+    display: none;
+  }
+
+  .auth-login-signal {
+    margin-top: var(--hanaply-space-5);
   }
 
   .auth-content {
     min-height: auto;
-    padding-block: var(--hanaply-space-12);
+    padding: var(--hanaply-space-10) var(--hanaply-space-5)
+      max(var(--hanaply-space-10), env(safe-area-inset-bottom));
   }
 
   .security-grid,
@@ -1735,6 +2027,33 @@ a:hover {
 }
 
 @media (max-width: 640px) {
+  .auth-brand-panel {
+    padding: max(1.25rem, env(safe-area-inset-top)) 1.25rem 1.25rem;
+  }
+
+  .auth-brand-copy {
+    margin-block: 1.25rem;
+  }
+
+  .auth-brand-copy h2 {
+    margin-block: 0.8rem;
+    font-size: clamp(1.85rem, 8vw, 2.35rem);
+  }
+
+  .auth-brand-copy p {
+    font-size: 0.94rem;
+    line-height: 1.55;
+  }
+
+  .auth-benefits {
+    display: none;
+  }
+
+  .auth-trust-note {
+    font-size: 0.78rem;
+    line-height: 1.5;
+  }
+
   .marketing-header-inner,
   .marketing-footer-inner,
   .hero-inner,
@@ -1786,6 +2105,21 @@ a:hover {
 
   .auth-field-grid {
     grid-template-columns: 1fr;
+  }
+
+  .password-requirements ul {
+    grid-template-columns: 1fr;
+  }
+
+  .auth-plan-chip {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 0.45rem;
+  }
+
+  .auth-plan-chip__side {
+    width: 100%;
+    justify-content: space-between;
   }
 
   .app-topbar {

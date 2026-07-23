@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useActionState, useEffect } from 'react';
 
 import { loginAction, type LoginState } from '@/app/(auth)/login/actions';
+import { PasswordInput } from '@/components/password-input';
 
 const initialState: LoginState = { status: 'idle', message: null };
 
@@ -36,12 +37,12 @@ export function LoginForm({ nextPath, admin = false }: { nextPath?: string; admi
         />
       </FormField>
       <FormField id="password" label="Password" required>
-        <Input
+        <PasswordInput
           autoComplete="current-password"
+          fieldLabel="Password"
           id="password"
           name="password"
           required
-          type="password"
         />
       </FormField>
       <Button
@@ -50,7 +51,7 @@ export function LoginForm({ nextPath, admin = false }: { nextPath?: string; admi
         loading={pending}
         type="submit"
       >
-        {admin ? 'Continue to Admin' : 'Sign In Securely'}
+        {admin ? 'Continue to Admin' : 'Sign in'}
       </Button>
       {!admin ? (
         <div className="auth-form-links">

@@ -14,6 +14,7 @@ export interface DialogProps extends ComponentPropsWithoutRef<typeof DialogPrimi
   children: ReactNode;
   footer?: ReactNode;
   variant?: 'dialog' | 'drawer';
+  contentClassName?: string;
 }
 
 export function Dialog({
@@ -23,6 +24,7 @@ export function Dialog({
   children,
   footer,
   variant = 'dialog',
+  contentClassName,
   ...props
 }: DialogProps) {
   return (
@@ -31,7 +33,11 @@ export function Dialog({
       <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay className="h-dialog-overlay" />
         <DialogPrimitive.Content
-          className={cn('h-dialog-content', variant === 'drawer' && 'h-dialog-content--drawer')}
+          className={cn(
+            'h-dialog-content',
+            variant === 'drawer' && 'h-dialog-content--drawer',
+            contentClassName,
+          )}
         >
           <div className="h-dialog-header">
             <div>

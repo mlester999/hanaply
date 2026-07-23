@@ -1,7 +1,7 @@
 'use client';
 
-import { Alert, Button, FormField, Input } from '@hanaply/ui';
-import { useActionState } from 'react';
+import { Alert, Button, FormField } from '@hanaply/ui';
+import { useActionState, useState } from 'react';
 
 import { logout } from '@/app/actions/auth';
 import {
@@ -9,11 +9,15 @@ import {
   revokeOtherSessionsAction,
   type SecurityActionState,
 } from '@/app/(customer)/dashboard/settings/security/actions';
+import { PasswordInput, PasswordRequirements } from '@/components/password-input';
 
 const initialState: SecurityActionState = { status: 'idle', message: null };
 
 export function PasswordChangeForm() {
   const [state, action, pending] = useActionState(changePasswordAction, initialState);
+  const [password, setPassword] = useState('');
+  const [confirmation, setConfirmation] = useState('');
+  const requirementsVisible = password.length > 0 || confirmation.length > 0;
   return (
     <form action={action} className="settings-form security-form" noValidate>
       {state.message ? (
@@ -26,43 +30,52 @@ export function PasswordChangeForm() {
         </Alert>
       ) : null}
       <FormField id="currentPassword" label="Current password" required>
-        <Input
+        <PasswordInput
           autoComplete="current-password"
+          fieldLabel="Current password"
           id="currentPassword"
           maxLength={128}
           name="currentPassword"
           required
-          type="password"
         />
       </FormField>
       <div className="settings-form-grid">
-        <FormField
-          hint="At least 10 characters with a letter and number."
-          id="securityNewPassword"
-          label="New password"
-          required
-        >
-          <Input
+        <FormField id="securityNewPassword" label="New password" required>
+          <PasswordInput
+            aria-describedby={requirementsVisible ? 'securityPassword-requirements' : undefined}
             autoComplete="new-password"
+            fieldLabel="New password"
             id="securityNewPassword"
             maxLength={128}
             minLength={10}
             name="password"
+            onChange={(event) => {
+              setPassword(event.currentTarget.value);
+            }}
             required
-            type="password"
           />
         </FormField>
         <FormField id="securityPasswordConfirmation" label="Confirm new password" required>
-          <Input
+          <PasswordInput
+            aria-describedby={requirementsVisible ? 'securityPassword-requirements' : undefined}
             autoComplete="new-password"
+            fieldLabel="Confirm new password"
             id="securityPasswordConfirmation"
             maxLength={128}
             name="passwordConfirmation"
+            onChange={(event) => {
+              setConfirmation(event.currentTarget.value);
+            }}
             required
-            type="password"
           />
         </FormField>
       </div>
+      <PasswordRequirements
+        confirmation={confirmation}
+        id="securityPassword-requirements"
+        password={password}
+        showMatch
+      />
       <Button loading={pending} type="submit">
         Change Password
       </Button>

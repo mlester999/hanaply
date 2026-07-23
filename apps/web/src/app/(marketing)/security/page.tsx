@@ -32,7 +32,7 @@ export default function SecurityPage() {
     <section className="page-section">
       <div className="page-container">
         <header className="centered-heading">
-          <Badge tone="success">Security foundation</Badge>
+          <Badge tone="success">Security at Hanaply</Badge>
           <h1>Trust is designed into every boundary.</h1>
           <p>
             Hanaply uses layered controls. No single middleware, token, or hidden menu is treated as
@@ -54,8 +54,8 @@ export default function SecurityPage() {
         <div className="security-disclosure">
           <h2>Responsible disclosure</h2>
           <p>
-            A monitored security contact and response policy must be configured by the owner before
-            public launch. Do not include sensitive exploit details in general support requests.
+            A dedicated security contact and response policy will be published before public launch.
+            Do not include sensitive exploit details in general support requests.
           </p>
         </div>
       </div>

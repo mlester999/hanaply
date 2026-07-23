@@ -7,6 +7,7 @@ import { readLocalSupabaseEnvironment } from './local-supabase.js';
 interface AuthUser {
   id: string;
   email?: string;
+  user_metadata?: Record<string, unknown>;
 }
 
 const environment = readLocalSupabaseEnvironment();

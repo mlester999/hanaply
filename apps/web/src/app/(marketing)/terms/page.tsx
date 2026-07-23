@@ -8,9 +8,9 @@ export default function TermsPage() {
     <section className="legal-page page-section">
       <div className="legal-container">
         <span className="h-eyebrow">Terms</span>
-        <h1>Terms foundation</h1>
-        <Alert title="Owner review required" tone="warning">
-          This engineering draft is not a binding agreement. Approved terms are required before
+        <h1>Terms of use</h1>
+        <Alert title="Terms in review" tone="warning">
+          These preview terms are not yet a binding agreement. Final terms will be published before
           public registration opens.
         </Alert>
         <h2>User review remains required</h2>
@@ -25,8 +25,8 @@ export default function TermsPage() {
         </p>
         <h2>Service availability</h2>
         <p>
-          Plan limits, support commitments, billing terms, cancellation rules, and dispute language
-          must be approved before launch.
+          Plan limits, support commitments, billing terms, cancellation rules, and dispute details
+          will be published before launch.
         </p>
       </div>
     </section>

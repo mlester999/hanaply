@@ -2,9 +2,10 @@
 
 import { Alert, Button, FormField, Input } from '@hanaply/ui';
 import Link from 'next/link';
-import { useActionState } from 'react';
+import { useActionState, useState } from 'react';
 
 import { registerAction, type RegistrationState } from '@/app/(auth)/register/actions';
+import { PasswordInput, PasswordRequirements } from '@/components/password-input';
 
 const initialRegistrationState: RegistrationState = {
   status: 'idle',
@@ -19,10 +20,24 @@ function firstError(
   return errors[field]?.[0];
 }
 
-export function RegistrationForm() {
+export function RegistrationForm({ selectedPlanCode }: { selectedPlanCode?: string }) {
   const [state, action, pending] = useActionState(registerAction, initialRegistrationState);
+  const [password, setPassword] = useState('');
+  const [passwordConfirmation, setPasswordConfirmation] = useState('');
+  const passwordError = firstError(state.fieldErrors, 'password');
+  const confirmationError = firstError(state.fieldErrors, 'passwordConfirmation');
+  const requirementsVisible = password.length > 0 || passwordConfirmation.length > 0;
+  const passwordDescribedBy = [
+    passwordError ? 'registrationPassword-error' : null,
+    requirementsVisible ? 'registrationPassword-requirements' : null,
+  ]
+    .filter(Boolean)
+    .join(' ');
   return (
     <form action={action} className="auth-form" noValidate>
+      {selectedPlanCode ? (
+        <input name="selectedPlanCode" type="hidden" value={selectedPlanCode} />
+      ) : null}
       {state.status === 'error' && state.message ? (
         <Alert aria-live="polite" title="Registration was not completed" tone="danger">
           {state.message}
@@ -86,70 +101,67 @@ export function RegistrationForm() {
           type="email"
         />
       </FormField>
-      <FormField
-        error={firstError(state.fieldErrors, 'password')}
-        hint="Use at least 10 characters with a letter and a number."
-        id="registrationPassword"
-        label="Password"
-        required
-      >
-        <Input
-          aria-describedby={
-            firstError(state.fieldErrors, 'password') ? 'registrationPassword-error' : undefined
-          }
-          aria-invalid={Boolean(firstError(state.fieldErrors, 'password'))}
+      <FormField error={passwordError} id="registrationPassword" label="Password" required>
+        <PasswordInput
+          aria-describedby={passwordDescribedBy || undefined}
+          aria-invalid={Boolean(passwordError)}
           autoComplete="new-password"
+          fieldLabel="Password"
           id="registrationPassword"
           maxLength={128}
           minLength={10}
           name="password"
+          onChange={(event) => {
+            setPassword(event.currentTarget.value);
+          }}
           required
-          type="password"
         />
       </FormField>
       <FormField
-        error={firstError(state.fieldErrors, 'passwordConfirmation')}
+        error={confirmationError}
         id="passwordConfirmation"
         label="Confirm password"
         required
       >
-        <Input
+        <PasswordInput
           aria-describedby={
-            firstError(state.fieldErrors, 'passwordConfirmation')
-              ? 'passwordConfirmation-error'
-              : undefined
+            [
+              confirmationError ? 'passwordConfirmation-error' : null,
+              requirementsVisible ? 'registrationPassword-requirements' : null,
+            ]
+              .filter(Boolean)
+              .join(' ') || undefined
           }
-          aria-invalid={Boolean(firstError(state.fieldErrors, 'passwordConfirmation'))}
+          aria-invalid={Boolean(confirmationError)}
           autoComplete="new-password"
+          fieldLabel="Confirm password"
           id="passwordConfirmation"
           maxLength={128}
           name="passwordConfirmation"
+          onChange={(event) => {
+            setPasswordConfirmation(event.currentTarget.value);
+          }}
           required
-          type="password"
         />
       </FormField>
+      <PasswordRequirements
+        confirmation={passwordConfirmation}
+        id="registrationPassword-requirements"
+        password={password}
+        showMatch
+      />
       <fieldset className="auth-consents">
         <legend>Agreements and consent</legend>
         <label>
-          <input name="termsAccepted" required type="checkbox" />
+          <input name="legalAccepted" required type="checkbox" />
           <span>
-            I agree to the <Link href="/terms">Terms of Service</Link>.
+            I agree to the <Link href="/terms">Terms of Service</Link> and{' '}
+            <Link href="/privacy">Privacy Policy</Link>.
           </span>
         </label>
-        {firstError(state.fieldErrors, 'termsAccepted') ? (
+        {firstError(state.fieldErrors, 'legalAccepted') ? (
           <span className="auth-consent-error" role="alert">
-            {firstError(state.fieldErrors, 'termsAccepted')}
-          </span>
-        ) : null}
-        <label>
-          <input name="privacyAccepted" required type="checkbox" />
-          <span>
-            I agree to the <Link href="/privacy">Privacy Policy</Link>.
-          </span>
-        </label>
-        {firstError(state.fieldErrors, 'privacyAccepted') ? (
-          <span className="auth-consent-error" role="alert">
-            {firstError(state.fieldErrors, 'privacyAccepted')}
+            {firstError(state.fieldErrors, 'legalAccepted')}
           </span>
         ) : null}
         <label>
@@ -158,7 +170,7 @@ export function RegistrationForm() {
         </label>
       </fieldset>
       <Button block loading={pending} type="submit">
-        Create My Account
+        Create my account
       </Button>
       <p className="auth-form-footnote">
         Already registered? <Link href="/login">Sign in</Link>

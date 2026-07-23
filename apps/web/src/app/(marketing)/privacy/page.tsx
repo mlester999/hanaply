@@ -8,9 +8,10 @@ export default function PrivacyPage() {
     <section className="legal-page page-section">
       <div className="legal-container">
         <span className="h-eyebrow">Privacy</span>
-        <h1>Privacy foundation</h1>
-        <Alert title="Owner review required" tone="warning">
-          This page is a product and engineering draft. It is not a final legal privacy notice.
+        <h1>Privacy at Hanaply</h1>
+        <Alert title="Privacy notice in review" tone="warning">
+          This preview explains Hanaply’s intended privacy approach. Final legal terms will be
+          published before public registration.
         </Alert>
         <h2>Data minimization</h2>
         <p>
@@ -19,12 +20,12 @@ export default function PrivacyPage() {
         </p>
         <h2>Access boundaries</h2>
         <p>
-          User data is isolated with database Row Level Security, server-side authorization, and
-          explicit administrator permissions. Service credentials never belong in browser code.
+          Career information is private by default and access is limited to the account holder and
+          specifically authorized support operations.
         </p>
         <h2>Retention and deletion</h2>
         <p>
-          Final retention, account deletion, export, and regulatory language must be approved before
+          Final retention, account deletion, export, and regulatory details will be published before
           public launch.
         </p>
       </div>

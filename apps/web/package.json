@@ -10,6 +10,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@react-three/drei": "10.7.7",
+    "@react-three/fiber": "9.6.1",
     "@hanaply/auth": "workspace:*",
     "@hanaply/config": "workspace:*",
     "@hanaply/contracts": "workspace:*",
@@ -18,13 +20,16 @@
     "@supabase/ssr": "catalog:",
     "@supabase/supabase-js": "catalog:",
     "lucide-react": "catalog:",
+    "motion": "12.42.2",
     "next": "catalog:",
     "react": "catalog:",
-    "react-dom": "catalog:"
+    "react-dom": "catalog:",
+    "three": "0.185.1"
   },
   "devDependencies": {
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
+    "@types/three": "0.185.1",
     "typescript": "6.0.3"
   }
 }

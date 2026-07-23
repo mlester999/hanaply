@@ -53,6 +53,11 @@ export const passwordSchema = z
     'Password cannot contain control characters.',
   );
 
+export const selectedPlanCodeSchema = z.preprocess(
+  (value) => (typeof value === 'string' && value.length > 0 ? value : null),
+  z.enum(['plus_monthly', 'plus_annual', 'pro_monthly', 'pro_annual']).nullable(),
+);
+
 const personNameSchema = z
   .string()
   .trim()
@@ -97,8 +102,8 @@ export const registrationSchema = z
     email: normalizedEmailSchema,
     password: passwordSchema,
     passwordConfirmation: z.string(),
-    termsAccepted: z.boolean(),
-    privacyAccepted: z.boolean(),
+    selectedPlanCode: selectedPlanCodeSchema.default(null),
+    legalAccepted: z.boolean(),
     marketingConsent: z.boolean().default(false),
   })
   .superRefine((value, context) => {
@@ -109,18 +114,11 @@ export const registrationSchema = z
         message: 'Passwords must match.',
       });
     }
-    if (!value.termsAccepted) {
+    if (!value.legalAccepted) {
       context.addIssue({
         code: 'custom',
-        path: ['termsAccepted'],
-        message: 'You must agree to the Terms of Service.',
-      });
-    }
-    if (!value.privacyAccepted) {
-      context.addIssue({
-        code: 'custom',
-        path: ['privacyAccepted'],
-        message: 'You must agree to the Privacy Policy.',
+        path: ['legalAccepted'],
+        message: 'You must agree to the Terms of Service and Privacy Policy.',
       });
     }
   });

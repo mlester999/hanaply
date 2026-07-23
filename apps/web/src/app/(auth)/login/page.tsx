@@ -13,9 +13,9 @@ export default async function LoginPage({
   const { next, loggedOut, password, error } = await searchParams;
   return (
     <div className="auth-card">
-      <Badge tone="brand">Customer access</Badge>
-      <h1>Welcome back.</h1>
-      <p>Sign in to continue to your protected Hanaply workspace.</p>
+      <Badge tone="brand">Account access</Badge>
+      <h1>Sign in</h1>
+      <p>Continue to your Hanaply account.</p>
       {password === 'changed' ? (
         <Alert title="Password changed" tone="success">
           Sign in with your new password. Other sessions were revoked.

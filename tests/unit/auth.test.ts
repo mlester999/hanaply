@@ -87,19 +87,24 @@ describe('Phase 1 authentication validation', () => {
     ).toBe(false);
   });
 
-  it('requires matching passwords and both legal agreements', () => {
+  it('requires matching passwords and legal agreements', () => {
     const input = {
       firstName: 'Ana',
       lastName: 'Reyes',
       email: 'ANA@EXAMPLE.COM',
       password: 'CareerReady7',
       passwordConfirmation: 'CareerReady7',
-      termsAccepted: true,
-      privacyAccepted: true,
+      legalAccepted: true,
       marketingConsent: false,
     };
     expect(registrationSchema.parse(input).email).toBe('ana@example.com');
-    expect(registrationSchema.safeParse({ ...input, termsAccepted: false }).success).toBe(false);
+    expect(
+      registrationSchema.parse({ ...input, selectedPlanCode: 'pro_annual' }).selectedPlanCode,
+    ).toBe('pro_annual');
+    expect(
+      registrationSchema.safeParse({ ...input, selectedPlanCode: 'invented_plan' }).success,
+    ).toBe(false);
+    expect(registrationSchema.safeParse({ ...input, legalAccepted: false }).success).toBe(false);
     expect(
       registrationSchema.safeParse({ ...input, passwordConfirmation: 'Different7' }).success,
     ).toBe(false);

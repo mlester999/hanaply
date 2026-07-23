@@ -6,6 +6,8 @@ import type { Metadata, Viewport } from 'next';
 import { Inter, Manrope } from 'next/font/google';
 import type { ReactNode } from 'react';
 
+import { SkipLink } from '@/components/skip-link';
+
 const inter = Inter({
   subsets: ['latin'],
   variable: '--font-inter',
@@ -47,9 +49,7 @@ export default function RootLayout({ children }: Readonly<{ children: ReactNode 
       lang="en-PH"
     >
       <body>
-        <a className="skip-link" href="#main-content">
-          Skip to main content
-        </a>
+        <SkipLink />
         {children}
       </body>
     </html>

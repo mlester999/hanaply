@@ -10,6 +10,7 @@ const nextConfig: NextConfig = {
   output: 'standalone',
   reactStrictMode: true,
   poweredByHeader: false,
+  devIndicators: false,
   logging: {
     incomingRequests: { ignore: [/\/auth\/callback/u] },
     serverFunctions: false,
