@@ -79,6 +79,32 @@ export function createApiClient(options: ApiClientOptions) {
     return route.response.parse(body) as ParsedRouteResponse<TRoute>;
   }
 
+  async function upload<TRoute extends ApiContractRoute>(
+    route: TRoute,
+    file: Blob,
+    uploadOptions: { params: Record<string, string>; filename: string; signal?: AbortSignal },
+  ): Promise<ParsedRouteResponse<TRoute>> {
+    const path = addParams(route.path, uploadOptions.params);
+    if (path.includes('{')) throw new TypeError(`Missing path parameter for ${route.path}`);
+    const url = new URL(path.replace(/^\//u, ''), baseUrl);
+    const token = await options.getAccessToken?.();
+    const headers = new Headers({ Accept: 'application/json' });
+    if (token) headers.set('Authorization', `Bearer ${token}`);
+    const form = new FormData();
+    form.set('file', file, uploadOptions.filename);
+    const response = await fetchImplementation(url, {
+      method: route.method,
+      headers,
+      body: form,
+      ...(uploadOptions.signal ? { signal: uploadOptions.signal } : {}),
+    });
+    const body: unknown = await response.json();
+    if (!response.ok) {
+      throw new HanaplyApiError(response.status, apiErrorEnvelopeSchema.parse(body));
+    }
+    return route.response.parse(body) as ParsedRouteResponse<TRoute>;
+  }
+
   return Object.freeze({
     request,
     health: () => request(apiContract.health),
@@ -87,6 +113,7 @@ export function createApiClient(options: ApiClientOptions) {
     meta: (query?: z.input<typeof apiContract.meta.query>) =>
       query ? request(apiContract.meta, { query: { ...query } }) : request(apiContract.meta),
     plans: () => request(apiContract.plans),
+    paymentMethods: () => request(apiContract.paymentMethods),
     me: () => request(apiContract.me),
     updateMe: (body: z.input<typeof apiContract.updateMe.body>) =>
       request(apiContract.updateMe, { body }),
@@ -96,6 +123,39 @@ export function createApiClient(options: ApiClientOptions) {
     sessions: () => request(apiContract.sessions),
     revokeOtherSessions: () => request(apiContract.revokeOtherSessions),
     entitlements: () => request(apiContract.entitlements),
+    mySubscription: () => request(apiContract.mySubscription),
+    myPaymentSubmissions: (query?: z.input<typeof apiContract.myPaymentSubmissions.query>) =>
+      query
+        ? request(apiContract.myPaymentSubmissions, { query: { ...query } })
+        : request(apiContract.myPaymentSubmissions),
+    createPaymentSubmission: (body: z.input<typeof apiContract.createPaymentSubmission.body>) =>
+      request(apiContract.createPaymentSubmission, { body }),
+    myPaymentSubmission: (submissionId: string) =>
+      request(apiContract.myPaymentSubmission, { params: { submissionId } }),
+    updatePaymentSubmission: (
+      submissionId: string,
+      body: z.input<typeof apiContract.updatePaymentSubmission.body>,
+    ) => request(apiContract.updatePaymentSubmission, { params: { submissionId }, body }),
+    deletePaymentDraft: (
+      submissionId: string,
+      body: z.input<typeof apiContract.deletePaymentDraft.body>,
+    ) => request(apiContract.deletePaymentDraft, { params: { submissionId }, body }),
+    uploadPaymentProof: (submissionId: string, file: Blob, filename: string) =>
+      upload(apiContract.uploadPaymentProof, file, { params: { submissionId }, filename }),
+    myPaymentProofAccess: (submissionId: string) =>
+      request(apiContract.myPaymentProofAccess, { params: { submissionId } }),
+    submitPaymentSubmission: (
+      submissionId: string,
+      body: z.input<typeof apiContract.submitPaymentSubmission.body>,
+    ) => request(apiContract.submitPaymentSubmission, { params: { submissionId }, body }),
+    cancelPaymentSubmission: (
+      submissionId: string,
+      body: z.input<typeof apiContract.cancelPaymentSubmission.body>,
+    ) => request(apiContract.cancelPaymentSubmission, { params: { submissionId }, body }),
+    resubmitPaymentSubmission: (
+      submissionId: string,
+      body: z.input<typeof apiContract.resubmitPaymentSubmission.body>,
+    ) => request(apiContract.resubmitPaymentSubmission, { params: { submissionId }, body }),
     adminMe: () => request(apiContract.adminMe),
     adminOverview: () => request(apiContract.adminOverview),
     adminUsers: (query?: z.input<typeof apiContract.adminUsers.query>) =>
@@ -115,6 +175,74 @@ export function createApiClient(options: ApiClientOptions) {
       query
         ? request(apiContract.adminAudit, { query: { ...query } })
         : request(apiContract.adminAudit),
+    adminPaymentMethods: () => request(apiContract.adminPaymentMethods),
+    createAdminPaymentMethod: (body: z.input<typeof apiContract.createAdminPaymentMethod.body>) =>
+      request(apiContract.createAdminPaymentMethod, { body }),
+    adminPaymentMethod: (paymentMethodId: string) =>
+      request(apiContract.adminPaymentMethod, { params: { paymentMethodId } }),
+    updateAdminPaymentMethod: (
+      paymentMethodId: string,
+      body: z.input<typeof apiContract.updateAdminPaymentMethod.body>,
+    ) => request(apiContract.updateAdminPaymentMethod, { params: { paymentMethodId }, body }),
+    enableAdminPaymentMethod: (
+      paymentMethodId: string,
+      body: z.input<typeof apiContract.enableAdminPaymentMethod.body>,
+    ) => request(apiContract.enableAdminPaymentMethod, { params: { paymentMethodId }, body }),
+    disableAdminPaymentMethod: (
+      paymentMethodId: string,
+      body: z.input<typeof apiContract.disableAdminPaymentMethod.body>,
+    ) => request(apiContract.disableAdminPaymentMethod, { params: { paymentMethodId }, body }),
+    archiveAdminPaymentMethod: (
+      paymentMethodId: string,
+      body: z.input<typeof apiContract.archiveAdminPaymentMethod.body>,
+    ) => request(apiContract.archiveAdminPaymentMethod, { params: { paymentMethodId }, body }),
+    uploadAdminPaymentMethodQr: (paymentMethodId: string, file: Blob, filename: string) =>
+      upload(apiContract.uploadAdminPaymentMethodQr, file, {
+        params: { paymentMethodId },
+        filename,
+      }),
+    adminPaymentSubmissions: (query?: z.input<typeof apiContract.adminPaymentSubmissions.query>) =>
+      query
+        ? request(apiContract.adminPaymentSubmissions, { query: { ...query } })
+        : request(apiContract.adminPaymentSubmissions),
+    adminPaymentSubmission: (submissionId: string) =>
+      request(apiContract.adminPaymentSubmission, { params: { submissionId } }),
+    adminPaymentProofAccess: (submissionId: string) =>
+      request(apiContract.adminPaymentProofAccess, { params: { submissionId } }),
+    startPaymentReview: (
+      submissionId: string,
+      body: z.input<typeof apiContract.startPaymentReview.body>,
+    ) => request(apiContract.startPaymentReview, { params: { submissionId }, body }),
+    requestPaymentInformation: (
+      submissionId: string,
+      body: z.input<typeof apiContract.requestPaymentInformation.body>,
+    ) => request(apiContract.requestPaymentInformation, { params: { submissionId }, body }),
+    approvePaymentSubmission: (
+      submissionId: string,
+      body: z.input<typeof apiContract.approvePaymentSubmission.body>,
+    ) => request(apiContract.approvePaymentSubmission, { params: { submissionId }, body }),
+    rejectPaymentSubmission: (
+      submissionId: string,
+      body: z.input<typeof apiContract.rejectPaymentSubmission.body>,
+    ) => request(apiContract.rejectPaymentSubmission, { params: { submissionId }, body }),
+    recordPaymentRefund: (
+      submissionId: string,
+      body: z.input<typeof apiContract.recordPaymentRefund.body>,
+    ) => request(apiContract.recordPaymentRefund, { params: { submissionId }, body }),
+    reversePaymentApproval: (
+      submissionId: string,
+      body: z.input<typeof apiContract.reversePaymentApproval.body>,
+    ) => request(apiContract.reversePaymentApproval, { params: { submissionId }, body }),
+    adminSubscriptions: (query?: z.input<typeof apiContract.adminSubscriptions.query>) =>
+      query
+        ? request(apiContract.adminSubscriptions, { query: { ...query } })
+        : request(apiContract.adminSubscriptions),
+    adminSubscription: (subscriptionId: string) =>
+      request(apiContract.adminSubscription, { params: { subscriptionId } }),
+    correctAdminSubscription: (
+      subscriptionId: string,
+      body: z.input<typeof apiContract.correctAdminSubscription.body>,
+    ) => request(apiContract.correctAdminSubscription, { params: { subscriptionId }, body }),
     adminSecurity: () => request(apiContract.adminSecurity),
   });
 }

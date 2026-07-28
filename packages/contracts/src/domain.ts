@@ -4,9 +4,12 @@ export const billingPeriodSchema = z.enum(['monthly', 'annual']);
 export const subscriptionStatusSchema = z.enum([
   'pending_activation',
   'active',
+  'grace_period',
   'expired',
   'cancelled',
   'suspended',
+  'refunded',
+  'reversed',
 ]);
 export const accountStatusSchema = z.enum(['active', 'suspended', 'disabled', 'pending_deletion']);
 export const platformSchema = z.enum(['web', 'ios', 'android']);
