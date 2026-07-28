@@ -55,7 +55,15 @@ export const denyByDefaultEntitlements: Readonly<Record<EntitlementKey, Entitlem
 
 export interface SubscriptionSnapshot {
   planCode: string;
-  status: 'pending_activation' | 'active' | 'expired' | 'cancelled' | 'suspended';
+  status:
+    | 'pending_activation'
+    | 'active'
+    | 'grace_period'
+    | 'expired'
+    | 'cancelled'
+    | 'suspended'
+    | 'refunded'
+    | 'reversed';
   startsAt: string | Date;
   endsAt: string | Date | null;
 }

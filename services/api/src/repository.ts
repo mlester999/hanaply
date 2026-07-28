@@ -410,7 +410,9 @@ export class HanaplyRepository {
     );
     const result = await client
       .from('subscriptions')
-      .select('id, user_id, plan_id, status, starts_at, ends_at, source, created_at, updated_at')
+      .select(
+        'id, user_id, plan_id, status, starts_at, ends_at, source, version, created_at, updated_at',
+      )
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
       .limit(1)

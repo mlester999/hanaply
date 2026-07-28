@@ -423,6 +423,73 @@ export type Database = {
         }
         Relationships: []
       }
+      entitlement_events: {
+        Row: {
+          actor_user_id: string | null
+          created_at: string
+          effective_at: string
+          event_type: string
+          id: string
+          new_state: Json
+          payment_submission_id: string | null
+          plan_id: string
+          previous_state: Json
+          request_id: string | null
+          subscription_id: string
+          user_id: string
+        }
+        Insert: {
+          actor_user_id?: string | null
+          created_at?: string
+          effective_at: string
+          event_type: string
+          id?: string
+          new_state?: Json
+          payment_submission_id?: string | null
+          plan_id: string
+          previous_state?: Json
+          request_id?: string | null
+          subscription_id: string
+          user_id: string
+        }
+        Update: {
+          actor_user_id?: string | null
+          created_at?: string
+          effective_at?: string
+          event_type?: string
+          id?: string
+          new_state?: Json
+          payment_submission_id?: string | null
+          plan_id?: string
+          previous_state?: Json
+          request_id?: string | null
+          subscription_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "entitlement_events_payment_submission_id_fkey"
+            columns: ["payment_submission_id"]
+            isOneToOne: false
+            referencedRelation: "payment_submissions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "entitlement_events_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "entitlement_events_subscription_id_fkey"
+            columns: ["subscription_id"]
+            isOneToOne: false
+            referencedRelation: "subscriptions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       feature_flag_rules: {
         Row: {
           created_at: string
@@ -503,6 +570,615 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      payment_method_versions: {
+        Row: {
+          change_type: string
+          changed_by: string | null
+          created_at: string
+          id: string
+          payment_method_id: string
+          request_id: string | null
+          snapshot: Json
+          version: number
+        }
+        Insert: {
+          change_type: string
+          changed_by?: string | null
+          created_at?: string
+          id?: string
+          payment_method_id: string
+          request_id?: string | null
+          snapshot: Json
+          version: number
+        }
+        Update: {
+          change_type?: string
+          changed_by?: string | null
+          created_at?: string
+          id?: string
+          payment_method_id?: string
+          request_id?: string | null
+          snapshot?: Json
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_method_versions_payment_method_id_fkey"
+            columns: ["payment_method_id"]
+            isOneToOne: false
+            referencedRelation: "payment_methods"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payment_methods: {
+        Row: {
+          account_holder_name: string | null
+          account_identifier: string | null
+          archived_at: string | null
+          bank_name: string | null
+          branch_details: string | null
+          created_at: string
+          created_by: string | null
+          currency: string
+          display_name: string
+          display_order: number
+          effective_end_at: string | null
+          effective_start_at: string | null
+          enabled: boolean
+          id: string
+          maximum_amount_minor: number | null
+          method_type: Database["public"]["Enums"]["payment_method_type"]
+          minimum_amount_minor: number | null
+          private_notes: string | null
+          public_instructions: string
+          public_notes: string | null
+          qr_checksum_sha256: string | null
+          qr_height: number | null
+          qr_mime_type: string | null
+          qr_object_path: string | null
+          qr_size_bytes: number | null
+          qr_version: number
+          qr_width: number | null
+          updated_at: string
+          updated_by: string | null
+          version: number
+        }
+        Insert: {
+          account_holder_name?: string | null
+          account_identifier?: string | null
+          archived_at?: string | null
+          bank_name?: string | null
+          branch_details?: string | null
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          display_name: string
+          display_order?: number
+          effective_end_at?: string | null
+          effective_start_at?: string | null
+          enabled?: boolean
+          id?: string
+          maximum_amount_minor?: number | null
+          method_type: Database["public"]["Enums"]["payment_method_type"]
+          minimum_amount_minor?: number | null
+          private_notes?: string | null
+          public_instructions: string
+          public_notes?: string | null
+          qr_checksum_sha256?: string | null
+          qr_height?: number | null
+          qr_mime_type?: string | null
+          qr_object_path?: string | null
+          qr_size_bytes?: number | null
+          qr_version?: number
+          qr_width?: number | null
+          updated_at?: string
+          updated_by?: string | null
+          version?: number
+        }
+        Update: {
+          account_holder_name?: string | null
+          account_identifier?: string | null
+          archived_at?: string | null
+          bank_name?: string | null
+          branch_details?: string | null
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          display_name?: string
+          display_order?: number
+          effective_end_at?: string | null
+          effective_start_at?: string | null
+          enabled?: boolean
+          id?: string
+          maximum_amount_minor?: number | null
+          method_type?: Database["public"]["Enums"]["payment_method_type"]
+          minimum_amount_minor?: number | null
+          private_notes?: string | null
+          public_instructions?: string
+          public_notes?: string | null
+          qr_checksum_sha256?: string | null
+          qr_height?: number | null
+          qr_mime_type?: string | null
+          qr_object_path?: string | null
+          qr_size_bytes?: number | null
+          qr_version?: number
+          qr_width?: number | null
+          updated_at?: string
+          updated_by?: string | null
+          version?: number
+        }
+        Relationships: []
+      }
+      payment_notifications: {
+        Row: {
+          attempts: number
+          created_at: string
+          failure_code: string | null
+          id: string
+          idempotency_key: string
+          payment_submission_id: string | null
+          provider_message_id: string | null
+          status: string
+          subscription_id: string | null
+          template_id: string
+          template_version: string
+          updated_at: string
+          user_id: string
+          variables: Json
+        }
+        Insert: {
+          attempts?: number
+          created_at?: string
+          failure_code?: string | null
+          id?: string
+          idempotency_key: string
+          payment_submission_id?: string | null
+          provider_message_id?: string | null
+          status?: string
+          subscription_id?: string | null
+          template_id: string
+          template_version?: string
+          updated_at?: string
+          user_id: string
+          variables?: Json
+        }
+        Update: {
+          attempts?: number
+          created_at?: string
+          failure_code?: string | null
+          id?: string
+          idempotency_key?: string
+          payment_submission_id?: string | null
+          provider_message_id?: string | null
+          status?: string
+          subscription_id?: string | null
+          template_id?: string
+          template_version?: string
+          updated_at?: string
+          user_id?: string
+          variables?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_notifications_payment_submission_id_fkey"
+            columns: ["payment_submission_id"]
+            isOneToOne: false
+            referencedRelation: "payment_submissions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_notifications_subscription_id_fkey"
+            columns: ["subscription_id"]
+            isOneToOne: false
+            referencedRelation: "subscriptions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payment_refunds: {
+        Row: {
+          created_at: string
+          external_reference: string | null
+          id: string
+          internal_note: string | null
+          reason: string
+          recorded_by: string | null
+          refunded_amount_minor: number
+          refunded_at: string
+          request_id: string | null
+          submission_id: string
+          subscription_impact: Database["public"]["Enums"]["payment_subscription_impact"]
+        }
+        Insert: {
+          created_at?: string
+          external_reference?: string | null
+          id?: string
+          internal_note?: string | null
+          reason: string
+          recorded_by?: string | null
+          refunded_amount_minor: number
+          refunded_at: string
+          request_id?: string | null
+          submission_id: string
+          subscription_impact: Database["public"]["Enums"]["payment_subscription_impact"]
+        }
+        Update: {
+          created_at?: string
+          external_reference?: string | null
+          id?: string
+          internal_note?: string | null
+          reason?: string
+          recorded_by?: string | null
+          refunded_amount_minor?: number
+          refunded_at?: string
+          request_id?: string | null
+          submission_id?: string
+          subscription_impact?: Database["public"]["Enums"]["payment_subscription_impact"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_refunds_submission_id_fkey"
+            columns: ["submission_id"]
+            isOneToOne: true
+            referencedRelation: "payment_submissions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payment_review_assignments: {
+        Row: {
+          assigned_at: string
+          id: string
+          lock_expires_at: string
+          release_reason: string | null
+          released_at: string | null
+          request_id: string | null
+          reviewer_id: string
+          submission_id: string
+        }
+        Insert: {
+          assigned_at?: string
+          id?: string
+          lock_expires_at: string
+          release_reason?: string | null
+          released_at?: string | null
+          request_id?: string | null
+          reviewer_id: string
+          submission_id: string
+        }
+        Update: {
+          assigned_at?: string
+          id?: string
+          lock_expires_at?: string
+          release_reason?: string | null
+          released_at?: string | null
+          request_id?: string | null
+          reviewer_id?: string
+          submission_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_review_assignments_submission_id_fkey"
+            columns: ["submission_id"]
+            isOneToOne: false
+            referencedRelation: "payment_submissions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payment_review_flags: {
+        Row: {
+          created_at: string
+          details: Json
+          flag_type: Database["public"]["Enums"]["payment_review_flag_type"]
+          id: string
+          matched_submission_id: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          submission_id: string
+          warning: string
+        }
+        Insert: {
+          created_at?: string
+          details?: Json
+          flag_type: Database["public"]["Enums"]["payment_review_flag_type"]
+          id?: string
+          matched_submission_id?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          submission_id: string
+          warning: string
+        }
+        Update: {
+          created_at?: string
+          details?: Json
+          flag_type?: Database["public"]["Enums"]["payment_review_flag_type"]
+          id?: string
+          matched_submission_id?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          submission_id?: string
+          warning?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_review_flags_matched_submission_id_fkey"
+            columns: ["matched_submission_id"]
+            isOneToOne: false
+            referencedRelation: "payment_submissions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_review_flags_submission_id_fkey"
+            columns: ["submission_id"]
+            isOneToOne: false
+            referencedRelation: "payment_submissions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payment_submission_events: {
+        Row: {
+          actor_type: Database["public"]["Enums"]["audit_actor_type"]
+          actor_user_id: string | null
+          created_at: string
+          event_type: string
+          id: string
+          internal_note: string | null
+          new_status:
+            | Database["public"]["Enums"]["payment_submission_status"]
+            | null
+          previous_status:
+            | Database["public"]["Enums"]["payment_submission_status"]
+            | null
+          public_message: string | null
+          reason_code: string | null
+          request_id: string | null
+          snapshot: Json
+          submission_id: string
+        }
+        Insert: {
+          actor_type: Database["public"]["Enums"]["audit_actor_type"]
+          actor_user_id?: string | null
+          created_at?: string
+          event_type: string
+          id?: string
+          internal_note?: string | null
+          new_status?:
+            | Database["public"]["Enums"]["payment_submission_status"]
+            | null
+          previous_status?:
+            | Database["public"]["Enums"]["payment_submission_status"]
+            | null
+          public_message?: string | null
+          reason_code?: string | null
+          request_id?: string | null
+          snapshot?: Json
+          submission_id: string
+        }
+        Update: {
+          actor_type?: Database["public"]["Enums"]["audit_actor_type"]
+          actor_user_id?: string | null
+          created_at?: string
+          event_type?: string
+          id?: string
+          internal_note?: string | null
+          new_status?:
+            | Database["public"]["Enums"]["payment_submission_status"]
+            | null
+          previous_status?:
+            | Database["public"]["Enums"]["payment_submission_status"]
+            | null
+          public_message?: string | null
+          reason_code?: string | null
+          request_id?: string | null
+          snapshot?: Json
+          submission_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_submission_events_submission_id_fkey"
+            columns: ["submission_id"]
+            isOneToOne: false
+            referencedRelation: "payment_submissions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payment_submission_files: {
+        Row: {
+          active: boolean
+          checksum_sha256: string
+          created_at: string
+          height: number
+          id: string
+          mime_type: string
+          object_path: string
+          original_filename: string
+          replaced_at: string | null
+          scan_status: string
+          size_bytes: number
+          submission_id: string
+          uploaded_by: string
+          width: number
+        }
+        Insert: {
+          active?: boolean
+          checksum_sha256: string
+          created_at?: string
+          height: number
+          id?: string
+          mime_type: string
+          object_path: string
+          original_filename: string
+          replaced_at?: string | null
+          scan_status?: string
+          size_bytes: number
+          submission_id: string
+          uploaded_by: string
+          width: number
+        }
+        Update: {
+          active?: boolean
+          checksum_sha256?: string
+          created_at?: string
+          height?: number
+          id?: string
+          mime_type?: string
+          object_path?: string
+          original_filename?: string
+          replaced_at?: string | null
+          scan_status?: string
+          size_bytes?: number
+          submission_id?: string
+          uploaded_by?: string
+          width?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_submission_files_submission_id_fkey"
+            columns: ["submission_id"]
+            isOneToOne: false
+            referencedRelation: "payment_submissions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payment_submissions: {
+        Row: {
+          approval_transaction_id: string | null
+          billing_period: Database["public"]["Enums"]["billing_period"]
+          created_at: string
+          currency: string
+          declaration_accepted_at: string | null
+          duplicate_proof: boolean
+          duplicate_reference: boolean
+          id: string
+          information_response: string | null
+          internal_review_note: string | null
+          normalized_reference: string | null
+          original_reference: string | null
+          paid_at: string | null
+          payment_method_id: string
+          payment_method_snapshot: Json
+          payment_method_version: number
+          plan_id: string
+          proof_file_id: string | null
+          public_review_message: string | null
+          quoted_amount_minor: number
+          rejection_reason_code: string | null
+          review_lock_expires_at: string | null
+          review_started_at: string | null
+          reviewed_at: string | null
+          reviewer_id: string | null
+          status: Database["public"]["Enums"]["payment_submission_status"]
+          submitted_at: string | null
+          subscription_id: string | null
+          updated_at: string
+          user_id: string
+          user_note: string | null
+          version: number
+        }
+        Insert: {
+          approval_transaction_id?: string | null
+          billing_period: Database["public"]["Enums"]["billing_period"]
+          created_at?: string
+          currency: string
+          declaration_accepted_at?: string | null
+          duplicate_proof?: boolean
+          duplicate_reference?: boolean
+          id?: string
+          information_response?: string | null
+          internal_review_note?: string | null
+          normalized_reference?: string | null
+          original_reference?: string | null
+          paid_at?: string | null
+          payment_method_id: string
+          payment_method_snapshot: Json
+          payment_method_version: number
+          plan_id: string
+          proof_file_id?: string | null
+          public_review_message?: string | null
+          quoted_amount_minor: number
+          rejection_reason_code?: string | null
+          review_lock_expires_at?: string | null
+          review_started_at?: string | null
+          reviewed_at?: string | null
+          reviewer_id?: string | null
+          status?: Database["public"]["Enums"]["payment_submission_status"]
+          submitted_at?: string | null
+          subscription_id?: string | null
+          updated_at?: string
+          user_id: string
+          user_note?: string | null
+          version?: number
+        }
+        Update: {
+          approval_transaction_id?: string | null
+          billing_period?: Database["public"]["Enums"]["billing_period"]
+          created_at?: string
+          currency?: string
+          declaration_accepted_at?: string | null
+          duplicate_proof?: boolean
+          duplicate_reference?: boolean
+          id?: string
+          information_response?: string | null
+          internal_review_note?: string | null
+          normalized_reference?: string | null
+          original_reference?: string | null
+          paid_at?: string | null
+          payment_method_id?: string
+          payment_method_snapshot?: Json
+          payment_method_version?: number
+          plan_id?: string
+          proof_file_id?: string | null
+          public_review_message?: string | null
+          quoted_amount_minor?: number
+          rejection_reason_code?: string | null
+          review_lock_expires_at?: string | null
+          review_started_at?: string | null
+          reviewed_at?: string | null
+          reviewer_id?: string | null
+          status?: Database["public"]["Enums"]["payment_submission_status"]
+          submitted_at?: string | null
+          subscription_id?: string | null
+          updated_at?: string
+          user_id?: string
+          user_note?: string | null
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_submissions_payment_method_id_fkey"
+            columns: ["payment_method_id"]
+            isOneToOne: false
+            referencedRelation: "payment_methods"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_submissions_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_submissions_proof_file_fk"
+            columns: ["proof_file_id"]
+            isOneToOne: false
+            referencedRelation: "payment_submission_files"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_submissions_subscription_id_fkey"
+            columns: ["subscription_id"]
+            isOneToOne: false
+            referencedRelation: "subscriptions"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       plan_entitlements: {
         Row: {
@@ -681,6 +1357,113 @@ export type Database = {
         }
         Relationships: []
       }
+      subscription_corrections: {
+        Row: {
+          after_state: Json
+          before_state: Json
+          corrected_by: string | null
+          created_at: string
+          id: string
+          internal_note: string | null
+          reason: string
+          request_id: string | null
+          subscription_id: string
+        }
+        Insert: {
+          after_state: Json
+          before_state: Json
+          corrected_by?: string | null
+          created_at?: string
+          id?: string
+          internal_note?: string | null
+          reason: string
+          request_id?: string | null
+          subscription_id: string
+        }
+        Update: {
+          after_state?: Json
+          before_state?: Json
+          corrected_by?: string | null
+          created_at?: string
+          id?: string
+          internal_note?: string | null
+          reason?: string
+          request_id?: string | null
+          subscription_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subscription_corrections_subscription_id_fkey"
+            columns: ["subscription_id"]
+            isOneToOne: false
+            referencedRelation: "subscriptions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      subscription_events: {
+        Row: {
+          actor_type: Database["public"]["Enums"]["audit_actor_type"]
+          actor_user_id: string | null
+          created_at: string
+          effective_at: string
+          event_type: string
+          id: string
+          new_state: Json
+          payment_submission_id: string | null
+          previous_state: Json
+          reason: string | null
+          request_id: string | null
+          subscription_id: string
+          user_id: string
+        }
+        Insert: {
+          actor_type: Database["public"]["Enums"]["audit_actor_type"]
+          actor_user_id?: string | null
+          created_at?: string
+          effective_at: string
+          event_type: string
+          id?: string
+          new_state?: Json
+          payment_submission_id?: string | null
+          previous_state?: Json
+          reason?: string | null
+          request_id?: string | null
+          subscription_id: string
+          user_id: string
+        }
+        Update: {
+          actor_type?: Database["public"]["Enums"]["audit_actor_type"]
+          actor_user_id?: string | null
+          created_at?: string
+          effective_at?: string
+          event_type?: string
+          id?: string
+          new_state?: Json
+          payment_submission_id?: string | null
+          previous_state?: Json
+          reason?: string | null
+          request_id?: string | null
+          subscription_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subscription_events_payment_submission_id_fkey"
+            columns: ["payment_submission_id"]
+            isOneToOne: false
+            referencedRelation: "payment_submissions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subscription_events_subscription_id_fkey"
+            columns: ["subscription_id"]
+            isOneToOne: false
+            referencedRelation: "subscriptions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       subscriptions: {
         Row: {
           activation_metadata: Json
@@ -693,6 +1476,7 @@ export type Database = {
           status: Database["public"]["Enums"]["subscription_status"]
           updated_at: string
           user_id: string
+          version: number
         }
         Insert: {
           activation_metadata?: Json
@@ -705,6 +1489,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["subscription_status"]
           updated_at?: string
           user_id: string
+          version?: number
         }
         Update: {
           activation_metadata?: Json
@@ -717,6 +1502,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["subscription_status"]
           updated_at?: string
           user_id?: string
+          version?: number
         }
         Relationships: [
           {
@@ -793,6 +1579,20 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_attach_payment_method_qr: {
+        Args: {
+          action_request_id?: string
+          actor_user_id: string
+          requested_checksum_sha256: string
+          requested_height: number
+          requested_mime_type: string
+          requested_object_path: string
+          requested_size_bytes: number
+          requested_width: number
+          target_payment_method_id: string
+        }
+        Returns: Json
+      }
       admin_audit_event_directory: {
         Args: {
           actor_user_id: string
@@ -820,6 +1620,14 @@ export type Database = {
           target_type: string
           total_count: number
         }[]
+      }
+      admin_create_payment_method: {
+        Args: {
+          action_request_id?: string
+          actor_user_id: string
+          requested_method: Json
+        }
+        Returns: string
       }
       admin_overview: {
         Args: { actor_user_id: string }
@@ -849,6 +1657,27 @@ export type Database = {
           target_user_id: string
         }
         Returns: boolean
+      }
+      admin_set_payment_method_state: {
+        Args: {
+          action_reason: string
+          action_request_id?: string
+          actor_user_id: string
+          expected_version: number
+          requested_action: string
+          target_payment_method_id: string
+        }
+        Returns: number
+      }
+      admin_update_payment_method: {
+        Args: {
+          action_request_id?: string
+          actor_user_id: string
+          expected_version: number
+          requested_method: Json
+          target_payment_method_id: string
+        }
+        Returns: number
       }
       admin_user_detail: {
         Args: { actor_user_id: string; target_user_id: string }
@@ -903,6 +1732,37 @@ export type Database = {
           user_id: string
         }[]
       }
+      approve_payment_submission: {
+        Args: {
+          action_reason: string
+          action_request_id?: string
+          actor_user_id: string
+          expected_version: number
+          internal_note?: string
+          target_submission_id: string
+        }
+        Returns: Json
+      }
+      attach_payment_proof: {
+        Args: {
+          action_request_id?: string
+          actor_user_id: string
+          requested_checksum_sha256: string
+          requested_height: number
+          requested_mime_type: string
+          requested_object_path: string
+          requested_original_filename: string
+          requested_scan_status?: string
+          requested_size_bytes: number
+          requested_width: number
+          target_submission_id: string
+        }
+        Returns: Json
+      }
+      authorize_admin_payment_access: {
+        Args: { actor_user_id: string; required_permission: string }
+        Returns: boolean
+      }
       bootstrap_first_super_admin: {
         Args: {
           confirmation: string
@@ -911,6 +1771,15 @@ export type Database = {
         }
         Returns: boolean
       }
+      cancel_payment_submission: {
+        Args: {
+          action_request_id?: string
+          actor_user_id: string
+          expected_version: number
+          target_submission_id: string
+        }
+        Returns: Json
+      }
       consume_auth_rate_limit: {
         Args: { rate_bucket: string; rate_key_hash: string }
         Returns: {
@@ -918,6 +1787,32 @@ export type Database = {
           remaining: number
           retry_after_seconds: number
         }[]
+      }
+      correct_subscription: {
+        Args: {
+          action_reason: string
+          action_request_id?: string
+          actor_user_id: string
+          expected_version: number
+          internal_note?: string
+          requested_ends_at: string
+          requested_starts_at: string
+          restore_reversed?: boolean
+          target_subscription_id: string
+        }
+        Returns: number
+      }
+      create_payment_draft: {
+        Args: {
+          action_request_id?: string
+          actor_user_id: string
+          draft_input: Json
+        }
+        Returns: string
+      }
+      expire_subscriptions: {
+        Args: { action_request_id?: string; evaluated_at?: string }
+        Returns: number
       }
       get_my_admin_access: {
         Args: never
@@ -940,10 +1835,135 @@ export type Database = {
           user_agent: string
         }[]
       }
+      mark_payment_notification_delivery: {
+        Args: {
+          requested_attempts: number
+          requested_failure_code: string
+          requested_provider_message_id: string
+          requested_status: string
+          target_notification_id: string
+        }
+        Returns: boolean
+      }
+      queue_storage_cleanup: {
+        Args: {
+          requested_bucket_id: string
+          requested_object_path: string
+          requested_reason: string
+        }
+        Returns: string
+      }
       reconcile_my_profile: { Args: never; Returns: boolean }
       record_my_auth_event: {
         Args: { requested_event_type: string; requested_request_id?: string }
         Returns: string
+      }
+      record_payment_refund: {
+        Args: {
+          action_reason: string
+          action_request_id?: string
+          actor_user_id: string
+          expected_version: number
+          external_reference: string
+          internal_note?: string
+          refunded_amount_minor: number
+          refunded_at: string
+          requested_subscription_impact: Database["public"]["Enums"]["payment_subscription_impact"]
+          target_submission_id: string
+        }
+        Returns: number
+      }
+      reject_payment_submission: {
+        Args: {
+          action_reason?: string
+          action_request_id?: string
+          actor_user_id: string
+          expected_version: number
+          internal_note?: string
+          public_message: string
+          requested_rejection_reason_code: string
+          target_submission_id: string
+        }
+        Returns: number
+      }
+      request_payment_information: {
+        Args: {
+          action_reason?: string
+          action_request_id?: string
+          actor_user_id: string
+          expected_version: number
+          internal_note?: string
+          public_message: string
+          reason_category: string
+          target_submission_id: string
+        }
+        Returns: number
+      }
+      resolve_payment_method_qr_object: {
+        Args: {
+          actor_user_id: string
+          administrator_access?: boolean
+          target_payment_method_id: string
+        }
+        Returns: {
+          bucket_id: string
+          mime_type: string
+          object_path: string
+        }[]
+      }
+      resolve_payment_proof_object: {
+        Args: {
+          actor_user_id: string
+          administrator_access?: boolean
+          target_submission_id: string
+        }
+        Returns: {
+          bucket_id: string
+          mime_type: string
+          object_path: string
+          original_filename: string
+        }[]
+      }
+      resubmit_payment_submission: {
+        Args: {
+          action_request_id?: string
+          actor_user_id: string
+          declaration_accepted: boolean
+          expected_version: number
+          requested_response: string
+          target_submission_id: string
+        }
+        Returns: number
+      }
+      reverse_payment_approval: {
+        Args: {
+          action_reason: string
+          action_request_id?: string
+          actor_user_id: string
+          expected_version: number
+          internal_note?: string
+          target_submission_id: string
+        }
+        Returns: number
+      }
+      start_payment_review: {
+        Args: {
+          action_request_id?: string
+          actor_user_id: string
+          expected_version: number
+          target_submission_id: string
+        }
+        Returns: number
+      }
+      submit_payment_submission: {
+        Args: {
+          action_request_id?: string
+          actor_user_id: string
+          declaration_accepted: boolean
+          expected_version: number
+          target_submission_id: string
+        }
+        Returns: number
       }
       update_my_notification_preferences: {
         Args: {
@@ -967,6 +1987,16 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      update_payment_draft: {
+        Args: {
+          action_request_id?: string
+          actor_user_id: string
+          draft_input: Json
+          expected_version: number
+          target_submission_id: string
+        }
+        Returns: number
+      }
     }
     Enums: {
       account_status: "active" | "suspended" | "disabled" | "pending_deletion"
@@ -975,9 +2005,25 @@ export type Database = {
       billing_period: "monthly" | "annual"
       entitlement_value_type: "boolean" | "integer" | "string"
       onboarding_status: "not_started" | "in_progress" | "complete"
+      payment_method_type: "gcash" | "maya" | "bank_transfer" | "other"
+      payment_review_flag_type: "duplicate_reference" | "duplicate_proof"
+      payment_submission_status:
+        | "draft"
+        | "submitted"
+        | "under_review"
+        | "needs_information"
+        | "resubmitted"
+        | "approved"
+        | "rejected"
+        | "cancelled"
+        | "expired"
+        | "refunded"
+        | "reversed"
+      payment_subscription_impact: "none" | "end_access_now"
       plan_tier: "plus" | "pro"
       platform_kind: "web" | "ios" | "android"
       platform_lifecycle: "planned" | "active" | "maintenance" | "retired"
+      storage_cleanup_status: "pending" | "completed" | "failed"
       subscription_source:
         | "manual_payment"
         | "admin_grant"
@@ -986,9 +2032,12 @@ export type Database = {
       subscription_status:
         | "pending_activation"
         | "active"
+        | "grace_period"
         | "expired"
         | "cancelled"
         | "suspended"
+        | "refunded"
+        | "reversed"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1122,9 +2171,26 @@ export const Constants = {
       billing_period: ["monthly", "annual"],
       entitlement_value_type: ["boolean", "integer", "string"],
       onboarding_status: ["not_started", "in_progress", "complete"],
+      payment_method_type: ["gcash", "maya", "bank_transfer", "other"],
+      payment_review_flag_type: ["duplicate_reference", "duplicate_proof"],
+      payment_submission_status: [
+        "draft",
+        "submitted",
+        "under_review",
+        "needs_information",
+        "resubmitted",
+        "approved",
+        "rejected",
+        "cancelled",
+        "expired",
+        "refunded",
+        "reversed",
+      ],
+      payment_subscription_impact: ["none", "end_access_now"],
       plan_tier: ["plus", "pro"],
       platform_kind: ["web", "ios", "android"],
       platform_lifecycle: ["planned", "active", "maintenance", "retired"],
+      storage_cleanup_status: ["pending", "completed", "failed"],
       subscription_source: [
         "manual_payment",
         "admin_grant",
@@ -1134,9 +2200,12 @@ export const Constants = {
       subscription_status: [
         "pending_activation",
         "active",
+        "grace_period",
         "expired",
         "cancelled",
         "suspended",
+        "refunded",
+        "reversed",
       ],
     },
   },

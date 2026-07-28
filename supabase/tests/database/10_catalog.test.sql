@@ -72,10 +72,10 @@ select is((select count(*)::integer from public.platform_settings), 12, 'all env
 select is((select count(*)::integer from public.platform_settings where platform = 'web' and status = 'active'), 4, 'web is active in each environment');
 select is((select count(*)::integer from public.platform_settings where platform in ('ios', 'android') and status = 'planned'), 8, 'mobile platforms are planned');
 select is((select count(*)::integer from public.admin_roles), 8, 'eight administrator roles are cataloged');
-select is((select count(*)::integer from public.admin_permissions), 26, 'expanded permission catalog has 26 permissions');
+select is((select count(*)::integer from public.admin_permissions), 28, 'expanded permission catalog has 28 permissions');
 select is(
   (select count(*)::integer from public.admin_role_permissions rp join public.admin_roles r on r.id = rp.role_id where r.code = 'super_admin'),
-  26,
+  28,
   'Super Admin receives every expanded permission'
 );
 
