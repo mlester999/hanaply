@@ -22,9 +22,17 @@ Status: implemented and passing locally; hosted Supabase/Resend/production-owner
 
 ## Phase 2: activation and career foundation
 
+Status: the manual-payment activation checkpoint is implemented and passing locally. Career-profile, document, account-export/deletion, and hosted-provider work remains intentionally deferred.
+
+### Implemented activation checkpoint
+
 - Manual payment submission, private proof storage, review queues, and audit trails.
 - Authorized subscription activation, expiry, cancellation, and support tooling.
 - Idempotent provider/payment references and reconciliation.
+- Customer payment notifications, expiry reminders, claim-token delivery, and private-object cleanup outbox.
+
+### Remaining Phase 2 scope
+
 - Career Intelligence Profile, sub-careers, verified facts, and onboarding state machine.
 - Private resume/portfolio upload, quarantine, scanning, parsing, and preview controls.
 - Account deletion/export and owner-approved legal content.
@@ -60,4 +68,4 @@ Status: implemented and passing locally; hosted Supabase/Resend/production-owner
 
 Each phase requires its own schema/security review, positive and negative tests, observability, operational runbooks, owner actions, and explicit release decision.
 
-Phase 2 is not started by this implementation. It requires explicit owner approval after hosted Phase 1 validation and the conditional gates in the Phase 1 report.
+The Phase 2 activation checkpoint is implemented locally and has its own schema, security, database, application, worker, and browser validation. The remaining career-foundation items above are not started. Phase 3 has not started. Hosted Supabase, Resend/DNS, production infrastructure, legal, owner-bootstrap, and deployment gates remain conditional release work; see [Phase 2 report](phase-2-report.md) and [Owner actions](owner-actions.md).

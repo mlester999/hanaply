@@ -2,7 +2,7 @@
 
 ## Threat model
 
-Protected assets include Supabase credentials/sessions, identity and legal records, subscriptions/entitlements, admin authority, audit evidence, email links, and future private documents. Relevant adversaries include unauthenticated internet clients, compromised normal accounts, malicious or mistaken administrators, credential-stuffing automation, hostile email links, untrusted upstream content, and leaked server credentials.
+Protected assets include Supabase credentials/sessions, identity and legal records, subscriptions/entitlements, manual payment references and proof images, payment QR instructions, admin authority, audit evidence, email links, and future private documents. Relevant adversaries include unauthenticated internet clients, compromised normal accounts, malicious or mistaken administrators, credential-stuffing automation, hostile email links, untrusted upstream content, and leaked server credentials.
 
 The principal boundaries are browser to Next.js, web/API to Supabase, normal user to admin, RLS caller to service role, and local capture to live providers. Client state, query parameters, JWT metadata, plan codes, and provider responses are untrusted input.
 
@@ -41,10 +41,12 @@ Every page receives a per-request CSP nonce with restricted scripts, explicit AP
 - Normal users cannot read admin tables/audit events, create memberships, assign roles, alter account status, or mutate subscriptions.
 - State-changing admin functions require an actor UUID, independently verify permission, reject self-status changes, protect the final active Super Admin, require an audited reason, and are rate-limited.
 - First-admin bootstrap is disabled by default, bound to an environment email and verified Auth UUID, service-only, exact-confirmation gated, atomic, idempotent for the same owner, and audited.
+- Payment method administration, review locks, approval, refunds, reversals, and subscription corrections require explicit database permissions and server-side optimistic versions/locks; proof access additionally requires `payments.review`.
+- Customer payment actions use active-account checks and controlled RPCs. A payment submission cannot create a subscription or entitlement until the atomic approval function succeeds.
 
 ## API controls
 
-The NestJS/Fastify API uses Helmet, explicit non-credentialed CORS, a 256 KiB body limit, Zod input/output validation, safe versioned envelopes, UUID request IDs, and structured redacted logging. Validation/provider exceptions are mapped to allowlisted client messages.
+The NestJS/Fastify API uses Helmet, explicit non-credentialed CORS, a 256 KiB JSON body limit plus one 8 MiB-or-smaller multipart image, Zod input/output validation, safe versioned envelopes, UUID request IDs, and structured redacted logging. Validation/provider exceptions are mapped to allowlisted client messages. Payment images are checked against magic bytes, declared MIME type, filename extension, dimensions, pixel count, and single-page limits, then re-encoded before storage.
 
 Local/test API throttling is in memory. Production startup intentionally fails until a distributed rate-limit adapter is selected and `RATE_LIMIT_STORE` no longer uses memory. Wildcard CORS and insecure production application/API URLs fail environment validation. OpenAPI/docs are unavailable in production regardless of the local flag.
 
@@ -52,13 +54,13 @@ Local/test API throttling is in memory. Production startup intentionally fails u
 
 RLS is enabled and forced on every exposed table. Broad grants are revoked before narrow column/function grants are applied. Security-definer functions use fixed empty search paths and schema-qualified names. Append-only authentication, status, and audit records reject updates/deletes.
 
-Service-role credentials exist only in API/bootstrap/test server processes. No public endpoint proxies arbitrary service-role requests. Privileged admin functions still verify the supplied actor's database permission. The service key is rejected by browser schemas and must reside in a secret manager.
+Service-role credentials exist only in API/worker/bootstrap/test server processes. No public endpoint proxies arbitrary service-role requests. Privileged payment and admin functions still verify the supplied actor's database permission. The service key is rejected by browser schemas and must reside in a secret manager. Payment table writes are controlled by lifecycle functions; append-only history and review-warning mutations reject direct writes.
 
 ## Email-link and delivery security
 
 Supabase Auth owns verification/recovery token generation. Local SMTP is Mailpit only. Live Resend delivery requires an explicit provider, live-send gate, sender, API key, non-local environment, safe URL, idempotency key, timeout, and bounded retry policy.
 
-Delivery receipts mask recipients and omit body, action URL, token, and provider error details. Password-change and security messages cannot be disabled through marketing preferences. Hosted Resend SMTP, DNS, redirect, expiry/reuse, bounce, and complaint behavior remain pending owner validation.
+Delivery receipts mask recipients and omit body, action URL, token, and provider error details. Password-change and security messages cannot be disabled through marketing preferences. Phase 2 payment/subscription messages are queued in a service-only outbox, claimed with opaque tokens, retried with bounded attempts, and never attach proof images or private payment instructions. Hosted Resend SMTP, DNS, redirect, expiry/reuse, bounce, and complaint behavior remain pending owner validation.
 
 ## Audit events
 
@@ -75,9 +77,15 @@ Audit rows are append-only. Auth-user deletion may null the actor foreign key th
 - Redaction covers authorization/cookies, tokens, keys, URLs, documents, resumes, cover letters, payment content, profiles/private records, and provider credentials.
 - The secret scanner checks committed source/document formats for JWT, Supabase service, Resend, and OpenAI patterns while excluding generated caches.
 
+## Phase 2 private payment storage
+
+Payment proof and payment QR buckets are private, have allowlisted image MIME types and fixed size limits, and have no anonymous/authenticated storage policies. The API writes through the service client only after server-side magic-byte and image validation. Object paths are opaque UUID-based values, never returned as record fields, and are exposed only through short-lived signed URLs (five minutes by default, with a ten-minute maximum). Replacements/cancellations enqueue old objects for cleanup when immediate deletion is unavailable.
+
+Payment proof metadata is separated from object bytes, customer RLS excludes storage paths, scan state, duplicate signals, reviewer notes, and private snapshots, and reviewer proof access requires `payments.review`. Malware scanning is not configured in this checkpoint; `scan_status = not_configured` is explicit and approval remains an authorized manual decision. A future scanning system must change the acceptance policy before enabling pending uploads.
+
 ## Future private document storage
 
-Phase 1 creates no bucket or upload route. A later document system must implement:
+The career-document system remains unopened. It must implement:
 
 - A private bucket such as `user-documents-private`, never a public bucket.
 - Random `{userUuid}/{randomUuid}/{randomUuid}.{validatedExtension}` paths with no identity/title data.

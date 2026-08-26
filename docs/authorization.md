@@ -34,25 +34,39 @@ An administrator requires all of the following:
 
 `get_my_admin_access()` derives active roles and expanded permission rows from PostgreSQL. Admin claims in JWT metadata, browser state, query strings, or request bodies are ignored. The shared catalog contains 25 explicit permissions and eight roles; Super Admin receives expanded rows, not a runtime wildcard.
 
-The implemented Phase 1 endpoint matrix is:
+The implemented Phase 1 and Phase 2 endpoint matrix is:
 
-| Operation                                       | Required authority                  |
-| ----------------------------------------------- | ----------------------------------- |
-| `GET /v1/admin/me`                              | Active admin membership             |
-| `GET /v1/admin/overview`                        | `users.read`                        |
-| `GET /v1/admin/users`                           | `users.read`                        |
-| `GET /v1/admin/users/{userId}`                  | `users.read`                        |
-| `POST /v1/admin/users/{userId}/suspend`         | `users.manage`                      |
-| `POST /v1/admin/users/{userId}/restore`         | `users.manage`                      |
-| `POST /v1/admin/users/{userId}/revoke-sessions` | `users.manage` or `security.manage` |
-| `GET /v1/admin/audit-events`                    | `audit.read`                        |
-| `GET /v1/admin/security`                        | `security.manage`                   |
+| Operation                                       | Required authority                                               |
+| ----------------------------------------------- | ---------------------------------------------------------------- |
+| `GET /v1/admin/me`                              | Active admin membership                                          |
+| `GET /v1/admin/overview`                        | `users.read`                                                     |
+| `GET /v1/admin/users`                           | `users.read`                                                     |
+| `GET /v1/admin/users/{userId}`                  | `users.read`                                                     |
+| `POST /v1/admin/users/{userId}/suspend`         | `users.manage`                                                   |
+| `POST /v1/admin/users/{userId}/restore`         | `users.manage`                                                   |
+| `POST /v1/admin/users/{userId}/revoke-sessions` | `users.manage` or `security.manage`                              |
+| `GET /v1/admin/audit-events`                    | `audit.read`                                                     |
+| `GET /v1/admin/security`                        | `security.manage`                                                |
+| `GET /v1/payment-methods`                       | Active customer: public methods and QR access                    |
+| `GET /v1/me/subscription`                       | Active customer: own subscription and entitlements               |
+| `GET /v1/me/payment-submissions`                | Active customer: own payment history                             |
+| `POST/PATCH /v1/me/payment-submissions`         | Active customer: own canonical draft                             |
+| `POST .../{submissionId}/proof`                 | Active customer: own validated proof upload                      |
+| `GET .../{submissionId}/proof-access`           | Active customer: own short-lived proof URL                       |
+| `POST .../{submissionId}/submit                 | cancel                                                           | resubmit`                                    | Active customer: own versioned lifecycle action |
+| `GET/POST/PATCH /v1/admin/payment-methods`      | Payment-method permissions; database rechecks authority          |
+| `POST .../payment-methods/{id}/enable           | disable                                                          | archive                                      | qr`                                             | `payment_methods.manage` |
+| `GET /v1/admin/payment-submissions`             | `payments.read`                                                  |
+| `GET .../payment-submissions/{id}`              | `payments.read`; proof URL separately requires `payments.review` |
+| `POST .../{id}/start-review                     | request-information                                              | approve                                      | reject`                                         | `payments.review`        |
+| `POST .../{id}/record-refund                    | reverse`                                                         | `payments.review` and `subscriptions.manage` |
+| `GET/POST /v1/admin/subscriptions`              | `subscriptions.read`; correction requires `subscriptions.manage` |
 
 The admin navigation is filtered by permissions for usability, but API/database checks remain authoritative. Every state-changing operation requires a 10-to-500-character reason and a request ID, is rate-limited, and writes an append-only audit event.
 
 ## Account-operation constraints
 
-Phase 1 admin actions can suspend an active user and restore a suspended user. They cannot disable/delete users, change plans, activate subscriptions, or assign roles through the public API.
+Phase 1 admin actions can suspend an active user and restore a suspended user. Phase 2 adds permissioned payment method administration, review, atomic activation/renewal, refund/reversal, and controlled subscription correction. It does not expose role assignment or arbitrary subscription writes through the public API.
 
 The service-only database function independently verifies the actor permission. Administrators cannot change their own account state, and the final active Super Admin cannot be suspended. Session revocation also verifies `users.manage` or `security.manage` inside PostgreSQL.
 
@@ -74,11 +88,15 @@ They cannot directly:
 - Create memberships or assign roles.
 - Read admin tables, audit events, feature rules, or service diagnostics.
 - Mutate append-only authentication, status, or audit history.
+- Read payment reviewer assignments, review flags, notification outbox rows, entitlement events, private object paths, or reviewer snapshots through authenticated table access.
+- Upload, list, or read payment objects directly through Supabase Storage.
+
+Payment customer reads are limited by both `auth.uid()` ownership and active account status. Payment submission state, proof metadata links, review flags, refunds, subscription changes, and entitlement events are written only through service-role RPCs that independently validate the actor, expected version, review lock, canonical plan/method, and account state.
 
 Positive and negative pgTAP tests impersonate anonymous, normal, suspended, admin, and service roles. See [Database and RLS](database.md) for the tested grants and functions.
 
 ## Service-role boundary
 
-The service role is server-only and used narrowly for readiness, admin directory/operations, session existence checks, bootstrap, and controlled test setup. It is not accepted from browsers and no broad service-role passthrough endpoint exists. Service functions still take the actor UUID and re-check database permissions before privileged mutations.
+The service role is server-only and used narrowly for readiness, admin directory/operations, payment lifecycle orchestration, worker maintenance, session existence checks, bootstrap, and controlled test setup. It is not accepted from browsers and no broad service-role passthrough endpoint exists. Service functions still take the actor UUID and re-check database permissions before privileged mutations.
 
 The first-admin script is the only supported bootstrap path. It is environment-gated, confirmation-gated, email/UUID-bound, atomic, auditable, and disabled by default. See [Admin bootstrap](admin-bootstrap.md).

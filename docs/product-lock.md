@@ -1,6 +1,6 @@
 # Product lock
 
-This document separates implemented Phase 1 behavior from approved future scope. A page or empty state must not imply operational data that does not exist.
+This document separates implemented Phase 1 behavior and the Phase 2 manual-payment activation checkpoint from approved future scope. A page or empty state must not imply operational data that does not exist.
 
 ## Phase 1 scope
 
@@ -10,9 +10,10 @@ This document separates implemented Phase 1 behavior from approved future scope.
 - Database-backed public pricing and server-side entitlement evaluation.
 - Permissioned real-data admin overview, user directory/detail, suspend/restore, session revocation, audit directory, and safe security diagnostics.
 - Supabase Auth email templates, Mailpit local delivery, and production-gated capture/disabled/Resend application adapters.
-- Platform/feature foundations, idle worker, disabled AI provider, security boundaries, migrations, RLS, CI, and operational documentation.
+- Manual payment methods, QR instructions, private proof upload/access, review/activation lifecycle, subscription corrections, refunds/reversals, and database-backed notification/cleanup maintenance.
+- Platform/feature foundations, disabled AI provider, security boundaries, migrations, RLS, CI, and operational documentation.
 
-No job, revenue, payment, application, or AI statistic is invented. Admin identity/account totals and directory rows come from the local/hosted database. Activation Center pricing/subscription state is real, while payment instructions explicitly remain unavailable.
+No job, application, or AI statistic is invented, and no payment provider or bank transfer is initiated by Hanaply. Admin identity/account totals and directory rows come from the local/hosted database. Activation Center pricing, payment instructions, payment status, subscription state, and entitlement evaluation are real records when the local/hosted Phase 2 schema is deployed.
 
 ## Locked marketing language
 
@@ -58,16 +59,15 @@ Monthly and annual plans in the same tier share entitlement values. No free plan
 
 Entitlement values are configuration, not client input. Unknown, incomplete, or malformed active-plan configuration returns `SERVICE_UNAVAILABLE`.
 
-## Deferred Phase 2 and later systems
+## Deferred remaining Phase 2 and later systems
 
 - Career profile onboarding and resume/portfolio handling
-- Payment submission, review, activation, and accounting
 - Job-source ingestion, deduplication, taxonomy, matching, and alerts
 - AI extraction, analysis, document generation, and Truth Gate execution
-- Non-authentication notifications, hosted Resend/DNS operationalization, and provider webhooks/suppressions
+- Hosted Resend/DNS operationalization and provider webhooks/suppressions
 - Browser and mobile push delivery
-- Production queues and worker consumers
+- Production queues and worker consumers for later job/AI systems
 - Native iOS/Android applications
 - Hosted deployment and production analytics
 
-These systems require later migrations, services, security review, and acceptance gates. Existing contracts, entitlement names, settings, and empty states are seams, not claims of availability. Phase 2 must not begin without owner approval after the Phase 1 report.
+These systems require later migrations, services, security review, and acceptance gates. Existing contracts, entitlement names, settings, and empty states are seams, not claims of availability. Career Profile, resume/portfolio, job, AI, and mobile work remain out of scope for this checkpoint. Phase 3 has not started.

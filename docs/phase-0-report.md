@@ -46,7 +46,7 @@ Required widths verified without horizontal overflow: 1440, 1280, 1024, 768, 430
 
 ## Defects caught during validation
 
-- A stale Docker network and local port collision were cleared; PostgreSQL moved to local port 54332 while application ports remained locked at 3100-3102.
+- A stale Docker network and local port collision were cleared; PostgreSQL uses local port 55432 while application ports remain locked at 3100-3102.
 - pgTAP caught brittle function-count and data-modifying test patterns before the suite was finalized.
 - Generated database/OpenAPI formatting was made deterministic and drift-checked.
 - Browser testing found a suspended-account transition stuck on a streaming loading boundary; the login action now uses an API-authoritative result and a deliberate full-document transition for that state.

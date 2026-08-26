@@ -1,8 +1,8 @@
 # Hanaply
 
-Hanaply is a Philippines-first AI Career Radar and Job Intelligence SaaS. This repository contains the completed local implementation of Phase 1: Authentication and SaaS Core Experience, built on the Phase 0 pnpm/Turborepo, Next.js, NestJS, Supabase, shared-contract, and RLS foundation.
+Hanaply is a Philippines-first AI Career Radar and Job Intelligence SaaS. This repository contains the completed local implementation of Phase 1: Authentication and SaaS Core Experience plus the Phase 2 manual-payment activation checkpoint, built on the Phase 0 pnpm/Turborepo, Next.js, NestJS, Supabase, shared-contract, and RLS foundation.
 
-Phase 1 provides registration, email verification, login/logout, password recovery, session refresh and revocation, protected customer settings, account-status enforcement, permissioned admin user operations, transactional-email adapters, audit trails, and executable security/accessibility gates. It deliberately stops before payment processing, career-profile onboarding, resume handling, job ingestion, AI matching, application packs, non-authentication notifications, and native mobile applications.
+Phase 1 provides registration, email verification, login/logout, password recovery, session refresh and revocation, protected customer settings, account-status enforcement, permissioned admin user operations, transactional-email adapters, audit trails, and executable security/accessibility gates. The Phase 2 checkpoint adds manual payment methods and QR instructions, private proof upload and signed access, permissioned review with approve/reject/request-information actions, atomic subscription and entitlement lifecycle, refunds/reversals/corrections, and a database-backed notification/cleanup worker. Career-profile onboarding, resume handling, job ingestion, AI matching, application packs, and native mobile applications remain intentionally unopened.
 
 ## Prerequisites
 
@@ -37,12 +37,12 @@ Keep `EMAIL_PROVIDER=capture`, `EMAIL_ALLOW_LIVE_SENDS=false`, and `ADMIN_BOOTST
 | Web             | `http://localhost:3100`  |
 | API             | `http://localhost:3101`  |
 | Worker health   | `http://localhost:3102`  |
-| Supabase API    | `http://127.0.0.1:54321` |
-| PostgreSQL      | `127.0.0.1:54332`        |
-| Supabase Studio | `http://127.0.0.1:54323` |
-| Mailpit         | `http://127.0.0.1:54324` |
+| Supabase API    | `http://127.0.0.1:55421` |
+| PostgreSQL      | `127.0.0.1:55432`        |
+| Supabase Studio | `http://127.0.0.1:55423` |
+| Mailpit         | `http://127.0.0.1:55424` |
 
-The worker remains intentionally idle. `WORKER_MODE=active` fails startup because Phase 1 does not include a production queue or task consumers.
+The worker defaults to idle. Set `WORKER_MODE=active` only with the local database and reviewed email configuration; it runs subscription expiry maintenance, the payment/subscription notification outbox, and private payment-object cleanup. A production deployment still needs worker health probes, retry/dead-letter monitoring, and owner-approved provider configuration.
 
 ## Local authentication and email
 
@@ -108,7 +108,7 @@ Immediately disable the gate and remove the service key from the shell afterward
 ```text
 apps/web                  Next.js presentation, Supabase SSR sessions, and server actions
 services/api              Bearer-only REST orchestration and permission guards
-services/worker           Idle worker health shell and queue contracts
+services/worker           Payment notification/cleanup maintenance and worker health
 packages/auth             Shared validation, redirect, account-status, and RBAC primitives
 packages/contracts        Canonical Zod routes, OpenAPI, task schemas, and fetch client
 packages/database         Typed clients and generated schema types
@@ -118,7 +118,7 @@ packages/observability    Correlation context and sensitive-field redaction
 packages/platform         Feature and platform-version evaluation
 packages/design-tokens    Canonical JSON tokens and generated outputs
 packages/ui               Accessible Hanaply components
-supabase/migrations       Forward-only Phase 0 and Phase 1 schema/catalog migrations
+supabase/migrations       Forward-only Phase 0, Phase 1, and Phase 2 schema/catalog migrations
 supabase/tests/database   pgTAP constraints, permissions, and RLS tests
 templates                 Supabase Auth confirmation and recovery email templates
 tests                     Unit, API, component, and browser acceptance tests
@@ -140,5 +140,6 @@ tooling                   Drift, secret, bootstrap, and test runners
 - [Owner actions](docs/owner-actions.md)
 - [Phase 0 report](docs/phase-0-report.md)
 - [Phase 1 report](docs/phase-1-report.md)
+- [Phase 2 report](docs/phase-2-report.md)
 
 Privacy and terms remain owner-review drafts, not approved legal advice. Hosted Supabase, Resend/DNS, production URLs, first-owner bootstrap, deployment, and production smoke validation remain explicit owner actions.

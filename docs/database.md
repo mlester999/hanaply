@@ -2,7 +2,7 @@
 
 ## Migration model
 
-All schema changes are UTC-named, forward-only SQL migrations under `supabase/migrations`. The local reset applies 13 migrations in order:
+All schema changes are UTC-named, forward-only SQL migrations under `supabase/migrations`. The local reset applies 19 migrations in order. The first 13 establish the Phase 0 and Phase 1 foundation:
 
 1. Extensions, enums, private schema, and timestamp helper.
 2. Profiles, Auth provisioning, admin RBAC, audit events, and protected functions.
@@ -17,6 +17,15 @@ All schema changes are UTC-named, forward-only SQL migrations under `supabase/mi
 11. Add permission-checking admin overview/directory/detail/audit/account/session functions and safe caller session inspection.
 12. Apply Phase 1 least-privilege grants/RLS and replace admin self-inspection with active-account enforcement.
 13. Bind first-Super-Admin bootstrap to the verified environment-selected email and make same-owner retries idempotent.
+
+Phase 2 adds six forward migrations:
+
+14. `20260728090000_phase2_payment_schema.sql` - manual payment methods/submissions, proof metadata, review/audit history, subscriptions, entitlement events, notification outbox, cleanup jobs, private buckets, and forced RLS.
+15. `20260728091000_phase2_customer_payment_lifecycle.sql` - method administration, canonical customer drafts, proof attachment, submit/cancel/resubmit, reference normalization, and service-only cleanup queueing.
+16. `20260728092000_phase2_review_and_subscription_lifecycle.sql` - review locks, request-information/reject/approve, atomic activation/renewal, refunds, reversals, corrections, and expiry.
+17. `20260728093000_phase2_rls_grants_and_storage.sql` - least-privilege columns, customer RLS, service authorization, private object resolvers, and storage bucket policy boundary.
+18. `20260728100000_phase2_notification_delivery.sql` - claim-token notification delivery and idempotent expiry reminders.
+19. `20260728101000_phase2_release_hardening.sql` - resubmission/subscription/refund invariants, proof duplicate/cancellation cleanup, safe cleanup paths, append-only warnings, and worker cleanup claims.
 
 `supabase/seed.sql` contains no users or product activity. Static catalog data is migration-owned so every environment receives the same baseline.
 
@@ -50,6 +59,8 @@ Authenticated users can:
 - Update optional notification preferences and list/revoke sessions only through protected functions.
 - Read active public plans, definitions, and plan entitlement values.
 - Call `get_my_admin_access`, which returns only their own active roles and expanded permissions.
+- Read only currently enabled, effective manual payment methods and their public instructions.
+- Read only their own payment submissions, safe proof metadata, public lifecycle messages, subscription summary, and public subscription events.
 
 Authenticated users cannot:
 
@@ -65,13 +76,13 @@ Anonymous users can read active public plan data only. The service role performs
 
 Suspended users can read their profile status for safe routing but cannot update it, read subscriptions/preferences, or use protected API orchestration. Disabled and pending-deletion users receive the unavailable state. The login action, server layouts, API guard, session checks, and RLS apply the same fail-closed decision.
 
-Admin directory and mutation functions are service-role callable only, but they require an actor UUID and resolve the actor's active database permissions internally. Account actions reject self-status changes, protect the final active Super Admin, require a bounded reason, write account-status history and audit rows, and support only suspend/restore in Phase 1.
+Admin directory and mutation functions are service-role callable only, but they require an actor UUID and resolve the actor's active database permissions internally. Account actions reject self-status changes, protect the final active Super Admin, require a bounded reason, write account-status history and audit rows, and support only suspend/restore in Phase 1. Phase 2 payment method, review, refund, reversal, and subscription-correction functions repeat the same database-side permission checks and optimistic-version/lock checks.
 
 ## Audit lifecycle
 
 Audit rows reject direct updates and deletes, including service-role attempts. The sole exception is PostgreSQL's nested `ON DELETE SET NULL` action for `actor_user_id` when an Auth user is removed. The trigger verifies that only the actor FK changes, preserving the event and every other field.
 
-Audit before/after/metadata values must be allowlisted and sanitized by the service that writes them. Tokens, documents, payment proof, raw private records, and arbitrary request bodies never belong in audit JSON.
+Audit before/after/metadata values must be allowlisted and sanitized by the service that writes them. Tokens, documents, payment proof bytes, raw private records, and arbitrary request bodies never belong in audit JSON. Payment lifecycle events keep customer-visible messages separate from reviewer notes and private snapshots.
 
 ## Generated types
 
@@ -86,7 +97,7 @@ The check generates a fresh copy without overwriting the committed file and fail
 
 ## pgTAP coverage
 
-`pnpm db:test` runs 137 assertions across seven files. Coverage includes schema/forced-RLS state, catalog prices and matrices, profile provisioning/reconciliation, legal/preferences/history constraints, persistent auth throttling, positive and negative reads/writes, cross-user access, protected-field escalation, self-activation/promotion, suspended users, service-only operations, permissioned admin listing/actions/session revocation, final-Super-Admin protection, first-admin idempotency/auditing, and Auth-user audit anonymization.
+`pnpm db:test` runs 278 assertions across nine files. In addition to the Phase 0/1 coverage, Phase 2 tests cover canonical prices and method windows, draft/proof/submit/resubmit/review/approval transitions, optimistic conflicts, duplicate references/proofs, review locks, atomic subscription/entitlement assignment, renewal term guards, refunds, reversals, corrections, expiry, claim-token notifications, cleanup jobs, forced RLS, private columns, private storage buckets, resolver authorization, and direct-write rejection.
 
 ## Roll-forward and rollback reasoning
 

@@ -2,6 +2,8 @@
 
 Date: 2026-07-22 (Asia/Singapore)
 
+This is a historical Phase 1 snapshot. The current manual-payment activation checkpoint is documented in [Phase 2 report](phase-2-report.md); the Phase 1 statements below describe the repository as it stood on this report date.
+
 Decision: **CONDITIONAL GO for Phase 2**
 
 All mandatory local Phase 1 authentication, authorization, account-status, migration, RLS, API, build, security, responsive, accessibility, and end-to-end gates pass. No critical local security issue remains. Hosted Supabase, Resend/DNS, production URLs/ingress, distributed API rate limiting, first-owner bootstrap, legal approval, deployment, and hosted smoke tests require owner credentials or authority and remain pending.

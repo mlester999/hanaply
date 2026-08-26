@@ -9,7 +9,7 @@ flowchart LR
   API -->|"request-scoped token\nRLS remains active"| Supabase["Supabase Auth + PostgreSQL"]
   API -->|"service role\nconfiguration only"| Supabase
   Supabase -->|"Auth SMTP"| Email["Mailpit locally\nResend when owner-configured"]
-  Worker["Idle worker health shell"] --> Tasks["Versioned task contracts"]
+  Worker["Payment maintenance worker"] --> Tasks["Versioned task contracts"]
   Tasks -. "future adapter" .-> Queue["Production queue"]
   API --> Contracts["@hanaply/contracts"]
   Browser --> Contracts
@@ -21,20 +21,20 @@ The API is the authoritative orchestration boundary. The web application renders
 
 ## Workspace responsibilities
 
-| Boundary                                | Responsibility                                                                                                                             |
-| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| `apps/web`                              | Marketing, auth UI, protected customer/admin layouts, Supabase SSR cookie handling, CSP, and the shared API client                         |
-| `services/api`                          | Validation, bearer authentication, account-status enforcement, authorization, rate limiting, OpenAPI, repositories, and response envelopes |
-| `services/worker`                       | Liveness/readiness, graceful shutdown, queue interfaces, retry policy, and idle-mode truthfulness                                          |
-| `packages/contracts`                    | One route registry, Zod request/response/error schemas, OpenAPI 3.1, DOM-free fetch transport, and task envelopes                          |
-| `packages/database`                     | Supabase client factories, generated schema types, and explicit snake_case boundaries                                                      |
-| `packages/auth`                         | Identity validation, redirect sanitization, account-state decisions, and explicit permission primitives/matrix                             |
-| `packages/entitlements`                 | Subscription timing and complete, fail-closed entitlement evaluation                                                                       |
-| `packages/platform`                     | Prioritized feature targeting and semantic-version platform evaluation                                                                     |
-| `packages/ai`                           | Disabled provider-neutral AI boundary                                                                                                      |
-| `packages/email`                        | Versioned templates plus disabled, capture, and production-gated Resend adapters                                                           |
-| `packages/observability`                | AsyncLocalStorage context, Pino labels, and sensitive-field redaction                                                                      |
-| `packages/design-tokens`, `packages/ui` | Canonical visual tokens and accessible reusable primitives                                                                                 |
+| Boundary                                | Responsibility                                                                                                                                  |
+| --------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `apps/web`                              | Marketing, auth UI, protected customer/admin layouts, Supabase SSR cookie handling, CSP, and the shared API client                              |
+| `services/api`                          | Validation, bearer authentication, account-status enforcement, authorization, rate limiting, OpenAPI, repositories, and response envelopes      |
+| `services/worker`                       | Liveness/readiness, graceful shutdown, subscription expiry maintenance, payment notification delivery, private-object cleanup, and retry policy |
+| `packages/contracts`                    | One route registry, Zod request/response/error schemas, OpenAPI 3.1, DOM-free fetch transport, and task envelopes                               |
+| `packages/database`                     | Supabase client factories, generated schema types, and explicit snake_case boundaries                                                           |
+| `packages/auth`                         | Identity validation, redirect sanitization, account-state decisions, and explicit permission primitives/matrix                                  |
+| `packages/entitlements`                 | Subscription timing and complete, fail-closed entitlement evaluation                                                                            |
+| `packages/platform`                     | Prioritized feature targeting and semantic-version platform evaluation                                                                          |
+| `packages/ai`                           | Disabled provider-neutral AI boundary                                                                                                           |
+| `packages/email`                        | Versioned templates plus disabled, capture, and production-gated Resend adapters                                                                |
+| `packages/observability`                | AsyncLocalStorage context, Pino labels, and sensitive-field redaction                                                                           |
+| `packages/design-tokens`, `packages/ui` | Canonical visual tokens and accessible reusable primitives                                                                                      |
 
 Runtime-neutral packages avoid DOM and Node-only dependencies when mobile reuse is expected. Database rows remain snake_case; repository mappers return camelCase contract objects.
 
@@ -49,31 +49,46 @@ Each REST operation is declared once in `@hanaply/contracts` with its method, pa
 
 Successful responses contain `data` and `meta.apiVersion/requestId`. Errors contain a safe `error` object and the same metadata. Internal exceptions are never serialized directly.
 
-## Phase 1 endpoints
+## Phase 1 and Phase 2 endpoints
 
-| Endpoint                                        | Boundary                                                        |
-| ----------------------------------------------- | --------------------------------------------------------------- |
-| `GET /v1/health`                                | Public liveness; no dependency check                            |
-| `GET /v1/ready`                                 | Public readiness; verifies database connectivity                |
-| `GET /v1/version`                               | Public API/service/build version                                |
-| `GET /v1/meta`                                  | Public platform and client-exposed feature evaluation           |
-| `GET /v1/plans`                                 | Active database-backed plans and allowlisted entitlements       |
-| `GET /v1/me`                                    | Active bearer-authenticated profile and subscription summary    |
-| `PATCH /v1/me`                                  | Allowlisted profile update                                      |
-| `GET/PATCH /v1/me/preferences`                  | Caller-owned optional notification preferences                  |
-| `GET /v1/me/sessions`                           | Safe caller session summaries                                   |
-| `POST /v1/me/sessions/revoke-others`            | Revoke all non-current sessions                                 |
-| `GET /v1/me/entitlements`                       | Server-evaluated caller entitlements                            |
-| `GET /v1/admin/me`                              | Active admin membership, roles, and permissions from PostgreSQL |
-| `GET /v1/admin/overview`                        | Permissioned real identity/account totals                       |
-| `GET /v1/admin/users`                           | Filtered, paginated user directory                              |
-| `GET /v1/admin/users/{userId}`                  | Safe user/account/subscription detail                           |
-| `POST /v1/admin/users/{userId}/suspend`         | Audited account suspension                                      |
-| `POST /v1/admin/users/{userId}/restore`         | Audited suspension restoration                                  |
-| `POST /v1/admin/users/{userId}/revoke-sessions` | Audited full session revocation                                 |
-| `GET /v1/admin/audit-events`                    | Filtered, redacted audit directory                              |
-| `GET /v1/admin/security`                        | Safe implementation/configuration diagnostics                   |
-| `/openapi.json`, `/docs`                        | Local/test documentation; production-disabled by configuration  |
+| Endpoint                                           | Boundary                                                        |
+| -------------------------------------------------- | --------------------------------------------------------------- |
+| `GET /v1/health`                                   | Public liveness; no dependency check                            |
+| `GET /v1/ready`                                    | Public readiness; verifies database connectivity                |
+| `GET /v1/version`                                  | Public API/service/build version                                |
+| `GET /v1/meta`                                     | Public platform and client-exposed feature evaluation           |
+| `GET /v1/plans`                                    | Active database-backed plans and allowlisted entitlements       |
+| `GET /v1/me`                                       | Active bearer-authenticated profile and subscription summary    |
+| `PATCH /v1/me`                                     | Allowlisted profile update                                      |
+| `GET/PATCH /v1/me/preferences`                     | Caller-owned optional notification preferences                  |
+| `GET /v1/me/sessions`                              | Safe caller session summaries                                   |
+| `POST /v1/me/sessions/revoke-others`               | Revoke all non-current sessions                                 |
+| `GET /v1/me/entitlements`                          | Server-evaluated caller entitlements                            |
+| `GET /v1/payment-methods`                          | Current enabled manual payment methods and signed QR access     |
+| `GET /v1/me/subscription`                          | Caller subscription and evaluated entitlements                  |
+| `GET /v1/me/payment-submissions`                   | Caller payment history                                          |
+| `POST/PATCH /v1/me/payment-submissions`            | Canonical payment draft creation/update                         |
+| `POST /v1/me/payment-submissions/{id}/proof`       | Validated private proof upload                                  |
+| `GET /v1/me/payment-submissions/{id}/proof-access` | Short-lived caller proof access                                 |
+| `POST .../{id}/submit                              | cancel                                                          | resubmit`                               | Versioned customer lifecycle actions |
+| `GET /v1/admin/me`                                 | Active admin membership, roles, and permissions from PostgreSQL |
+| `GET /v1/admin/overview`                           | Permissioned real identity/account totals                       |
+| `GET /v1/admin/users`                              | Filtered, paginated user directory                              |
+| `GET /v1/admin/users/{userId}`                     | Safe user/account/subscription detail                           |
+| `POST /v1/admin/users/{userId}/suspend`            | Audited account suspension                                      |
+| `POST /v1/admin/users/{userId}/restore`            | Audited suspension restoration                                  |
+| `POST /v1/admin/users/{userId}/revoke-sessions`    | Audited full session revocation                                 |
+| `GET /v1/admin/audit-events`                       | Filtered, redacted audit directory                              |
+| `GET /v1/admin/security`                           | Safe implementation/configuration diagnostics                   |
+| `GET/POST/PATCH /v1/admin/payment-methods`         | Permissioned method configuration and version history           |
+| `POST .../payment-methods/{id}/enable              | disable                                                         | archive                                 | qr`                                  | Permissioned method state/QR operations |
+| `GET /v1/admin/payment-submissions`                | Permissioned payment review queue                               |
+| `GET .../payment-submissions/{id}`                 | Review detail with private warning metadata                     |
+| `GET .../{id}/proof-access`                        | `payments.review`-only short-lived proof access                 |
+| `POST .../{id}/start-review                        | request-information                                             | approve                                 | reject`                              | Locked review outcomes                  |
+| `POST .../{id}/record-refund                       | reverse`                                                        | Dual-authority refund/reversal outcomes |
+| `GET/POST /v1/admin/subscriptions`                 | Subscription inspection and controlled date correction          |
+| `/openapi.json`, `/docs`                           | Local/test documentation; production-disabled by configuration  |
 
 ## Authentication and authorization sequence
 
@@ -91,8 +106,8 @@ Successful responses contain `data` and `meta.apiVersion/requestId`. Errors cont
 
 Tasks include version, correlation and idempotency identifiers, timestamps, attempts, and a validated payload. Retry delay is exponential with full jitter, defaults to five attempts, and caps at 15 minutes. Dead-letter metadata deliberately omits payloads.
 
-The queue and AI providers remain disabled. Active worker mode fails startup and AI calls reject.
+The general production queue and AI providers remain disabled. Active worker mode is limited to the Phase 2 database outbox: it expires subscriptions, queues expiry reminders, delivers payment/subscription messages through the configured email provider, and retries private payment-object cleanup. AI calls reject.
 
-Email now has disabled, in-memory capture, and Resend implementations. Resend can start only outside local/test with a validated key/sender and explicit live-send gate. Supabase Auth owns verification/recovery transport; local messages go to Mailpit and hosted Resend SMTP remains an owner configuration task. No live provider call was made during Phase 1 validation.
+Email has disabled, in-memory capture, and Resend implementations. Resend can start only outside local/test with a validated key/sender and explicit live-send gate. Supabase Auth owns verification/recovery transport; local messages go to Mailpit and hosted Resend SMTP remains an owner configuration task. No live provider call was made during local validation.
 
-Phase 1 adds no payment, job, document, AI, push, or queue-consumer operation. The Activation Center and dashboards expose real account/subscription state with honest deferred-feature copy.
+Phase 2 adds manual-payment activation and review operations without a payment-provider integration. The Activation Center and admin tools expose real payment/subscription state with honest deferred-feature copy. Career profiles, resumes, jobs, AI, push, mobile, and later queue consumers remain unopened.

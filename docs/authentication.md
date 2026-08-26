@@ -69,7 +69,7 @@ Registration, recovery, and invalid-login responses avoid disclosing account exi
 
 ## Local and hosted behavior
 
-Local Supabase sends only to Mailpit at `http://127.0.0.1:54324`; Playwright reads that API and never contacts a real mailbox. Test identities are created by global setup and deleted at teardown.
+Local Supabase sends only to Mailpit at `http://127.0.0.1:55424`; Playwright reads that API and never contacts a real mailbox. Test identities are created by global setup and deleted at teardown.
 
 Hosted validation remains pending. Before release, the owner must configure exact redirect URLs, cookie/HTTPS behavior, Resend custom SMTP, templates, sender DNS, and then test signup, verification, refresh, recovery, password change, logout, revocation, and suspension against the hosted project. Remote migrations and hosted bootstrap are never run by CI.
 

@@ -1,11 +1,11 @@
 # Owner actions
 
-No hosted project, external provider, DNS record, production infrastructure, deployment, Git tag, remote migration, or remote push was changed during Phase 1. The following gates are pending and are not counted as passed.
+No hosted project, external provider, DNS record, production infrastructure, deployment, Git tag, remote migration, or remote push was changed during this local Phase 2 activation checkpoint. The following hosted and owner-controlled gates are pending and are not counted as passed.
 
 ## Hosted staging Supabase
 
 1. Create/select an owner-controlled project and approve its region, data residency, plan, backups, PITR, and access ownership.
-2. Review all 13 forward migrations and seven pgTAP files from the release commit.
+2. Review all 19 forward migrations and nine pgTAP files from the release commit.
 3. Link the Supabase CLI only from an owner-controlled shell. Preview migration changes, back up staging, apply them intentionally, regenerate types, and confirm no drift.
 4. Configure exact staging/production Site URLs and redirect allowlists for signup and recovery. Remove localhost entries from production-only configuration where appropriate.
 5. Set Auth confirmation on, secure password change on, one-hour OTP expiry, and the reviewed confirmation/recovery/password-change templates.
@@ -48,11 +48,20 @@ The private shell must set `ADMIN_BOOTSTRAP_ENABLED=true`, `ADMIN_BOOTSTRAP_EMAI
 - Define account suspension, restoration, disabled/deletion, data export/deletion, retention, and incident procedures.
 - Approve audit access/retention and administrator access reviews.
 
-## AI, queue, storage, notifications, and mobile
+## Phase 2 manual-payment release
+
+1. Deploy the six Phase 2 migrations to an owner-controlled staging project after backup/PITR review; regenerate database types and run the hosted RLS/payment smoke suite.
+2. Create and verify the approved payment methods, effective windows, amount limits, public instructions, and private QR images. Confirm that old method snapshots remain unchanged on existing submissions.
+3. Exercise the full hosted path with a controlled test account: draft, proof upload, submit, review lock, request-information/resubmit, reject, approve, subscription/entitlement evaluation, renewal, refund, reversal, correction, expiry, and duplicate/idempotent retry behavior.
+4. Configure an active worker target with database-outbox access, health probes, bounded notification/storage-cleanup retries, failed-row alerting, and an operational replay/remediation procedure.
+5. Configure owner-approved Resend SMTP/API delivery, templates, sender DNS, bounce/complaint monitoring, suppression handling, and test inboxes. Keep live sends disabled until evidence is approved.
+6. Confirm retention/deletion ownership for payment proof bytes and metadata, including failed cleanup jobs and incident response. Do not enable career documents, jobs, AI matching, or mobile clients as part of this checkpoint.
+
+## AI, future queue, future documents, notifications, and mobile
 
 - Select AI providers/models only after data-processing, retention, region, cost, egress, and Truth Gate review.
-- Select a production queue and distributed idempotency/dead-letter store before active worker mode.
-- Approve private document buckets, MIME/signature validation, quarantine scanning, retention/deletion, and isolated previews before uploads.
+- Select a production queue and distributed idempotency/dead-letter store before active worker mode for future job/AI consumers. Phase 2 payment maintenance uses the database outbox and still needs production monitoring.
+- Approve private career-document buckets, MIME/signature validation, quarantine scanning, retention/deletion, and isolated previews before uploads.
 - Approve Keychain/Keystore storage, device and encrypted push-token lifecycle, Universal/App Links, platform privacy declarations, and mobile threat tests before React Native work.
 - Implement non-authentication email/browser/push delivery only in its approved future phase.
 
@@ -67,4 +76,4 @@ The private shell must set `ADMIN_BOOTSTRAP_ENABLED=true`, `ADMIN_BOOTSTRAP_EMAI
 
 ## Phase 2 approval
 
-Phase 2 has not started. The current decision can be no stronger than conditional until hosted Supabase, Resend/DNS, production configuration, and first-owner bootstrap gates pass. After that evidence is reviewed, the owner must explicitly approve Phase 2; no automatic continuation is authorized.
+The manual-payment activation checkpoint is implemented locally and all local validation gates must pass from the release commit. The release decision remains conditional until hosted Supabase/RLS, payment storage retention, worker monitoring, Resend/DNS, production configuration, first-owner bootstrap, legal, and deployment gates pass. Career Profile, resume/portfolio, job, AI matching, and mobile work are explicitly outside this checkpoint; no automatic continuation is authorized.
