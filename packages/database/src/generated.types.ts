@@ -714,10 +714,15 @@ export type Database = {
       payment_notifications: {
         Row: {
           attempts: number
+          available_at: string
+          claim_token: string | null
+          claimed_at: string | null
+          completed_at: string | null
           created_at: string
           failure_code: string | null
           id: string
           idempotency_key: string
+          last_attempt_at: string | null
           payment_submission_id: string | null
           provider_message_id: string | null
           status: string
@@ -730,10 +735,15 @@ export type Database = {
         }
         Insert: {
           attempts?: number
+          available_at?: string
+          claim_token?: string | null
+          claimed_at?: string | null
+          completed_at?: string | null
           created_at?: string
           failure_code?: string | null
           id?: string
           idempotency_key: string
+          last_attempt_at?: string | null
           payment_submission_id?: string | null
           provider_message_id?: string | null
           status?: string
@@ -746,10 +756,15 @@ export type Database = {
         }
         Update: {
           attempts?: number
+          available_at?: string
+          claim_token?: string | null
+          claimed_at?: string | null
+          completed_at?: string | null
           created_at?: string
           failure_code?: string | null
           id?: string
           idempotency_key?: string
+          last_attempt_at?: string | null
           payment_submission_id?: string | null
           provider_message_id?: string | null
           status?: string
@@ -1780,6 +1795,49 @@ export type Database = {
         }
         Returns: Json
       }
+      claim_payment_notifications: {
+        Args: { requested_batch_size?: number; requested_claim_token: string }
+        Returns: {
+          attempts: number
+          id: string
+          idempotency_key: string
+          payment_submission_id: string
+          subscription_id: string
+          template_id: string
+          template_version: string
+          user_id: string
+          variables: Json
+        }[]
+      }
+      claim_storage_cleanup_jobs: {
+        Args: { requested_batch_size?: number; requested_claim_token: string }
+        Returns: {
+          attempts: number
+          bucket_id: string
+          id: string
+          object_path: string
+        }[]
+      }
+      complete_payment_notification: {
+        Args: {
+          requested_attempts: number
+          requested_claim_token: string
+          requested_failure_code: string
+          requested_provider_message_id: string
+          requested_status: string
+          target_notification_id: string
+        }
+        Returns: boolean
+      }
+      complete_storage_cleanup_job: {
+        Args: {
+          requested_claim_token: string
+          requested_error_code?: string
+          requested_status: Database["public"]["Enums"]["storage_cleanup_status"]
+          target_job_id: string
+        }
+        Returns: boolean
+      }
       consume_auth_rate_limit: {
         Args: { rate_bucket: string; rate_key_hash: string }
         Returns: {
@@ -1835,16 +1893,6 @@ export type Database = {
           user_agent: string
         }[]
       }
-      mark_payment_notification_delivery: {
-        Args: {
-          requested_attempts: number
-          requested_failure_code: string
-          requested_provider_message_id: string
-          requested_status: string
-          target_notification_id: string
-        }
-        Returns: boolean
-      }
       queue_storage_cleanup: {
         Args: {
           requested_bucket_id: string
@@ -1852,6 +1900,10 @@ export type Database = {
           requested_reason: string
         }
         Returns: string
+      }
+      queue_subscription_expiry_reminders: {
+        Args: { evaluated_at?: string; reminder_days?: number }
+        Returns: number
       }
       reconcile_my_profile: { Args: never; Returns: boolean }
       record_my_auth_event: {
@@ -1885,6 +1937,22 @@ export type Database = {
           target_submission_id: string
         }
         Returns: number
+      }
+      release_payment_notification_claim: {
+        Args: {
+          requested_claim_token: string
+          retry_at: string
+          target_notification_id: string
+        }
+        Returns: boolean
+      }
+      release_storage_cleanup_job: {
+        Args: {
+          requested_claim_token: string
+          retry_at: string
+          target_job_id: string
+        }
+        Returns: boolean
       }
       request_payment_information: {
         Args: {

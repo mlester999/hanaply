@@ -57,6 +57,7 @@ export interface ApiRoute<TResponse extends z.ZodType = z.ZodType> {
   readonly query?: z.ZodObject;
   readonly params?: z.ZodObject;
   readonly body?: z.ZodType;
+  readonly multipartBody?: z.ZodObject;
   readonly response: TResponse;
 }
 
@@ -283,14 +284,20 @@ const adminPaymentMethodDetailSchema = adminPaymentMethodSchema.extend({
   versions: z.array(paymentMethodVersionSchema),
 });
 
+export type AdminPaymentMethodDetail = z.infer<typeof adminPaymentMethodDetailSchema>;
+
 const signedAccessSchema = z.object({
   url: z.url(),
   expiresAt: z.iso.datetime({ offset: true }),
 });
 
+const paymentImageUploadSchema = z.object({
+  file: z.string().meta({ format: 'binary', description: 'JPEG, PNG, or WebP image bytes' }),
+});
+
 const adminSubscriptionsQuerySchema = z
   .object({
-    status: z.string().trim().max(40).optional(),
+    status: subscriptionStatusSchema.optional(),
     planCode: z.string().trim().max(64).optional(),
     userSearch: z.string().trim().max(120).optional(),
     expiringBefore: z.iso.datetime({ offset: true }).optional(),
@@ -507,6 +514,7 @@ export const apiContract = Object.freeze({
     auth: 'user',
     successStatus: 200,
     params: paymentSubmissionParamsSchema,
+    multipartBody: paymentImageUploadSchema,
     response: successEnvelopeSchema(paymentProofSchema),
   }),
   myPaymentProofAccess: defineRoute({
@@ -720,6 +728,7 @@ export const apiContract = Object.freeze({
     auth: 'admin',
     successStatus: 200,
     params: paymentMethodParamsSchema,
+    multipartBody: paymentImageUploadSchema,
     response: successEnvelopeSchema(adminPaymentMethodDetailSchema),
   }),
   adminPaymentSubmissions: defineRoute({

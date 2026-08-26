@@ -15,6 +15,9 @@ function registerRoute(registry: OpenAPIRegistry, route: ApiContractRoute): void
     ...(route.query ? { query: route.query } : {}),
     ...(route.params ? { params: route.params } : {}),
     ...(route.body ? { body: { content: { 'application/json': { schema: route.body } } } } : {}),
+    ...(route.multipartBody
+      ? { body: { content: { 'multipart/form-data': { schema: route.multipartBody } } } }
+      : {}),
   };
   registry.registerPath({
     method: route.method.toLowerCase() as Lowercase<ApiContractRoute['method']>,

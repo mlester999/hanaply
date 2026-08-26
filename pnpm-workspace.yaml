@@ -9,14 +9,17 @@ allowBuilds:
 
 overrides:
   find-my-way: 9.7.0
-  postcss: 8.5.23
-  sharp: 0.35.0
+  fast-uri@3.1.4: 3.1.5
+  fast-uri@4.1.1: 4.1.2
+  postcss: 8.5.26
+  sharp: 0.35.3
 
 catalog:
   '@asteasolutions/zod-to-openapi': 9.1.0
   '@axe-core/playwright': 4.12.1
   '@fastify/cors': 11.3.0
   '@fastify/helmet': 13.1.0
+  '@fastify/multipart': 10.1.0
   '@fastify/swagger-ui': 6.1.0
   '@nestjs/common': 11.1.28
   '@nestjs/core': 11.1.28
@@ -52,6 +55,7 @@ catalog:
   react-dom: 19.2.8
   reflect-metadata: 0.2.2
   resend: 6.18.0
+  sharp: 0.35.3
   rxjs: 7.8.2
   semver: 7.8.5
   zod: 4.4.3

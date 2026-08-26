@@ -59,10 +59,19 @@ describe('environment schemas', () => {
     ).toThrow(/distributed API rate-limit store/u);
   });
 
-  it('refuses active worker mode without a production queue adapter', () => {
-    expect(() =>
-      parseWorkerEnvironment({ ...localServerEnvironment, WORKER_MODE: 'active' }),
-    ).toThrow(/production queue adapter/u);
+  it('configures the database-backed payment worker explicitly', () => {
+    const worker = parseWorkerEnvironment({
+      ...localServerEnvironment,
+      WORKER_MODE: 'active',
+      EMAIL_PROVIDER: 'capture',
+      SUBSCRIPTION_EXPIRY_REMINDER_DAYS: '30,7,1,7',
+    });
+    expect(worker.WORKER_MODE).toBe('active');
+    expect(worker.SUBSCRIPTION_EXPIRY_REMINDER_DAYS).toEqual([30, 7, 1]);
+    expect(worker.WORKER_NOTIFICATION_BATCH_SIZE).toBe(25);
+    expect(worker.WORKER_NOTIFICATION_MAX_ATTEMPTS).toBe(5);
+    expect(worker.WORKER_STORAGE_CLEANUP_BATCH_SIZE).toBe(25);
+    expect(worker.WORKER_STORAGE_CLEANUP_MAX_ATTEMPTS).toBe(5);
   });
 
   it('requires Resend credentials only when that provider is selected', () => {

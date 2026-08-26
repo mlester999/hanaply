@@ -3,6 +3,7 @@ import {
   CaptureEmailProvider,
   createEmailProvider,
   DisabledEmailProvider,
+  emailTemplatePreviewMessage,
   type EmailMessage,
   emailTemplateIds,
   renderEmailTemplate,
@@ -11,18 +12,15 @@ import {
 import { describe, expect, it } from 'vitest';
 
 function message(templateId: (typeof emailTemplateIds)[number]): EmailMessage {
-  const category = templateId === 'welcome' ? 'account' : 'authentication';
+  const preview = emailTemplatePreviewMessage(templateId);
   return {
+    ...preview,
     recipient: 'member@example.com',
-    templateId,
-    templateVersion: 'v1',
-    category,
     idempotencyKey: `email:${templateId}:30000000-0000-4000-8000-000000000001`,
     variables: {
+      ...preview.variables,
       displayName: 'Ana & Kai',
       actionUrl: 'https://hanaply.example/auth/callback?token_hash=opaque-value',
-      expiresIn: 'one hour',
-      securityEvent: 'Password changed',
     },
   };
 }
@@ -41,6 +39,7 @@ describe('email templates and providers', () => {
   it.each(emailTemplateIds)('renders accessible HTML and plain text for %s', (templateId) => {
     const rendered = renderEmailTemplate(message(templateId));
     expect(rendered.subject).toBeTruthy();
+    expect(rendered.preheader).toBeTruthy();
     expect(rendered.html).toContain('<!doctype html>');
     expect(rendered.html).toContain('lang="en"');
     expect(rendered.html).toContain('Ana &amp; Kai');
@@ -48,6 +47,8 @@ describe('email templates and providers', () => {
     expect(rendered.text).toContain('Ana & Kai');
     expect(`${rendered.subject}${rendered.html}${rendered.text}`).not.toContain('—');
     expect(rendered.html).not.toContain('<img');
+    expect(`${rendered.html}${rendered.text}`).not.toContain('payment-proofs/');
+    expect(`${rendered.html}${rendered.text}`).not.toContain('signedUrl');
   });
 
   it('rejects unsafe links and incorrect category conventions', () => {

@@ -4,6 +4,7 @@ import {
   calculateSubscriptionTermEnd,
   canTransitionPaymentSubmission,
   normalizePaymentReference,
+  paymentQueueQuerySchema,
   paymentReferenceSchema,
 } from '@hanaply/contracts';
 import { describe, expect, it } from 'vitest';
@@ -19,6 +20,14 @@ describe('manual payment contracts', () => {
     expect(normalizePaymentReference('  gcash-AB 12/3456  ')).toBe('GCASHAB123456');
     expect(paymentReferenceSchema.safeParse('<img src=x>').success).toBe(false);
     expect(paymentReferenceSchema.safeParse('ABC\u000012345').success).toBe(false);
+  });
+
+  it('parses review-queue boolean query values without treating false as true', () => {
+    expect(paymentQueueQuerySchema.parse({ duplicateReference: 'false' }).duplicateReference).toBe(
+      false,
+    );
+    expect(paymentQueueQuerySchema.parse({ duplicateProof: 'true' }).duplicateProof).toBe(true);
+    expect(paymentQueueQuerySchema.safeParse({ duplicateProof: 'no' }).success).toBe(false);
   });
 
   it('allows only the centralized lifecycle transitions', () => {

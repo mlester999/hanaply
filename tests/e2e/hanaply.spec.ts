@@ -281,8 +281,12 @@ test('keeps pricing on the landing page and an honest Activation Center', async 
   await signIn(page, testAccounts.customer);
   await expect(page).toHaveURL('/dashboard');
   await page.goto('/dashboard/activation');
-  await expect(page.getByText('Do not send payment yet')).toBeVisible();
-  await expect(page.getByText('Annual savings')).toHaveCount(2);
+  await expect(page.getByText('Manual renewal only')).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: 'No payment methods are available' }),
+  ).toBeVisible();
+  await expect(page.getByText('Do not send payment yet')).toHaveCount(0);
+  await expect(page.getByText('Annual savings')).toHaveCount(0);
   await expectAxeClean(page);
 });
 

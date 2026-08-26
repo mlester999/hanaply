@@ -28,7 +28,7 @@ begin
 end;
 $$;
 
-select plan(50);
+select plan(51);
 
 insert into auth.users (
   instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,
@@ -202,6 +202,7 @@ select ok(pg_temp.operation_fails($statement$select previous_state from public.s
 select ok(pg_temp.operation_fails($statement$select * from public.payment_review_flags$statement$), 'customer cannot read review flags');
 select ok(pg_temp.operation_fails($statement$select * from public.payment_review_assignments$statement$), 'customer cannot read reviewer assignments');
 select ok(pg_temp.operation_fails($statement$select * from public.payment_notifications$statement$), 'customer cannot read notification outbox records');
+select ok(pg_temp.operation_fails($statement$select public.mark_payment_notification_delivery(gen_random_uuid(), 'delivered', '', '', 1)$statement$), 'legacy unrestricted notification mutation is unavailable');
 select ok(pg_temp.operation_fails($statement$select * from public.entitlement_events$statement$), 'customer cannot read private entitlement events');
 select ok(pg_temp.operation_fails($statement$update public.payment_submissions set status = 'approved'$statement$), 'customer cannot mutate payment state directly');
 select ok(pg_temp.operation_fails($statement$select public.resolve_payment_proof_object(auth.uid(), (select value from phase2_privacy_ids where key = 'owner-payment'), false)$statement$), 'customer cannot call private object resolver directly');

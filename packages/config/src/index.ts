@@ -81,11 +81,65 @@ const apiEnvironmentSchema = sharedServerEnvironmentSchema.extend({
   EMAIL_PROVIDER: z.enum(['disabled', 'capture', 'resend']).default('disabled'),
   EMAIL_ALLOW_LIVE_SENDS: booleanFromEnvironment.default(false),
   ADMIN_BOOTSTRAP_ENABLED: booleanFromEnvironment.default(false),
+  PAYMENT_PROOF_BUCKET: z.literal('payment-proofs').default('payment-proofs'),
+  PAYMENT_QR_BUCKET: z.literal('payment-qr-codes').default('payment-qr-codes'),
+  PAYMENT_PROOF_MAX_BYTES: z.coerce
+    .number()
+    .int()
+    .min(5 * 1024 * 1024)
+    .max(8 * 1024 * 1024)
+    .default(8 * 1024 * 1024),
+  PAYMENT_QR_MAX_BYTES: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .max(5 * 1024 * 1024)
+    .default(5 * 1024 * 1024),
+  PAYMENT_IMAGE_MAX_PIXELS: z.coerce
+    .number()
+    .int()
+    .min(1_000_000)
+    .max(144_000_000)
+    .default(40_000_000),
+  PAYMENT_SIGNED_URL_TTL_SECONDS: z.coerce.number().int().min(30).max(600).default(300),
+  STORAGE_CLEANUP_MODE: z.enum(['immediate', 'queue']).default('immediate'),
 });
 
 const workerEnvironmentSchema = sharedServerEnvironmentSchema.extend({
   WORKER_HEALTH_PORT: portFromEnvironment.default(3102),
   WORKER_MODE: z.enum(['idle', 'active']).default('idle'),
+  WORKER_POLL_INTERVAL_MS: z.coerce.number().int().min(1_000).max(60_000).default(5_000),
+  WORKER_MAINTENANCE_INTERVAL_MS: z.coerce
+    .number()
+    .int()
+    .min(60_000)
+    .max(86_400_000)
+    .default(300_000),
+  WORKER_NOTIFICATION_BATCH_SIZE: z.coerce.number().int().min(1).max(100).default(25),
+  WORKER_NOTIFICATION_MAX_ATTEMPTS: z.coerce.number().int().min(1).max(20).default(5),
+  WORKER_STORAGE_CLEANUP_BATCH_SIZE: z.coerce.number().int().min(1).max(100).default(25),
+  WORKER_STORAGE_CLEANUP_MAX_ATTEMPTS: z.coerce.number().int().min(1).max(20).default(5),
+  SUBSCRIPTION_EXPIRY_REMINDER_DAYS: z
+    .string()
+    .trim()
+    .default('30,7,1')
+    .transform((value, context) => {
+      const days = [...new Set(value.split(',').map((entry) => Number(entry.trim())))];
+      if (days.length === 0 || days.some((day) => !Number.isInteger(day) || day < 1 || day > 365)) {
+        context.addIssue({
+          code: 'custom',
+          message: 'Use comma-separated reminder days from 1 to 365',
+        });
+        return z.NEVER;
+      }
+      return days.sort((left, right) => right - left);
+    }),
+  EMAIL_PROVIDER: z.enum(['disabled', 'capture', 'resend']).default('disabled'),
+  EMAIL_ALLOW_LIVE_SENDS: booleanFromEnvironment.default(false),
+  RESEND_API_KEY: z.string().trim().optional(),
+  RESEND_FROM_ADDRESS: mailboxSchema.optional(),
+  RESEND_REPLY_TO_ADDRESS: z.email().optional(),
+  RESEND_REQUEST_TIMEOUT_MS: z.coerce.number().int().min(1_000).max(30_000).default(8_000),
 });
 
 const emailEnvironmentSchema = z
@@ -202,9 +256,7 @@ export function parseApiEnvironment(input: Record<string, unknown>): ApiEnvironm
 export function parseWorkerEnvironment(input: Record<string, unknown>): WorkerEnvironment {
   const environment = workerEnvironmentSchema.parse(input);
   enforceProductionUrls(environment);
-  if (environment.WORKER_MODE === 'active') {
-    throw new Error('No production queue adapter is configured for active worker mode');
-  }
+  parseEmailEnvironment(environment);
   return environment;
 }
 

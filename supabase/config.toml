@@ -2,7 +2,7 @@ project_id = "hanaply"
 
 [api]
 enabled = true
-port = 54321
+port = 55421
 schemas = ["public", "graphql_public"]
 extra_search_path = ["public", "extensions"]
 max_rows = 1000
@@ -11,7 +11,7 @@ max_rows = 1000
 enabled = false
 
 [db]
-port = 54332
+port = 55432
 shadow_port = 54330
 health_timeout = "2m"
 major_version = 17
@@ -36,12 +36,12 @@ enabled = false
 
 [studio]
 enabled = true
-port = 54323
+port = 55423
 api_url = "http://127.0.0.1"
 
 [local_smtp]
 enabled = true
-port = 54324
+port = 55424
 
 [storage]
 enabled = true

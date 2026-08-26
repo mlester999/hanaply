@@ -14,14 +14,15 @@ export default async function DashboardPage() {
     <div className="workspace-page">
       <PageHeader
         actions={<Badge tone="success">Protected account</Badge>}
-        description="Your account workspace is active. Paid product features remain locked until activation is implemented."
+        description="Your account workspace is active. Paid access begins only after an authorized manual-payment review."
         eyebrow="Customer dashboard"
         title={`Welcome, ${preferredName}.`}
       />
       {!subscriptionActive ? (
         <Alert title="Activation required" tone="info">
-          Your account has no active paid subscription. Phase 2 will introduce a reviewed manual
-          activation process. Do not send payment yet.
+          Your account has no active paid subscription. Open the Activation Center to review any
+          currently available manual payment method and submit proof for review. Approval is not
+          guaranteed.
         </Alert>
       ) : null}
       <div className="dashboard-overview-grid">

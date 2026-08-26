@@ -8,11 +8,14 @@ import {
   Flag,
   Gauge,
   Home,
+  MailCheck,
   Menu,
   Settings,
   ShieldCheck,
   SlidersHorizontal,
+  ReceiptText,
   Users,
+  WalletCards,
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -30,6 +33,30 @@ const customerItems = [
 const adminItems = [
   { href: '/admin', label: 'Overview', icon: Home, permissions: ['users.read'] },
   { href: '/admin/users', label: 'Users', icon: Users, permissions: ['users.read'] },
+  {
+    href: '/admin/payments',
+    label: 'Payment Reviews',
+    icon: ReceiptText,
+    permissions: ['payments.read'],
+  },
+  {
+    href: '/admin/payment-methods',
+    label: 'Payment Methods',
+    icon: WalletCards,
+    permissions: ['payment_methods.read'],
+  },
+  {
+    href: '/admin/subscriptions',
+    label: 'Subscriptions',
+    icon: CreditCard,
+    permissions: ['subscriptions.read'],
+  },
+  {
+    href: '/admin/email-preview',
+    label: 'Email Preview',
+    icon: MailCheck,
+    permissions: ['notifications.manage'],
+  },
   {
     href: '/admin/security',
     label: 'Security',

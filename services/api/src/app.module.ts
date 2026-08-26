@@ -11,11 +11,15 @@ import {
   PublicController,
   UserController,
 } from './controllers.js';
+import { AdminPaymentController, CustomerPaymentController } from './payment.controllers.js';
+import { PaymentRepository } from './payment.repository.js';
+import { PaymentService } from './payment.service.js';
 import { HanaplyRepository } from './repository.js';
 import { API_ENVIRONMENT } from './tokens.js';
 
 export interface ApiRuntimeOverrides {
   repository?: unknown;
+  paymentRepository?: unknown;
   authService?: unknown;
 }
 
@@ -27,13 +31,24 @@ export class AppModule {
     return {
       module: AppModule,
       imports: [ThrottlerModule.forRoot([{ name: 'default', ttl: 60_000, limit: 100 }])],
-      controllers: [PublicController, UserController, AdminController, DocumentationController],
+      controllers: [
+        PublicController,
+        UserController,
+        CustomerPaymentController,
+        AdminController,
+        AdminPaymentController,
+        DocumentationController,
+      ],
       providers: [
         { provide: API_ENVIRONMENT, useValue: environment },
         overrides.repository
           ? { provide: HanaplyRepository, useValue: overrides.repository }
           : HanaplyRepository,
+        overrides.paymentRepository
+          ? { provide: PaymentRepository, useValue: overrides.paymentRepository }
+          : PaymentRepository,
         HanaplyService,
+        PaymentService,
         overrides.authService
           ? { provide: SupabaseAuthService, useValue: overrides.authService }
           : SupabaseAuthService,

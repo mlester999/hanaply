@@ -3,6 +3,7 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from './generated.types.js';
 
 export type { Database, Json } from './generated.types.js';
+export type DatabaseClient = SupabaseClient<Database>;
 
 const statelessAuth = {
   persistSession: false,

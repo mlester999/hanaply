@@ -12,7 +12,10 @@
   "dependencies": {
     "@hanaply/config": "workspace:*",
     "@hanaply/contracts": "workspace:*",
+    "@hanaply/database": "workspace:*",
+    "@hanaply/email": "workspace:*",
     "@hanaply/observability": "workspace:*",
+    "@supabase/supabase-js": "catalog:",
     "fastify": "catalog:"
   },
   "devDependencies": {

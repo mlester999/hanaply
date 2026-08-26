@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@fastify/helmet": "catalog:",
+    "@fastify/multipart": "catalog:",
     "@hanaply/auth": "workspace:*",
     "@hanaply/config": "workspace:*",
     "@hanaply/contracts": "workspace:*",
@@ -26,6 +27,7 @@
     "fastify": "catalog:",
     "reflect-metadata": "catalog:",
     "rxjs": "catalog:",
+    "sharp": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {

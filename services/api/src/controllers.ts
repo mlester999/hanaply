@@ -5,6 +5,7 @@ import {
   Controller,
   Get,
   Header,
+  HttpCode,
   Inject,
   Param,
   Patch,
@@ -118,6 +119,7 @@ export class UserController {
   }
 
   @Post(apiContract.revokeOtherSessions.path)
+  @HttpCode(200)
   @Throttle({ default: { limit: 10, ttl: 3_600_000 } })
   async revokeOtherSessions(@Req() request: AuthenticatedRequest) {
     return apiContract.revokeOtherSessions.response.parse(
@@ -171,6 +173,7 @@ export class AdminController {
   }
 
   @Post(adminSuspendUserPath)
+  @HttpCode(200)
   @RequirePermission('users.manage')
   @Throttle({ default: { limit: 10, ttl: 3_600_000 } })
   async suspendUser(
@@ -184,6 +187,7 @@ export class AdminController {
   }
 
   @Post(adminRestoreUserPath)
+  @HttpCode(200)
   @RequirePermission('users.manage')
   @Throttle({ default: { limit: 10, ttl: 3_600_000 } })
   async restoreUser(
@@ -197,6 +201,7 @@ export class AdminController {
   }
 
   @Post(adminRevokeUserSessionsPath)
+  @HttpCode(200)
   @RequireAnyPermission('users.manage', 'security.manage')
   @Throttle({ default: { limit: 10, ttl: 3_600_000 } })
   async revokeUserSessions(

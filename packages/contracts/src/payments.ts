@@ -60,7 +60,7 @@ export const paymentReferenceSchema = z
       .min(6, 'Enter at least 6 characters.')
       .max(100, 'Use 100 characters or fewer.')
       .regex(
-        /^[\p{L}\p{N}][\p{L}\p{N} ._:/#-]*$/u,
+        /^[A-Za-z0-9][A-Za-z0-9 ._:/#-]*$/u,
         'Use letters, numbers, spaces, and common reference separators only.',
       )
       .refine(
@@ -137,6 +137,13 @@ export const paymentSubmissionEventSchema = z.object({
   createdAt: isoTimestamp,
 });
 
+export const adminPaymentSubmissionEventSchema = paymentSubmissionEventSchema.extend({
+  actorUserId: z.uuid().nullable(),
+  actorType: z.enum(['user', 'admin', 'service', 'system']),
+  internalNote: nullableBoundedText(2_000),
+  reasonCode: nullableBoundedText(80),
+});
+
 export const paymentSubmissionSchema = z.object({
   id: z.uuid(),
   planCode: z.string().min(1),
@@ -149,6 +156,7 @@ export const paymentSubmissionSchema = z.object({
   referenceNumber: z.string().max(100).nullable(),
   paidAt: isoTimestamp.nullable(),
   userNote: nullableBoundedText(1_000),
+  informationResponse: nullableBoundedText(2_000),
   status: paymentSubmissionStatusSchema,
   submittedAt: isoTimestamp.nullable(),
   reviewStartedAt: isoTimestamp.nullable(),
@@ -172,6 +180,7 @@ export const paymentReviewFlagSchema = z.object({
 });
 
 export const adminPaymentSubmissionSchema = paymentSubmissionSchema.extend({
+  events: z.array(adminPaymentSubmissionEventSchema),
   user: z.object({
     id: z.uuid(),
     email: z.email().nullable(),
@@ -373,6 +382,11 @@ export const correctSubscriptionSchema = z
     message: 'Subscription end must be later than the start.',
   });
 
+const queryBooleanSchema = z.preprocess(
+  (value) => (value === 'true' ? true : value === 'false' ? false : value),
+  z.boolean(),
+);
+
 export const paymentQueueQuerySchema = z
   .object({
     status: paymentSubmissionStatusSchema.optional(),
@@ -383,8 +397,8 @@ export const paymentQueueQuerySchema = z
     submittedFrom: isoTimestamp.optional(),
     submittedTo: isoTimestamp.optional(),
     reviewerId: z.uuid().optional(),
-    duplicateReference: z.coerce.boolean().optional(),
-    duplicateProof: z.coerce.boolean().optional(),
+    duplicateReference: queryBooleanSchema.optional(),
+    duplicateProof: queryBooleanSchema.optional(),
     userSearch: z.string().trim().max(120).optional(),
     page: z.coerce.number().int().positive().default(1),
     pageSize: z.coerce.number().int().min(1).max(100).default(25),
@@ -489,3 +503,15 @@ export type AdminPaymentMethod = z.infer<typeof adminPaymentMethodSchema>;
 export type PaymentSubmission = z.infer<typeof paymentSubmissionSchema>;
 export type AdminPaymentSubmission = z.infer<typeof adminPaymentSubmissionSchema>;
 export type SubscriptionDetail = z.infer<typeof subscriptionDetailSchema>;
+export type CreatePaymentDraftInput = z.infer<typeof createPaymentDraftSchema>;
+export type UpdatePaymentDraftInput = z.infer<typeof updatePaymentDraftSchema>;
+export type PaymentMethodMutationInput = z.infer<typeof paymentMethodMutationSchema>;
+export type UpdatePaymentMethodInput = z.infer<typeof updatePaymentMethodSchema>;
+export type AdminVersionedActionInput = z.infer<typeof adminVersionedActionSchema>;
+export type RequestPaymentInformationInput = z.infer<typeof requestPaymentInformationSchema>;
+export type ApprovePaymentInput = z.infer<typeof approvePaymentSchema>;
+export type RejectPaymentInput = z.infer<typeof rejectPaymentSchema>;
+export type RecordPaymentRefundInput = z.infer<typeof recordPaymentRefundSchema>;
+export type ReversePaymentInput = z.infer<typeof reversePaymentSchema>;
+export type CorrectSubscriptionInput = z.infer<typeof correctSubscriptionSchema>;
+export type PaymentQueueQuery = z.infer<typeof paymentQueueQuerySchema>;

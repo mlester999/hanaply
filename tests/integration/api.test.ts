@@ -51,7 +51,7 @@ const subscriptionRow = {
   plan_id: planId,
   status: 'active' as const,
   starts_at: '2026-07-01T00:00:00.000Z',
-  ends_at: '2026-08-01T00:00:00.000Z',
+  ends_at: '2099-08-01T00:00:00.000Z',
   source: 'admin_grant' as const,
   activation_metadata: {},
   created_at: now,

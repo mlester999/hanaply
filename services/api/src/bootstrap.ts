@@ -1,4 +1,5 @@
 import helmet from '@fastify/helmet';
+import multipart from '@fastify/multipart';
 import type { ApiEnvironment } from '@hanaply/config';
 import { randomUUID } from 'node:crypto';
 import { NestFactory } from '@nestjs/core';
@@ -45,6 +46,17 @@ export async function createApiApplication(
     contentSecurityPolicy: false,
     crossOriginEmbedderPolicy: false,
     referrerPolicy: { policy: 'no-referrer' },
+  });
+  await app.register(multipart, {
+    limits: {
+      fieldNameSize: 64,
+      fieldSize: 1,
+      fields: 0,
+      files: 1,
+      fileSize: Math.max(environment.PAYMENT_PROOF_MAX_BYTES, environment.PAYMENT_QR_MAX_BYTES),
+      headerPairs: 64,
+      parts: 1,
+    },
   });
   app.enableShutdownHooks();
   await app.init();

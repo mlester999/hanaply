@@ -1,104 +1,77 @@
-import type { Plan } from '@hanaply/contracts';
-import { Alert, Badge, Card, PageHeader } from '@hanaply/ui';
-import { CalendarDays, CreditCard } from 'lucide-react';
+import type {
+  PaymentMethod,
+  PaymentSubmission,
+  Plan,
+  SubscriptionDetail,
+} from '@hanaply/contracts';
+import { Alert, PageHeader } from '@hanaply/ui';
 import type { Metadata } from 'next';
 
+import { ActivationCenter } from '@/components/activation-center';
 import { createAuthenticatedApiClient, requireUser } from '@/lib/session';
 
 export const metadata: Metadata = { title: 'Activation Center' };
 
-function money(minor: number): string {
-  return new Intl.NumberFormat('en-PH', {
-    style: 'currency',
-    currency: 'PHP',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(minor / 100);
-}
-
-function tierPlans(plans: readonly Plan[], tier: Plan['tierCode']) {
-  return {
-    monthly: plans.find((plan) => plan.tierCode === tier && plan.billingPeriod === 'monthly'),
-    annual: plans.find((plan) => plan.tierCode === tier && plan.billingPeriod === 'annual'),
-  };
-}
-
 export default async function ActivationPage() {
   const { session, me } = await requireUser();
+  const client = createAuthenticatedApiClient(session);
   let plans: readonly Plan[] = [];
-  let plansUnavailable = false;
+  let methods: readonly PaymentMethod[] = [];
+  let subscription: SubscriptionDetail | null = null;
+  let payments: readonly PaymentSubmission[] = [];
+  let unavailable = false;
+
   try {
-    plans = (await createAuthenticatedApiClient(session).plans()).data;
+    const [plansResult, methodsResult, subscriptionResult, paymentResult] = await Promise.all([
+      client.plans(),
+      client.paymentMethods(),
+      client.mySubscription(),
+      client.myPaymentSubmissions({ page: 1, pageSize: 100 }),
+    ]);
+    plans = plansResult.data;
+    methods = methodsResult.data;
+    subscription = subscriptionResult.data;
+    payments = await Promise.all(
+      paymentResult.data.items.map(
+        async (payment) => (await client.myPaymentSubmission(payment.id)).data,
+      ),
+    );
   } catch {
-    plansUnavailable = true;
+    unavailable = true;
   }
+
+  const proofEntries = await Promise.all(
+    payments.map(async (payment) => {
+      if (!payment.proof) return [payment.id, null] as const;
+      try {
+        return [payment.id, (await client.myPaymentProofAccess(payment.id)).data.url] as const;
+      } catch {
+        return [payment.id, null] as const;
+      }
+    }),
+  );
+
   return (
-    <div className="workspace-page">
+    <div className="workspace-page activation-page">
       <PageHeader
-        description="Review the configured Plus and Pro plans. Manual activation arrives in Phase 2."
+        description="Choose a plan, follow the current payment instructions, and submit private proof for an authorized review."
         eyebrow="Customer dashboard"
-        title="Activation Center"
+        title="Activate Hanaply"
       />
-      <Alert title="Do not send payment yet" tone="warning">
-        Hanaply does not accept payment proofs, reference numbers, or activation requests in Phase
-        1. A safe reviewed process is planned for Phase 2.
-      </Alert>
-      <Card className="activation-status-card">
-        <CreditCard aria-hidden="true" size={22} />
-        <div>
-          <span className="h-eyebrow">Current access</span>
-          <h2>
-            {me.subscription.status === 'active'
-              ? 'Subscription active'
-              : 'No active paid subscription'}
-          </h2>
-          <p>
-            {me.subscription.planCode
-              ? `Current plan: ${me.subscription.planCode}`
-              : 'No plan has been granted or activated for this account.'}
-          </p>
-        </div>
-      </Card>
-      {plansUnavailable ? (
-        <Alert title="Plan catalog unavailable" tone="danger">
-          Pricing could not be loaded from the API. No fallback price is being invented.
+      {unavailable ? (
+        <Alert title="Activation services are unavailable" tone="danger">
+          Hanaply could not load authoritative plans or payment records. No fallback pricing or
+          payment instructions are being shown.
         </Alert>
       ) : (
-        <div className="activation-plan-grid">
-          {(['plus', 'pro'] as const).map((tier) => {
-            const configured = tierPlans(plans, tier);
-            if (!configured.monthly || !configured.annual) return null;
-            const savings = configured.monthly.priceMinor * 12 - configured.annual.priceMinor;
-            return (
-              <Card className="activation-plan-card" key={tier}>
-                <div className="activation-plan-heading">
-                  <div>
-                    <Badge tone={tier === 'pro' ? 'brand' : 'neutral'}>
-                      {tier === 'pro' ? 'Pro' : 'Plus'}
-                    </Badge>
-                    <h2>{tier === 'pro' ? 'Pro' : 'Plus'}</h2>
-                  </div>
-                  <CalendarDays aria-hidden="true" size={22} />
-                </div>
-                <dl>
-                  <div>
-                    <dt>Monthly</dt>
-                    <dd>{money(configured.monthly.priceMinor)}</dd>
-                  </div>
-                  <div>
-                    <dt>Annual</dt>
-                    <dd>{money(configured.annual.priceMinor)}</dd>
-                  </div>
-                  <div>
-                    <dt>Annual savings</dt>
-                    <dd>{money(savings)}</dd>
-                  </div>
-                </dl>
-                <p>Configured in PostgreSQL. Activation controls are intentionally unavailable.</p>
-              </Card>
-            );
-          })}
-        </div>
+        <ActivationCenter
+          accountStatus={me.profile.accountStatus}
+          methods={methods}
+          payments={payments}
+          plans={plans}
+          proofUrls={Object.fromEntries(proofEntries)}
+          subscription={subscription}
+        />
       )}
     </div>
   );

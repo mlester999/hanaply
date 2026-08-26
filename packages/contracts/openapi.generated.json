@@ -7509,6 +7509,13 @@
                                 ],
                                 "maxLength": 1000
                               },
+                              "informationResponse": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "maxLength": 2000
+                              },
                               "status": {
                                 "type": "string",
                                 "enum": [
@@ -7671,6 +7678,7 @@
                               "referenceNumber",
                               "paidAt",
                               "userNote",
+                              "informationResponse",
                               "status",
                               "submittedAt",
                               "reviewStartedAt",
@@ -8345,6 +8353,13 @@
                           ],
                           "maxLength": 1000
                         },
+                        "informationResponse": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "maxLength": 2000
+                        },
                         "status": {
                           "type": "string",
                           "enum": [
@@ -8583,6 +8598,7 @@
                         "referenceNumber",
                         "paidAt",
                         "userNote",
+                        "informationResponse",
                         "status",
                         "submittedAt",
                         "reviewStartedAt",
@@ -9188,6 +9204,13 @@
                           ],
                           "maxLength": 1000
                         },
+                        "informationResponse": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "maxLength": 2000
+                        },
                         "status": {
                           "type": "string",
                           "enum": [
@@ -9426,6 +9449,7 @@
                         "referenceNumber",
                         "paidAt",
                         "userNote",
+                        "informationResponse",
                         "status",
                         "submittedAt",
                         "reviewStartedAt",
@@ -10088,6 +10112,13 @@
                           ],
                           "maxLength": 1000
                         },
+                        "informationResponse": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "maxLength": 2000
+                        },
                         "status": {
                           "type": "string",
                           "enum": [
@@ -10326,6 +10357,7 @@
                         "referenceNumber",
                         "paidAt",
                         "userNote",
+                        "informationResponse",
                         "status",
                         "submittedAt",
                         "reviewStartedAt",
@@ -10948,6 +10980,13 @@
                           ],
                           "maxLength": 1000
                         },
+                        "informationResponse": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "maxLength": 2000
+                        },
                         "status": {
                           "type": "string",
                           "enum": [
@@ -11186,6 +11225,7 @@
                         "referenceNumber",
                         "paidAt",
                         "userNote",
+                        "informationResponse",
                         "status",
                         "submittedAt",
                         "reviewStartedAt",
@@ -11642,6 +11682,25 @@
             "in": "path"
           }
         ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "JPEG, PNG, or WebP image bytes"
+                  }
+                },
+                "required": [
+                  "file"
+                ]
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Successful response",
@@ -12792,6 +12851,13 @@
                           ],
                           "maxLength": 1000
                         },
+                        "informationResponse": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "maxLength": 2000
+                        },
                         "status": {
                           "type": "string",
                           "enum": [
@@ -13030,6 +13096,7 @@
                         "referenceNumber",
                         "paidAt",
                         "userNote",
+                        "informationResponse",
                         "status",
                         "submittedAt",
                         "reviewStartedAt",
@@ -13654,6 +13721,13 @@
                           ],
                           "maxLength": 1000
                         },
+                        "informationResponse": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "maxLength": 2000
+                        },
                         "status": {
                           "type": "string",
                           "enum": [
@@ -13892,6 +13966,7 @@
                         "referenceNumber",
                         "paidAt",
                         "userNote",
+                        "informationResponse",
                         "status",
                         "submittedAt",
                         "reviewStartedAt",
@@ -14529,6 +14604,13 @@
                           ],
                           "maxLength": 1000
                         },
+                        "informationResponse": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "maxLength": 2000
+                        },
                         "status": {
                           "type": "string",
                           "enum": [
@@ -14767,6 +14849,7 @@
                         "referenceNumber",
                         "paidAt",
                         "userNote",
+                        "informationResponse",
                         "status",
                         "submittedAt",
                         "reviewStartedAt",
@@ -24798,6 +24881,25 @@
             "in": "path"
           }
         ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "JPEG, PNG, or WebP image bytes"
+                  }
+                },
+                "required": [
+                  "file"
+                ]
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Successful response",
@@ -25553,10 +25655,7 @@
           },
           {
             "schema": {
-              "type": [
-                "boolean",
-                "null"
-              ]
+              "type": "boolean"
             },
             "required": false,
             "name": "duplicateReference",
@@ -25564,10 +25663,7 @@
           },
           {
             "schema": {
-              "type": [
-                "boolean",
-                "null"
-              ]
+              "type": "boolean"
             },
             "required": false,
             "name": "duplicateProof",
@@ -25757,6 +25853,13 @@
                                   "null"
                                 ],
                                 "maxLength": 1000
+                              },
+                              "informationResponse": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "maxLength": 2000
                               },
                               "status": {
                                 "type": "string",
@@ -26040,6 +26143,7 @@
                               "referenceNumber",
                               "paidAt",
                               "userNote",
+                              "informationResponse",
                               "status",
                               "submittedAt",
                               "reviewStartedAt",
@@ -26687,6 +26791,13 @@
                           ],
                           "maxLength": 1000
                         },
+                        "informationResponse": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "maxLength": 2000
+                        },
                         "status": {
                           "type": "string",
                           "enum": [
@@ -26900,6 +27011,36 @@
                               "createdAt": {
                                 "type": "string",
                                 "format": "date-time"
+                              },
+                              "actorUserId": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "format": "uuid"
+                              },
+                              "actorType": {
+                                "type": "string",
+                                "enum": [
+                                  "user",
+                                  "admin",
+                                  "service",
+                                  "system"
+                                ]
+                              },
+                              "internalNote": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "maxLength": 2000
+                              },
+                              "reasonCode": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "maxLength": 80
                               }
                             },
                             "required": [
@@ -26908,7 +27049,11 @@
                               "previousStatus",
                               "newStatus",
                               "publicMessage",
-                              "createdAt"
+                              "createdAt",
+                              "actorUserId",
+                              "actorType",
+                              "internalNote",
+                              "reasonCode"
                             ]
                           }
                         },
@@ -27079,6 +27224,7 @@
                         "referenceNumber",
                         "paidAt",
                         "userNote",
+                        "informationResponse",
                         "status",
                         "submittedAt",
                         "reviewStartedAt",
@@ -28179,6 +28325,13 @@
                           ],
                           "maxLength": 1000
                         },
+                        "informationResponse": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "maxLength": 2000
+                        },
                         "status": {
                           "type": "string",
                           "enum": [
@@ -28392,6 +28545,36 @@
                               "createdAt": {
                                 "type": "string",
                                 "format": "date-time"
+                              },
+                              "actorUserId": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "format": "uuid"
+                              },
+                              "actorType": {
+                                "type": "string",
+                                "enum": [
+                                  "user",
+                                  "admin",
+                                  "service",
+                                  "system"
+                                ]
+                              },
+                              "internalNote": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "maxLength": 2000
+                              },
+                              "reasonCode": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "maxLength": 80
                               }
                             },
                             "required": [
@@ -28400,7 +28583,11 @@
                               "previousStatus",
                               "newStatus",
                               "publicMessage",
-                              "createdAt"
+                              "createdAt",
+                              "actorUserId",
+                              "actorType",
+                              "internalNote",
+                              "reasonCode"
                             ]
                           }
                         },
@@ -28571,6 +28758,7 @@
                         "referenceNumber",
                         "paidAt",
                         "userNote",
+                        "informationResponse",
                         "status",
                         "submittedAt",
                         "reviewStartedAt",
@@ -29235,6 +29423,13 @@
                           ],
                           "maxLength": 1000
                         },
+                        "informationResponse": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "maxLength": 2000
+                        },
                         "status": {
                           "type": "string",
                           "enum": [
@@ -29448,6 +29643,36 @@
                               "createdAt": {
                                 "type": "string",
                                 "format": "date-time"
+                              },
+                              "actorUserId": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "format": "uuid"
+                              },
+                              "actorType": {
+                                "type": "string",
+                                "enum": [
+                                  "user",
+                                  "admin",
+                                  "service",
+                                  "system"
+                                ]
+                              },
+                              "internalNote": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "maxLength": 2000
+                              },
+                              "reasonCode": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "maxLength": 80
                               }
                             },
                             "required": [
@@ -29456,7 +29681,11 @@
                               "previousStatus",
                               "newStatus",
                               "publicMessage",
-                              "createdAt"
+                              "createdAt",
+                              "actorUserId",
+                              "actorType",
+                              "internalNote",
+                              "reasonCode"
                             ]
                           }
                         },
@@ -29627,6 +29856,7 @@
                         "referenceNumber",
                         "paidAt",
                         "userNote",
+                        "informationResponse",
                         "status",
                         "submittedAt",
                         "reviewStartedAt",
@@ -30277,6 +30507,13 @@
                               ],
                               "maxLength": 1000
                             },
+                            "informationResponse": {
+                              "type": [
+                                "string",
+                                "null"
+                              ],
+                              "maxLength": 2000
+                            },
                             "status": {
                               "type": "string",
                               "enum": [
@@ -30490,6 +30727,36 @@
                                   "createdAt": {
                                     "type": "string",
                                     "format": "date-time"
+                                  },
+                                  "actorUserId": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ],
+                                    "format": "uuid"
+                                  },
+                                  "actorType": {
+                                    "type": "string",
+                                    "enum": [
+                                      "user",
+                                      "admin",
+                                      "service",
+                                      "system"
+                                    ]
+                                  },
+                                  "internalNote": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ],
+                                    "maxLength": 2000
+                                  },
+                                  "reasonCode": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ],
+                                    "maxLength": 80
                                   }
                                 },
                                 "required": [
@@ -30498,7 +30765,11 @@
                                   "previousStatus",
                                   "newStatus",
                                   "publicMessage",
-                                  "createdAt"
+                                  "createdAt",
+                                  "actorUserId",
+                                  "actorType",
+                                  "internalNote",
+                                  "reasonCode"
                                 ]
                               }
                             },
@@ -30669,6 +30940,7 @@
                             "referenceNumber",
                             "paidAt",
                             "userNote",
+                            "informationResponse",
                             "status",
                             "submittedAt",
                             "reviewStartedAt",
@@ -31544,6 +31816,13 @@
                           ],
                           "maxLength": 1000
                         },
+                        "informationResponse": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "maxLength": 2000
+                        },
                         "status": {
                           "type": "string",
                           "enum": [
@@ -31757,6 +32036,36 @@
                               "createdAt": {
                                 "type": "string",
                                 "format": "date-time"
+                              },
+                              "actorUserId": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "format": "uuid"
+                              },
+                              "actorType": {
+                                "type": "string",
+                                "enum": [
+                                  "user",
+                                  "admin",
+                                  "service",
+                                  "system"
+                                ]
+                              },
+                              "internalNote": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "maxLength": 2000
+                              },
+                              "reasonCode": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "maxLength": 80
                               }
                             },
                             "required": [
@@ -31765,7 +32074,11 @@
                               "previousStatus",
                               "newStatus",
                               "publicMessage",
-                              "createdAt"
+                              "createdAt",
+                              "actorUserId",
+                              "actorType",
+                              "internalNote",
+                              "reasonCode"
                             ]
                           }
                         },
@@ -31936,6 +32249,7 @@
                         "referenceNumber",
                         "paidAt",
                         "userNote",
+                        "informationResponse",
                         "status",
                         "submittedAt",
                         "reviewStartedAt",
@@ -32610,6 +32924,13 @@
                           ],
                           "maxLength": 1000
                         },
+                        "informationResponse": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "maxLength": 2000
+                        },
                         "status": {
                           "type": "string",
                           "enum": [
@@ -32823,6 +33144,36 @@
                               "createdAt": {
                                 "type": "string",
                                 "format": "date-time"
+                              },
+                              "actorUserId": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "format": "uuid"
+                              },
+                              "actorType": {
+                                "type": "string",
+                                "enum": [
+                                  "user",
+                                  "admin",
+                                  "service",
+                                  "system"
+                                ]
+                              },
+                              "internalNote": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "maxLength": 2000
+                              },
+                              "reasonCode": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "maxLength": 80
                               }
                             },
                             "required": [
@@ -32831,7 +33182,11 @@
                               "previousStatus",
                               "newStatus",
                               "publicMessage",
-                              "createdAt"
+                              "createdAt",
+                              "actorUserId",
+                              "actorType",
+                              "internalNote",
+                              "reasonCode"
                             ]
                           }
                         },
@@ -33002,6 +33357,7 @@
                         "referenceNumber",
                         "paidAt",
                         "userNote",
+                        "informationResponse",
                         "status",
                         "submittedAt",
                         "reviewStartedAt",
@@ -33657,6 +34013,13 @@
                           ],
                           "maxLength": 1000
                         },
+                        "informationResponse": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "maxLength": 2000
+                        },
                         "status": {
                           "type": "string",
                           "enum": [
@@ -33870,6 +34233,36 @@
                               "createdAt": {
                                 "type": "string",
                                 "format": "date-time"
+                              },
+                              "actorUserId": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "format": "uuid"
+                              },
+                              "actorType": {
+                                "type": "string",
+                                "enum": [
+                                  "user",
+                                  "admin",
+                                  "service",
+                                  "system"
+                                ]
+                              },
+                              "internalNote": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "maxLength": 2000
+                              },
+                              "reasonCode": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "maxLength": 80
                               }
                             },
                             "required": [
@@ -33878,7 +34271,11 @@
                               "previousStatus",
                               "newStatus",
                               "publicMessage",
-                              "createdAt"
+                              "createdAt",
+                              "actorUserId",
+                              "actorType",
+                              "internalNote",
+                              "reasonCode"
                             ]
                           }
                         },
@@ -34049,6 +34446,7 @@
                         "referenceNumber",
                         "paidAt",
                         "userNote",
+                        "informationResponse",
                         "status",
                         "submittedAt",
                         "reviewStartedAt",
@@ -34508,7 +34906,16 @@
           {
             "schema": {
               "type": "string",
-              "maxLength": 40
+              "enum": [
+                "pending_activation",
+                "active",
+                "grace_period",
+                "expired",
+                "cancelled",
+                "suspended",
+                "refunded",
+                "reversed"
+              ]
             },
             "required": false,
             "name": "status",

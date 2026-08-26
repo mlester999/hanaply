@@ -15,7 +15,7 @@ exception when others then
 end;
 $$;
 
-select plan(55);
+select plan(90);
 
 insert into auth.users (
   instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,
@@ -222,6 +222,26 @@ select lives_ok(
   $statement$,
   'user can update allowed fields after an information request'
 );
+select is(
+  (
+    select count(*)::integer
+    from public.payment_submission_events
+    where submission_id = (select value from phase2_ids where key = 'payment-a')
+      and event_type = 'payment_submission.draft_updated'
+  ),
+  1,
+  'draft edits write a lifecycle event'
+);
+select is(
+  (
+    select count(*)::integer
+    from public.audit_events
+    where target_id = (select value from phase2_ids where key = 'payment-a')
+      and action = 'payment_submission.draft_updated'
+  ),
+  1,
+  'draft edits write an audit event without raw payment details'
+);
 select ok(
   pg_temp.operation_fails(
     $statement$
@@ -280,6 +300,12 @@ select lives_ok(
     )
   $statement$,
   'resubmitted payment can be claimed again'
+);
+select ok(
+  (select submitted_at >= now() - interval '1 minute'
+   from public.payment_submissions
+   where id = (select value from phase2_ids where key = 'payment-a')),
+  'resubmission refreshes the review-queue timestamp'
 );
 
 select lives_ok(
@@ -365,6 +391,84 @@ select is(
 );
 select is((select count(*)::integer from public.subscriptions where user_id = '70000000-0000-4000-8000-000000000002'), 1, 'active renewal does not create a competing subscription');
 
+select is(
+  public.queue_subscription_expiry_reminders(now(), 365),
+  1,
+  'expiration maintenance queues one upcoming subscription reminder'
+);
+select is(
+  public.queue_subscription_expiry_reminders(now(), 365),
+  0,
+  'expiration reminder queueing is idempotent for a subscription version and threshold'
+);
+create temporary table phase2_claimed_notifications as
+select * from public.claim_payment_notifications(
+  '70000000-0000-4000-8000-000000000099',
+  100
+);
+select ok(
+  (select count(*) > 0 from phase2_claimed_notifications),
+  'notification worker atomically claims pending outbox records'
+);
+select ok(
+  (
+    select bool_and(notification.claim_token = '70000000-0000-4000-8000-000000000099')
+    from public.payment_notifications notification
+    join phase2_claimed_notifications claimed on claimed.id = notification.id
+  ),
+  'claimed notifications record the opaque worker claim token'
+);
+select is(
+  public.complete_payment_notification(
+    (select id from phase2_claimed_notifications order by id limit 1),
+    '70000000-0000-4000-8000-000000000099',
+    'captured',
+    '',
+    '',
+    1
+  ),
+  true,
+  'the owning worker claim completes a notification once'
+);
+select is(
+  (
+    select status
+    from public.payment_notifications
+    where id = (select id from phase2_claimed_notifications order by id limit 1)
+  ),
+  'captured',
+  'notification completion records the provider-neutral delivery status'
+);
+select is(
+  public.complete_payment_notification(
+    (select id from phase2_claimed_notifications order by id limit 1),
+    '70000000-0000-4000-8000-000000000099',
+    'captured',
+    '',
+    '',
+    1
+  ),
+  false,
+  'a completed notification cannot be completed twice'
+);
+select is(
+  public.release_payment_notification_claim(
+    (select id from phase2_claimed_notifications order by id offset 1 limit 1),
+    '70000000-0000-4000-8000-000000000099',
+    now()
+  ),
+  true,
+  'a transient failure releases the claim for a bounded retry'
+);
+select ok(
+  (
+    select status = 'pending' and claim_token is null and claimed_at is null
+    from public.payment_notifications
+    where id = (select id from phase2_claimed_notifications order by id offset 1 limit 1)
+  ),
+  'released notification remains pending without a stale claim'
+);
+
 insert into phase2_ids (key, value)
 select 'duplicate-reference', public.create_payment_draft(
   '70000000-0000-4000-8000-000000000003',
@@ -405,6 +509,214 @@ select public.attach_payment_proof(
 select ok((select duplicate_proof from public.payment_submissions where id = (select value from phase2_ids where key = 'duplicate-proof')), 'proof checksum reuse creates a private warning flag');
 select is((select count(*)::integer from public.payment_review_flags where submission_id = (select value from phase2_ids where key = 'duplicate-proof') and flag_type = 'duplicate_proof'), 1, 'duplicate proof flag preserves a private match record');
 
+select public.submit_payment_submission(
+  '70000000-0000-4000-8000-000000000003',
+  (select value from phase2_ids where key = 'duplicate-proof'),
+  1,
+  true,
+  gen_random_uuid()
+);
+select public.start_payment_review(
+  '70000000-0000-4000-8000-000000000001',
+  (select value from phase2_ids where key = 'duplicate-proof'),
+  2,
+  gen_random_uuid()
+);
+select public.request_payment_information(
+  '70000000-0000-4000-8000-000000000001',
+  (select value from phase2_ids where key = 'duplicate-proof'),
+  3,
+  'proof_unclear',
+  'Please confirm the uploaded proof is the final payment receipt.',
+  'Future payment date validation fixture.',
+  'Confirm the payment date before resubmission.',
+  gen_random_uuid()
+);
+select public.update_payment_draft(
+  '70000000-0000-4000-8000-000000000003',
+  (select value from phase2_ids where key = 'duplicate-proof'),
+  4,
+  '{"paidAt":"2099-01-01T00:00:00.000Z"}'::jsonb,
+  gen_random_uuid()
+);
+select ok(
+  pg_temp.operation_fails(
+    $statement$
+      select public.resubmit_payment_submission(
+        '70000000-0000-4000-8000-000000000003',
+        (select value from phase2_ids where key = 'duplicate-proof'),
+        5,
+        'The payment date was checked and the proof is complete.',
+        true,
+        gen_random_uuid()
+      )
+    $statement$
+  ),
+  'resubmission rejects a payment timestamp in the future'
+);
+select is(
+  (select status::text from public.payment_submissions where id = (select value from phase2_ids where key = 'duplicate-proof')),
+  'needs_information',
+  'invalid resubmission leaves the payment waiting for information'
+);
+select is(
+  (select reviewer_id from public.payment_submissions where id = (select value from phase2_ids where key = 'duplicate-proof')),
+  null,
+  'information requests release the current reviewer lock'
+);
+
+insert into phase2_ids (key, value)
+select 'same-proof', public.create_payment_draft(
+  '70000000-0000-4000-8000-000000000002',
+  pg_catalog.jsonb_build_object(
+    'planCode', 'plus_monthly',
+    'paymentMethodId', (select value from phase2_ids where key = 'method'),
+    'referenceNumber', 'GCASH-SAME-PROOF-123456',
+    'paidAt', (now() - interval '2 minutes')
+  ),
+  gen_random_uuid()
+);
+select public.attach_payment_proof(
+  '70000000-0000-4000-8000-000000000002',
+  (select value from phase2_ids where key = 'same-proof'),
+  'aaaaaaa1-aaaa-4aaa-8aaa-aaaaaaaaaaaa/11111111-1111-4111-8111-111111111111.png',
+  repeat('2', 64),
+  'image/png',
+  2048,
+  'same-proof-first.png',
+  800,
+  600,
+  'clean',
+  gen_random_uuid()
+);
+select public.attach_payment_proof(
+  '70000000-0000-4000-8000-000000000002',
+  (select value from phase2_ids where key = 'same-proof'),
+  'aaaaaaa1-aaaa-4aaa-8aaa-aaaaaaaaaaaa/22222222-2222-4222-8222-222222222222.png',
+  repeat('2', 64),
+  'image/png',
+  2048,
+  'same-proof-replacement.png',
+  800,
+  600,
+  'clean',
+  gen_random_uuid()
+);
+select is(
+  (select duplicate_proof from public.payment_submissions where id = (select value from phase2_ids where key = 'same-proof')),
+  false,
+  'replacing a proof with the same image does not create a duplicate-proof warning'
+);
+select ok(
+  pg_temp.operation_fails(
+    $statement$update public.payment_review_flags set warning = 'Tampered review warning.' where submission_id = (select value from phase2_ids where key = 'duplicate-proof')$statement$
+  ),
+  'review warnings cannot be edited directly'
+);
+select ok(
+  pg_temp.operation_fails(
+    $statement$delete from public.payment_review_flags where submission_id = (select value from phase2_ids where key = 'duplicate-proof')$statement$
+  ),
+  'review warnings cannot be deleted directly'
+);
+select is(
+  ((public.cancel_payment_submission(
+    '70000000-0000-4000-8000-000000000002',
+    (select value from phase2_ids where key = 'same-proof'),
+    2,
+    gen_random_uuid()
+  )->>'cleanupObjectPath') is not null),
+  true,
+  'cancelling a payment returns its proof object for cleanup'
+);
+select is(
+  (select proof_file_id from public.payment_submissions where id = (select value from phase2_ids where key = 'same-proof')),
+  null,
+  'cancelling a payment removes the active proof link'
+);
+select is(
+  (select count(*)::integer from public.payment_submission_files where submission_id = (select value from phase2_ids where key = 'same-proof') and active),
+  0,
+  'cancelling a payment deactivates its proof metadata'
+);
+
+insert into phase2_ids (key, value)
+select 'annual-mismatch', public.create_payment_draft(
+  '70000000-0000-4000-8000-000000000002',
+  pg_catalog.jsonb_build_object(
+    'planCode', 'plus_annual',
+    'paymentMethodId', (select value from phase2_ids where key = 'method'),
+    'referenceNumber', 'GCASH-ANNUAL-123456',
+    'paidAt', (now() - interval '2 minutes')
+  ),
+  gen_random_uuid()
+);
+select public.attach_payment_proof(
+  '70000000-0000-4000-8000-000000000002',
+  (select value from phase2_ids where key = 'annual-mismatch'),
+  '66666666-6666-4666-8666-666666666666/ffffffff-ffff-4fff-8fff-ffffffffffff.png',
+  repeat('e', 64),
+  'image/png',
+  2048,
+  'annual-mismatch.png',
+  800,
+  600,
+  'clean',
+  gen_random_uuid()
+);
+select public.submit_payment_submission('70000000-0000-4000-8000-000000000002', (select value from phase2_ids where key = 'annual-mismatch'), 1, true, gen_random_uuid());
+select public.start_payment_review('70000000-0000-4000-8000-000000000001', (select value from phase2_ids where key = 'annual-mismatch'), 2, gen_random_uuid());
+select ok(
+  pg_temp.operation_fails(
+    $statement$
+      select public.approve_payment_submission(
+        '70000000-0000-4000-8000-000000000001',
+        (select value from phase2_ids where key = 'annual-mismatch'),
+        3,
+        'Annual billing cannot change the active monthly term mid-cycle.',
+        null,
+        gen_random_uuid()
+      )
+    $statement$
+  ),
+  'active subscriptions reject a mid-cycle billing-period change'
+);
+select is(
+  (select status::text from public.payment_submissions where id = (select value from phase2_ids where key = 'annual-mismatch')),
+  'under_review',
+  'billing-period mismatch does not approve the payment'
+);
+select is(
+  (
+    select plan.code
+    from public.subscriptions subscription
+    join public.plans plan on plan.id = subscription.plan_id
+    where subscription.user_id = '70000000-0000-4000-8000-000000000002'
+      and subscription.status = 'active'
+  ),
+  'plus_monthly',
+  'billing-period mismatch does not change the active subscription'
+);
+
+select ok(
+  pg_temp.operation_fails(
+    $statement$
+      select public.record_payment_refund(
+        '70000000-0000-4000-8000-000000000001',
+        (select value from phase2_ids where key = 'renewal-a'),
+        4,
+        49900,
+        'LOCAL-REFUND-TOO-EARLY',
+        now() - interval '1 day',
+        'none',
+        'The refund timestamp intentionally predates the payment.',
+        null,
+        gen_random_uuid()
+      )
+    $statement$
+  ),
+  'refund records cannot predate the payment timestamp'
+);
 select lives_ok(
   $statement$
     select public.record_payment_refund(
@@ -422,8 +734,115 @@ select lives_ok(
   $statement$,
   'authorized admin records an external refund without automatic transfer'
 );
+select ok(
+  pg_temp.operation_fails(
+    $statement$
+      insert into public.payment_refunds (
+        submission_id, refunded_amount_minor, external_reference, refunded_at, reason,
+        subscription_impact
+      ) values (
+        (select value from phase2_ids where key = 'renewal-a'),
+        1,
+        'DIRECT-INSERT',
+        now(),
+        'Direct service insert should be blocked.',
+        'none'
+      )
+    $statement$
+  ),
+  'refund rows require the controlled refund function'
+);
 select is((select status::text from public.payment_submissions where id = (select value from phase2_ids where key = 'renewal-a')), 'refunded', 'refund record updates payment status');
 select is((select status::text from public.subscriptions where user_id = '70000000-0000-4000-8000-000000000002'), 'active', 'refund with no subscription impact preserves access');
+
+insert into phase2_ids (key, value)
+select 'reversal', public.create_payment_draft(
+  '70000000-0000-4000-8000-000000000003',
+  pg_catalog.jsonb_build_object(
+    'planCode', 'plus_monthly',
+    'paymentMethodId', (select value from phase2_ids where key = 'method'),
+    'referenceNumber', 'GCASH-REVERSAL-123456',
+    'paidAt', (now() - interval '2 minutes')
+  ),
+  gen_random_uuid()
+);
+select public.attach_payment_proof(
+  '70000000-0000-4000-8000-000000000003',
+  (select value from phase2_ids where key = 'reversal'),
+  '77777777-7777-4777-8777-777777777777/gggggggg-gggg-4ggg-8ggg-gggggggggggg.png',
+  repeat('f', 64),
+  'image/png',
+  2048,
+  'reversal.png',
+  800,
+  600,
+  'clean',
+  gen_random_uuid()
+);
+select public.submit_payment_submission('70000000-0000-4000-8000-000000000003', (select value from phase2_ids where key = 'reversal'), 1, true, gen_random_uuid());
+select public.start_payment_review('70000000-0000-4000-8000-000000000001', (select value from phase2_ids where key = 'reversal'), 2, gen_random_uuid());
+select public.approve_payment_submission('70000000-0000-4000-8000-000000000001', (select value from phase2_ids where key = 'reversal'), 3, 'Verified the fictional reversal fixture payment.', null, gen_random_uuid());
+select public.reverse_payment_approval('70000000-0000-4000-8000-000000000001', (select value from phase2_ids where key = 'reversal'), 4, 'The fictional approval was entered in error.', 'Reversal fixture only.', gen_random_uuid());
+select is((select status::text from public.payment_submissions where id = (select value from phase2_ids where key = 'reversal')), 'reversed', 'reversal records the payment as reversed');
+select is((select status::text from public.subscriptions where id = (select subscription_id from public.payment_submissions where id = (select value from phase2_ids where key = 'reversal'))), 'reversed', 'reversal ends the linked subscription');
+select is((select count(*)::integer from public.entitlement_events where payment_submission_id = (select value from phase2_ids where key = 'reversal') and event_type = 'entitlement.reversed'), 1, 'reversal records an entitlement change');
+
+insert into phase2_ids (key, value)
+select 'refund-impact', public.create_payment_draft(
+  '70000000-0000-4000-8000-000000000003',
+  pg_catalog.jsonb_build_object(
+    'planCode', 'plus_monthly',
+    'paymentMethodId', (select value from phase2_ids where key = 'method'),
+    'referenceNumber', 'GCASH-REFUND-123456',
+    'paidAt', (now() - interval '2 minutes')
+  ),
+  gen_random_uuid()
+);
+select public.attach_payment_proof(
+  '70000000-0000-4000-8000-000000000003',
+  (select value from phase2_ids where key = 'refund-impact'),
+  '88888888-8888-4888-8888-888888888888/hhhhhhhh-hhhh-4hhh-8hhh-hhhhhhhhhhhh.png',
+  repeat('1', 64),
+  'image/png',
+  2048,
+  'refund-impact.png',
+  800,
+  600,
+  'clean',
+  gen_random_uuid()
+);
+select public.submit_payment_submission('70000000-0000-4000-8000-000000000003', (select value from phase2_ids where key = 'refund-impact'), 1, true, gen_random_uuid());
+select public.start_payment_review('70000000-0000-4000-8000-000000000001', (select value from phase2_ids where key = 'refund-impact'), 2, gen_random_uuid());
+select public.approve_payment_submission('70000000-0000-4000-8000-000000000001', (select value from phase2_ids where key = 'refund-impact'), 3, 'Verified the fictional refund fixture payment.', null, gen_random_uuid());
+select public.record_payment_refund('70000000-0000-4000-8000-000000000001', (select value from phase2_ids where key = 'refund-impact'), 4, 49900, 'LOCAL-REFUND-IMPACT', now(), 'end_access_now', 'Recorded a fictional access-ending refund.', 'No money moved by Hanaply.', gen_random_uuid());
+select is((select status::text from public.payment_submissions where id = (select value from phase2_ids where key = 'refund-impact')), 'refunded', 'access-ending refund records the payment as refunded');
+select is((select status::text from public.subscriptions where id = (select subscription_id from public.payment_submissions where id = (select value from phase2_ids where key = 'refund-impact'))), 'refunded', 'access-ending refund ends the linked subscription');
+select is((select count(*)::integer from public.entitlement_events where payment_submission_id = (select value from phase2_ids where key = 'refund-impact') and event_type = 'entitlement.refunded'), 1, 'access-ending refund records an entitlement change');
+
+select public.queue_storage_cleanup(
+  'payment-proofs',
+  '99999999-9999-4999-8999-999999999999/cleanup-test.png',
+  'release cleanup test'
+);
+select ok(
+  pg_temp.operation_fails(
+    $statement$select public.queue_storage_cleanup('payment-proofs', '99999999-9999-4999-8999-999999999999/../unsafe.png', 'unsafe path test')$statement$
+  ),
+  'storage cleanup rejects traversal paths'
+);
+create temporary table phase2_claimed_cleanup as
+select * from public.claim_storage_cleanup_jobs('70000000-0000-4000-8000-000000000098', 10);
+select is((select count(*)::integer from phase2_claimed_cleanup), 1, 'storage cleanup worker claims pending private objects');
+select is(
+  public.complete_storage_cleanup_job(
+    (select id from phase2_claimed_cleanup),
+    '70000000-0000-4000-8000-000000000098',
+    'completed',
+    ''
+  ),
+  true,
+  'storage cleanup worker completes an owned cleanup claim'
+);
 
 select lives_ok(
   $statement$

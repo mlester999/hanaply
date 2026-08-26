@@ -4,7 +4,18 @@ import type { WorkerEnvironment } from '@hanaply/config';
 import { createLogger } from '@hanaply/observability';
 import Fastify from 'fastify';
 
-export function createWorkerServer(environment: WorkerEnvironment) {
+import type { PaymentWorkerState } from './payments.js';
+
+export function createWorkerServer(
+  environment: WorkerEnvironment,
+  workerState: () => Readonly<PaymentWorkerState> = () => ({
+    running: false,
+    cycleActive: false,
+    lastCycleAt: null,
+    lastMaintenanceAt: null,
+    lastErrorCode: null,
+  }),
+) {
   const logger = createLogger({
     service: 'worker',
     environment: environment.HANAPLY_ENV,
@@ -25,13 +36,19 @@ export function createWorkerServer(environment: WorkerEnvironment) {
     timestamp: new Date().toISOString(),
   }));
 
-  server.get('/ready', () => ({
-    status: 'ready',
-    mode: environment.WORKER_MODE,
-    queue: 'not_configured',
-    tasksAccepted: false,
-    timestamp: new Date().toISOString(),
-  }));
+  server.get('/ready', (_request, reply) => {
+    const state = workerState();
+    const ready = environment.WORKER_MODE === 'idle' || (state.running && !state.lastErrorCode);
+    void reply.status(ready ? 200 : 503);
+    return {
+      status: ready ? 'ready' : 'not_ready',
+      mode: environment.WORKER_MODE,
+      queue: environment.WORKER_MODE === 'active' ? 'database_outbox' : 'idle',
+      tasksAccepted: environment.WORKER_MODE === 'active',
+      worker: state,
+      timestamp: new Date().toISOString(),
+    };
+  });
 
   server.setErrorHandler((error, request, reply) => {
     const normalizedError =

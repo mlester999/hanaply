@@ -101,7 +101,7 @@ export const faqItems = [
   {
     question: 'Are subscriptions automatically renewed?',
     answer:
-      'No subscription is active and no payment can be made today. The planned manual activation flow does not automatically renew a plan.',
+      'No. Hanaply uses manual renewals. Where an administrator has configured an available payment method, you can submit payment details and private proof in the Activation Center; paid access begins only after an authorized review.',
   },
   {
     question: 'Is Hanaply only for users in the Philippines?',
@@ -116,7 +116,7 @@ export const faqItems = [
   {
     question: 'Is the complete Hanaply product already available?',
     answer:
-      'No. Account registration and account controls are available now. The Activation Center is in development, while Career Radar, Truth Gate, and Application Packs are coming in later phases.',
+      'No. Account registration, account controls, and the manual-payment Activation Center checkpoint are implemented in the current web release. Career Profile, Career Radar, Truth Gate, Application Packs, job discovery, and mobile remain deferred.',
   },
 ] as const;
 
@@ -131,7 +131,7 @@ export const roadmap = [
   {
     id: 'phase-2',
     number: '02',
-    status: 'Up next',
+    status: 'In progress',
     title: 'Plan activation and career profile',
   },
   { id: 'phase-3', number: '03', status: 'Planned', title: 'Opportunity discovery' },

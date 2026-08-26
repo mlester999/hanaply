@@ -16,6 +16,7 @@
     "@hanaply/config": "workspace:*",
     "@hanaply/contracts": "workspace:*",
     "@hanaply/design-tokens": "workspace:*",
+    "@hanaply/email": "workspace:*",
     "@hanaply/ui": "workspace:*",
     "@supabase/ssr": "catalog:",
     "@supabase/supabase-js": "catalog:",

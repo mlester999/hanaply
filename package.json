@@ -57,6 +57,7 @@
     "react": "catalog:",
     "react-dom": "catalog:",
     "reflect-metadata": "catalog:",
+    "sharp": "catalog:",
     "tsx": "4.23.1",
     "tsup": "8.5.1",
     "turbo": "2.10.5",
