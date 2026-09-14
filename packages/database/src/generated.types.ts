@@ -222,6 +222,71 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_invocations: {
+        Row: {
+          attempt: number
+          cached: boolean
+          career_profile_id: string | null
+          created_at: string
+          id: string
+          input_tokens: number | null
+          latency_ms: number | null
+          model: string
+          operation: string
+          outcome: string
+          output_tokens: number | null
+          prompt_version: string
+          provider: string
+          rejection_reason: string | null
+          request_id: string
+          user_id: string | null
+        }
+        Insert: {
+          attempt?: number
+          cached?: boolean
+          career_profile_id?: string | null
+          created_at?: string
+          id?: string
+          input_tokens?: number | null
+          latency_ms?: number | null
+          model: string
+          operation: string
+          outcome: string
+          output_tokens?: number | null
+          prompt_version: string
+          provider: string
+          rejection_reason?: string | null
+          request_id: string
+          user_id?: string | null
+        }
+        Update: {
+          attempt?: number
+          cached?: boolean
+          career_profile_id?: string | null
+          created_at?: string
+          id?: string
+          input_tokens?: number | null
+          latency_ms?: number | null
+          model?: string
+          operation?: string
+          outcome?: string
+          output_tokens?: number | null
+          prompt_version?: string
+          provider?: string
+          rejection_reason?: string | null
+          request_id?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_invocations_career_profile_id_fkey"
+            columns: ["career_profile_id"]
+            isOneToOne: false
+            referencedRelation: "career_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       application_artifacts: {
         Row: {
           content: Json
@@ -1145,6 +1210,118 @@ export type Database = {
             columns: ["career_profile_id"]
             isOneToOne: false
             referencedRelation: "career_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      coach_conversations: {
+        Row: {
+          career_profile_id: string | null
+          created_at: string
+          id: string
+          last_message_at: string | null
+          message_count: number
+          model: string | null
+          provider: string | null
+          status: string
+          title: string
+          topic: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          career_profile_id?: string | null
+          created_at?: string
+          id?: string
+          last_message_at?: string | null
+          message_count?: number
+          model?: string | null
+          provider?: string | null
+          status?: string
+          title: string
+          topic?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          career_profile_id?: string | null
+          created_at?: string
+          id?: string
+          last_message_at?: string | null
+          message_count?: number
+          model?: string | null
+          provider?: string | null
+          status?: string
+          title?: string
+          topic?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coach_conversations_career_profile_id_fkey"
+            columns: ["career_profile_id"]
+            isOneToOne: false
+            referencedRelation: "career_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      coach_messages: {
+        Row: {
+          body: string
+          cited_fact_ids: string[]
+          conversation_id: string
+          created_at: string
+          facts: Json
+          id: string
+          input_tokens: number | null
+          model: string | null
+          output_tokens: number | null
+          provider: string | null
+          role: string
+          sequence: number
+          suggestions: Json
+          user_id: string
+        }
+        Insert: {
+          body: string
+          cited_fact_ids?: string[]
+          conversation_id: string
+          created_at?: string
+          facts?: Json
+          id?: string
+          input_tokens?: number | null
+          model?: string | null
+          output_tokens?: number | null
+          provider?: string | null
+          role: string
+          sequence: number
+          suggestions?: Json
+          user_id: string
+        }
+        Update: {
+          body?: string
+          cited_fact_ids?: string[]
+          conversation_id?: string
+          created_at?: string
+          facts?: Json
+          id?: string
+          input_tokens?: number | null
+          model?: string | null
+          output_tokens?: number | null
+          provider?: string | null
+          role?: string
+          sequence?: number
+          suggestions?: Json
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coach_messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "coach_conversations"
             referencedColumns: ["id"]
           },
         ]
@@ -2093,6 +2270,66 @@ export type Database = {
           variables?: Json
         }
         Relationships: []
+      }
+      opportunity_analyses: {
+        Row: {
+          analysis: Json
+          career_profile_id: string
+          cited_fact_ids: string[]
+          created_at: string
+          evidence_fingerprint: string
+          id: string
+          job_id: string
+          match_model_version: string
+          model: string
+          prompt_version: string
+          provider: string
+          user_id: string
+        }
+        Insert: {
+          analysis: Json
+          career_profile_id: string
+          cited_fact_ids?: string[]
+          created_at?: string
+          evidence_fingerprint: string
+          id?: string
+          job_id: string
+          match_model_version: string
+          model: string
+          prompt_version: string
+          provider: string
+          user_id: string
+        }
+        Update: {
+          analysis?: Json
+          career_profile_id?: string
+          cited_fact_ids?: string[]
+          created_at?: string
+          evidence_fingerprint?: string
+          id?: string
+          job_id?: string
+          match_model_version?: string
+          model?: string
+          prompt_version?: string
+          provider?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "opportunity_analyses_career_profile_id_fkey"
+            columns: ["career_profile_id"]
+            isOneToOne: false
+            referencedRelation: "career_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "opportunity_analyses_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       payment_method_versions: {
         Row: {
@@ -3499,6 +3736,22 @@ export type Database = {
           total_count: number
         }[]
       }
+      append_coach_message: {
+        Args: {
+          actor_user_id: string
+          target_conversation_id: string
+          requested_role: string
+          requested_body: string
+          requested_facts?: Json
+          requested_suggestions?: Json
+          requested_cited_fact_ids?: string[]
+          requested_provider?: string
+          requested_model?: string
+          requested_input_tokens?: number
+          requested_output_tokens?: number
+        }
+        Returns: Database["public"]["Tables"]["coach_messages"]["Row"]
+      }
       application_pack_detail: {
         Args: {
           actor_user_id: string
@@ -3670,6 +3923,13 @@ export type Database = {
           object_path: string
           attempts: number
         }[]
+      }
+      coach_conversation_detail: {
+        Args: {
+          actor_user_id: string
+          target_conversation_id: string
+        }
+        Returns: Json
       }
       complete_application_pack: {
         Args: {
@@ -3901,6 +4161,17 @@ export type Database = {
           priority: number
         }[]
       }
+      open_coach_conversation: {
+        Args: {
+          actor_user_id: string
+          target_career_profile_id: string
+          requested_title: string
+          requested_topic?: string
+          requested_provider?: string
+          requested_model?: string
+        }
+        Returns: Database["public"]["Tables"]["coach_conversations"]["Row"]
+      }
       queue_job_alert_notifications: {
         Args: {
           evaluated_at?: string
@@ -3936,6 +4207,25 @@ export type Database = {
       reconcile_my_profile: {
         Args: Record<PropertyKey, never>
         Returns: boolean
+      }
+      record_ai_invocation: {
+        Args: {
+          actor_user_id: string
+          target_career_profile_id: string
+          requested_operation: string
+          requested_provider: string
+          requested_model: string
+          requested_prompt_version: string
+          requested_request_id: string
+          requested_outcome: string
+          requested_rejection_reason?: string
+          requested_input_tokens?: number
+          requested_output_tokens?: number
+          requested_latency_ms?: number
+          requested_attempt?: number
+          requested_cached?: boolean
+        }
+        Returns: string
       }
       record_application_artifact: {
         Args: {
@@ -3989,6 +4279,21 @@ export type Database = {
         Args: {
           requested_event_type: string
           requested_request_id?: string
+        }
+        Returns: string
+      }
+      record_opportunity_analysis: {
+        Args: {
+          actor_user_id: string
+          target_career_profile_id: string
+          target_job_id: string
+          requested_provider: string
+          requested_model: string
+          requested_prompt_version: string
+          requested_match_model_version: string
+          requested_evidence_fingerprint: string
+          requested_analysis: Json
+          requested_cited_fact_ids?: string[]
         }
         Returns: string
       }
