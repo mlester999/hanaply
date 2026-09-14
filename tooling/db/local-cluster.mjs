@@ -13,7 +13,7 @@
  * can be verified in environments where Docker is unavailable, and so CI can gate
  * migrations and RLS without a container daemon.
  *
- * Usage: node tooling/db/local-cluster.mjs <start|stop|status|reset|migrate|test|seed|psql|url|extensions>
+ * Usage: node tooling/db/local-cluster.mjs <start|stop|status|reset|migrate|seed|test|psql|url|destroy>
  */
 
 import { spawnSync } from 'node:child_process';

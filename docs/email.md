@@ -14,7 +14,14 @@ No live email was sent during implementation or validation.
 
 ## Templates and categories
 
-Version `v1` templates are `verify-email`, `password-reset`, `password-changed`, `welcome`, and `security-alert`. Every template has responsive, image-independent HTML and a plain-text fallback. Template/category combinations are allowlisted; action links require HTTPS except for loopback local development.
+`packages/email/src/index.ts` declares 19 template ids in `emailTemplateIds` and pins `templateVersion` to the literal `'v1'`. All of them exist at version `v1`:
+
+- Authentication and account ids: `verify-email`, `password-reset`, `password-changed`, `email-changed`, `welcome`, `security-alert`.
+- Payment and subscription administrative ids: `payment-submission-received`, `payment-under-review`, `payment-more-information-required`, `payment-resubmitted`, `payment-approved`, `payment-rejected`, `payment-refund-recorded`, `payment-approval-reversed`, `subscription-activated`, `subscription-renewed`, `subscription-expires-soon`, `subscription-expired`, `subscription-corrected`.
+
+Every template has responsive, image-independent HTML and a plain-text fallback. Template/category combinations are allowlisted; action links require HTTPS except for loopback local development.
+
+`emailCategories` declares six categories: `authentication`, `account`, `job_alert`, `daily_digest`, `application_reminder`, and `administrative`. The `expectedCategory` map in the same file gives every one of the 19 template ids a concrete category, and only `authentication`, `account`, and `administrative` appear in it. `job_alert`, `daily_digest`, and `application_reminder` are therefore reserved category names with no template id behind them, not a claim of delivery.
 
 Supabase Auth templates live in `templates/confirmation.html`, `templates/recovery.html`, and `templates/password-changed.html`. The Supabase CLI resolves each `content_path` in `supabase/config.toml` relative to the project root (the directory containing `supabase/`), which is why all three templates live in the root `templates/` directory. Hosted copies must be reviewed after upload because hosted Auth configuration is not changed by local migrations.
 
@@ -35,7 +42,9 @@ RESEND_REQUEST_TIMEOUT_MS=8000
 
 `resend` requires an API key, validated sender address, and explicit `EMAIL_ALLOW_LIVE_SENDS=true`. It is rejected in `local` and `test`, and production rejects disabled/capture mode. Browser environment parsing never exposes these fields.
 
-Messages require a safe opaque idempotency key. Resend receives that key plus category/template/version tags. Delivery uses an 8-second default timeout, up to three attempts by default, full-jitter exponential delays capped at two seconds, and retries only transport failures, timeouts, HTTP 429, and 5xx responses. Permanent provider rejection fails immediately.
+Messages require a safe opaque idempotency key. Resend receives that key plus category/template/version tags. Delivery uses an 8-second default timeout, full-jitter exponential delays capped at two seconds, and retries only transport failures, timeouts, HTTP 429, and 5xx responses. Permanent provider rejection fails immediately.
+
+Two retry budgets exist and are not the same number. `ResendEmailProvider` defaults to three attempts when constructed without `maximumAttempts` (`createEmailProvider` in `packages/email/src/index.ts` does not pass one), and it rejects a configured value outside 1-5. The worker outbox path defaults to five delivery attempts per notification through `WORKER_NOTIFICATION_MAX_ATTEMPTS`, which is validated in `packages/config/src/index.ts` as an integer from 1 to 20 and defaults to 5; the worker terminally marks a row failed once `notification.attempts + 1` reaches that budget (`services/worker/src/payments.ts`).
 
 Receipts contain only provider, safe status, provider message ID, template/version, masked recipient, attempt count, and a small failure code. They exclude action URLs, message bodies, tokens, API keys, and raw provider errors.
 
@@ -43,13 +52,15 @@ Receipts contain only provider, safe status, provider message ID, template/versi
 
 Start Supabase and visit Mailpit at `http://127.0.0.1:55424`. Playwright clears the mailbox, registers or recovers a `@hanaply.test` address, waits for the expected subject, extracts the one-time link, and completes the browser flow. It never sends to a public mailbox.
 
+Database validation does not need Docker: `tooling/db/local-cluster.mjs` runs a throwaway PostgreSQL cluster in `.localdb/` on `127.0.0.1:55433`, exposed as `pnpm db:harness`, `pnpm db:harness:reset`, `pnpm db:harness:test`, `pnpm db:harness:stop`, `pnpm db:verify`, and `pnpm validate:dockerless`; `pnpm db:harness:test` runs the pgTAP suites against that cluster, including `supabase/tests/database/130_notifications.test.sql`. The browser email flow still needs the Supabase CLI's local stack and its mail catcher, so `pnpm e2e` keeps the Docker requirement.
+
 Vitest covers HTML/plain text, safe links, category validation, missing credentials, invalid sender/live-send configuration, disabled/capture modes, timeout/retry behavior, provider rejection, idempotency propagation, masked receipts, and secret-safe errors.
 
 ## Failure handling
 
 Authentication forms return generic messages and do not expose whether an address exists. Provider failures are not logged verbatim. A failed production send must emit a redacted operational event and retain only allowlisted delivery metadata; storing tokenized action URLs in `email_delivery_events` is prohibited.
 
-The current database includes a protected delivery-event foundation and a service-only payment notification outbox. The active worker claims rows with an opaque token, renders allowlisted templates, records a provider-neutral result, retries transport failures with bounded attempts, and terminally marks exhausted rows failed. Expiry reminders are idempotent per subscription version and threshold. Provider webhooks, bounce/complaint processing, suppression lists, and hosted operational ownership remain pending.
+The current database includes a protected delivery-event foundation and a service-only payment notification outbox. When `WORKER_MODE=active`, `services/worker/src/main.ts` starts two workers: `PaymentMaintenanceWorker`, which claims outbox rows with an opaque token, renders allowlisted templates, records a provider-neutral result, retries transport failures with bounded attempts, terminally marks exhausted rows failed, expires subscriptions, and cleans failed or deferred private objects; and `JobIntelligenceWorker`, which runs job ingestion, match computation, and freshness maintenance. Expiry reminders are idempotent per subscription version and threshold. Provider webhooks, bounce/complaint processing, suppression lists, and hosted operational ownership remain pending.
 
 ## Hosted Resend owner actions
 

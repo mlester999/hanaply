@@ -83,23 +83,30 @@ Payment proof and payment QR buckets are private, have allowlisted image MIME ty
 
 Payment proof metadata is separated from object bytes, customer RLS excludes storage paths, scan state, duplicate signals, reviewer notes, and private snapshots, and reviewer proof access requires `payments.review`. Malware scanning is not configured in this checkpoint; `scan_status = not_configured` is explicit and approval remains an authorized manual decision. A future scanning system must change the acceptance policy before enabling pending uploads.
 
-## Future private document storage
+## Career document storage
 
-The career-document system remains unopened. It must implement:
+Resume and portfolio bytes are sensitive, and the implementation reflects that:
 
-- A private bucket such as `user-documents-private`, never a public bucket.
-- Random `{userUuid}/{randomUuid}/{randomUuid}.{validatedExtension}` paths with no identity/title data.
-- Server-issued authorization and signed preview/download URLs targeted at five minutes or less.
-- MIME allowlists plus server-side magic-byte verification; client filename/type is not evidence.
-- Explicit size and image decompression/dimension limits with metadata/EXIF removal.
-- Quarantine, asynchronous malware scanning, versioned results, and service-only release/review.
-- Per-user RLS/service mediation, isolated previews, safe download headers, and audited status IDs only.
+- The `career-documents` bucket is private with a 10 MiB limit and a MIME allowlist of PDF, DOCX, RTF, plain text, and Markdown. No anon or authenticated storage policy exists for it, so direct upload, listing, and read all fail even when a caller guesses an object path.
+- Object paths are `{ownerUuid}/{documentUuid}/{randomUuid}.{validatedExtension}`, carry no identity or title data, and are never returned as a client field or written to an audit event.
+- The API writes bytes through the service client only, and the container format is decided from magic bytes: a declared MIME type and a filename extension are treated as claims, not evidence.
+- Owners reach their bytes only through `GET /v1/me/career/documents/{documentId}/access`, which performs an ownership check and returns a short-lived signed URL.
+- Uploaded bytes are decoded server-side, and the extracted text is stored as a proposal in `app_private.career_document_extractions`. Nothing extracted becomes a fact until the owner confirms it (see [AI and truth gating](ai-and-truth-gating.md)).
+- Deleted and replaced objects are queued in `app_private.storage_cleanup_jobs` so bytes are reclaimed rather than orphaned.
+
+Still unimplemented, and required before uploads are treated as fully hardened:
+
+- Asynchronous malware scanning. `career_documents.status` and `payment_submission_files.scan_status` already model a quarantine result, but no scanner is wired up.
+- Image metadata and EXIF removal on the payment proof path is handled by re-encoding through `sharp`; career documents are not images, so no equivalent step applies.
+- A retention and deletion policy for failed cleanup jobs, approved by the owner.
 
 ## LLM and external-content boundary
 
-External pages, documents, job descriptions, and model output remain untrusted data and cannot enter trusted instructions directly. Provider contracts separate instructions from source content and reserve prompt/model versions, output schemas, cost/token metadata, timeout/retry controls, verified facts, and Truth Gate results.
+External pages, documents, job descriptions, and model output are untrusted data and cannot enter trusted instructions directly. `packages/ai` defines the provider contract: it separates trusted instructions from untrusted source content, pins a prompt and model version, requires an output schema, and reserves cost, token, timeout, retry, verified-fact, and Truth Gate fields.
 
-No live model call exists. Future providers require secret management, egress controls, retention/data-region review, output validation, and completed Truth Gate acceptance.
+`DisabledAiProvider` is the only implementation, and it rejects every generation request. No live model call exists anywhere in the repository, and no job description, resume, or external page is ever sent to a provider. The shipped matching and extraction are deterministic code, so the untrusted-content boundary is currently enforced by not having a model in the path at all.
+
+Enabling a provider requires secret management, egress controls, a retention and data-region review, output validation, and completed Truth Gate acceptance. That is an owner decision, not a repository change.
 
 ## Release gates and residual work
 

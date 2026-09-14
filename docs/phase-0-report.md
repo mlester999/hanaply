@@ -1,4 +1,6 @@
-# Phase 0 report
+﻿# Phase 0 report
+
+This is a historical Phase 0 snapshot. The counts, file inventories, command results, and status statements below describe the repository as it stood on this report date and have been superseded. For current status see [README](../README.md) and [Roadmap](roadmap.md). Current figures: 27 forward-only migrations in `supabase/migrations`, 14 pgTAP suites with 582 assertions, 13 Playwright scenarios, and 87 routes in the contract registry. A Dockerless database harness (`tooling/db/local-cluster.mjs`) also exists now and `.github/workflows/ci.yml` still uses the Supabase CLI with Docker; the harness is exposed as `pnpm db:harness`, `pnpm db:harness:reset`, `pnpm db:harness:test`, `pnpm db:harness:stop`, `pnpm db:verify`, and `pnpm validate:dockerless`.
 
 Date: 2026-07-22 (Asia/Singapore)
 

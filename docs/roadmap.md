@@ -1,71 +1,90 @@
 # Roadmap
 
-## Phase 0: production foundation
+This file describes what exists in the repository today, then what genuinely remains. Status is grounded in `supabase/migrations`, `packages/*/src`, `services/*/src`, and `apps/web/src`.
 
-Status: implemented locally.
+## Current state
 
-- Monorepo, strict tooling, contracts, design system, web/API/worker shells.
-- Supabase schema, RLS, plans, entitlements, flags, platforms, admin RBAC, and audit.
-- Initial login/logout and protected customer/admin boundaries.
-- Local/CI validation, browser acceptance, and operational documentation.
+Implementation status by area. "Implemented" means the code, schema, and tests exist locally. Nothing is hosted, and no production release has happened.
 
-## Phase 1: authentication and SaaS core experience
+| Area                                                                           | Status                                | Evidence                                                                                                                                                              |
+| ------------------------------------------------------------------------------ | ------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Monorepo, tooling, contracts, design system                                    | Implemented                           | `package.json`, `turbo.json`, `packages/contracts`, `packages/design-tokens`                                                                                          |
+| Supabase schema, RLS, plans, entitlements, flags, platforms, admin RBAC, audit | Implemented                           | `20260722090000`–`20260722106000`                                                                                                                                     |
+| Authentication, sessions, account status                                       | Implemented                           | `packages/auth`, `20260722103000`, `apps/web/src/proxy.ts`, `services/api/src/auth.ts`                                                                                |
+| Admin operations                                                               | Implemented                           | `20260722104000`, `services/api/src/controllers.ts`                                                                                                                   |
+| Manual payment activation and subscription lifecycle                           | Implemented                           | `20260728090000`–`20260728101000`, `services/api/src/payment.*`, `services/worker/src/payments.ts`                                                                    |
+| Career intelligence profile and records                                        | Implemented                           | `20260914090000`, `services/api/src/career.*`, `apps/web/src/app/(customer)/dashboard/career/**`                                                                      |
+| Career truth ledger and evidence gating                                        | Implemented                           | `public.career_facts`, `app_private.validate_match_evidence`, `app_private.validate_artifact_evidence`                                                                |
+| Career documents, upload, and parsing                                          | Implemented                           | `20260914095000`, `services/api/src/career-files.ts`, `services/api/src/career-extraction.ts`                                                                         |
+| Job ingestion and source adapters                                              | Implemented, no source enabled        | `20260915090000`, `packages/jobs`, `services/worker/src/jobs.ts`; all five catalogued providers are `paused`                                                          |
+| Multi-signal deduplication and provenance                                      | Implemented                           | `public.upsert_ingested_job`, `public.job_dedup_candidates`, `packages/jobs/src/dedupe.ts`                                                                            |
+| Freshness and provider health                                                  | Implemented                           | `public.refresh_job_freshness`, `public.complete_ingestion_run`                                                                                                       |
+| Explainable matching engine                                                    | Implemented                           | `packages/matching/src/index.ts`, `20260916090000`, `20260917090000`                                                                                                  |
+| Career Radar feed, job detail, save, feedback                                  | Implemented                           | `20260916095000`, `/v1/me/jobs*`, `apps/web/src/app/(customer)/dashboard/radar/**`                                                                                    |
+| Application packs, usage metering, tracker data and API                        | Implemented                           | `20260918090000`, `/v1/me/application-packs`, `/v1/me/usage`, `/v1/me/applications`                                                                                   |
+| Application pack and tracker web surfaces                                      | Implemented                           | `apps/web/src/app/(customer)/dashboard/packs/**` and `applications/**`, `components/application/**`                                                                   |
+| Application artifact generation                                                | **Not implemented**                   | Nothing in the repository calls `record_application_artifact` or `complete_application_pack`; a new pack stays without artifacts                                      |
+| Live AI generation                                                             | **Not implemented**                   | `packages/ai/src/index.ts` exports only `DisabledAiProvider`; nothing imports it                                                                                      |
+| Account export and deletion                                                    | Not implemented                       | No export route, no deletion route, no deletion worker                                                                                                                |
+| Job alerts and digest notifications                                            | Implemented, undeliverable by default | `20260919090000` plus the notification cycle in `services/worker/src/jobs.ts`; delivery needs an email provider, so with the default `EMAIL_PROVIDER` nothing is sent |
+| Production queue and worker monitoring                                         | Not implemented                       | `services/worker/src/queue.ts` is not wired into the runtime; only `tests/unit/tasks.test.ts` imports it                                                              |
+| Native mobile clients                                                          | Not implemented                       | `platform_settings` seeds `ios` and `android` as `planned`; `/v1/meta` evaluates them                                                                                 |
+| Hosted deployment of any kind                                                  | Not performed                         | No hosted project, DNS record, deployment, or remote migration exists                                                                                                 |
 
-Status: implemented and passing locally; hosted Supabase/Resend/production-owner gates remain pending.
+The landing-page status copy in `apps/web/src/content/landing.ts` was stale and has been corrected to match the code. Marketing copy is a product surface: a status claim there is a claim about the product, and it must be updated in the same change as the feature it describes.
 
-- Registration, email verification/resend, login/logout, recovery/reset/change, refresh, and session revocation.
-- Protected customer dashboard, allowlisted profile/preferences, and honest Activation Center.
-- Account-status enforcement across web, API, sessions, and RLS.
-- Admin login, database roles/permissions, real user directory/detail, suspend/restore, session revocation, audit, and secure first-owner bootstrap.
-- Supabase Auth email templates, Mailpit tests, and production-gated Resend application adapter.
-- Forward-only identity/security migrations, 137 pgTAP assertions, 85 unit/API tests, and 11 end-to-end scenarios with responsive/Axe checks.
+## Historical phases
 
-## Phase 2: activation and career foundation
+### Phase 0: production foundation
 
-Status: the manual-payment activation checkpoint is implemented and passing locally. Career-profile, document, account-export/deletion, and hosted-provider work remains intentionally deferred.
+Implemented locally. Monorepo and strict tooling, contracts, design system, web/API/worker shells, the Supabase schema with RLS, plans and entitlements, feature flags, platforms, branding, admin RBAC, audit, local validation, and operational documentation. See [Phase 0 report](phase-0-report.md).
 
-### Implemented activation checkpoint
+### Phase 1: authentication and SaaS core experience
 
-- Manual payment submission, private proof storage, review queues, and audit trails.
-- Authorized subscription activation, expiry, cancellation, and support tooling.
-- Idempotent provider/payment references and reconciliation.
-- Customer payment notifications, expiry reminders, claim-token delivery, and private-object cleanup outbox.
+Implemented locally. Registration, email verification and resend, login and logout, password recovery, reset and change, session refresh and revocation, protected customer settings, account-status enforcement, permissioned admin user operations, transactional-email adapters, audit trails, and executable security and accessibility gates. Hosted Supabase, Resend, and production-owner gates remain pending. See [Phase 1 report](phase-1-report.md).
 
-### Remaining Phase 2 scope
+### Phase 2: activation and career foundation
 
-- Career Intelligence Profile, sub-careers, verified facts, and onboarding state machine.
-- Private resume/portfolio upload, quarantine, scanning, parsing, and preview controls.
-- Account deletion/export and owner-approved legal content.
-- Account/activation email orchestration and Resend webhook/suppression operations.
+The manual-payment activation checkpoint is implemented locally: manual payment methods and QR instructions, private proof upload and signed access, permissioned review with approve, reject, and request-information outcomes, atomic subscription and entitlement lifecycle, refunds, reversals and corrections, and the database-backed notification and cleanup worker. See [Phase 2 report](phase-2-report.md).
 
-## Phase 3: opportunity discovery
+The career-foundation half of the Phase 2 entry is also now implemented, minus the account export and deletion work listed above.
 
-- Approved source adapters, source governance, robots/terms review, and schedules.
-- Job normalization, deduplication, taxonomy, freshness, and moderation.
-- Career radar configuration and database-backed match candidates.
-- Distributed queue adapter, worker consumers, idempotency, retries, and dead-letter operations.
+## What genuinely remains
 
-## Phase 4: explainable intelligence and application packs
+### 1. Generate application artifact content
 
-- Provider implementations with prompt/model registry and cost controls.
-- Requirement extraction, preliminary/deep matching, explanations, and gap analysis.
-- Truth Gate against verified facts.
-- Resume and cover-letter generation with versioned templates and human review.
+Pack creation, listing, pack detail, allowance display, and the tracker are shipped and API-backed. The declared SQL entry points for content — `record_application_artifact` and `complete_application_pack` — are never called by any code in this repository, so a created pack has no artifacts and its detail page shows an empty state. Until a generator exists, Hanaply does not write resumes or cover letters, and the interface says so rather than presenting a placeholder.
 
-## Phase 5: notifications and strategy
+### 2. Approve and enable job providers
 
-- Email alerts and daily digest through Resend.
-- Browser notification permissions and delivery.
-- Instant alerts, weekly strategy, interview preparation, and recruiter messages according to entitlements.
-- Delivery preferences, quiet hours, idempotency, unsubscribe, and provider suppression handling.
+Ingestion is complete but idle. Enabling a source requires reviewing its terms and attribution, recording cadence limits, and supplying Adzuna and Jooble credentials. See [Job ingestion](job-ingestion.md) and [Owner actions](owner-actions.md).
 
-## Phase 6: mobile
+### 3. Decide on AI providers
 
-- React Native clients using the shared contracts/fetch transport.
-- Secure session storage, device registration, push-token lifecycle, and deep links.
-- Private document previews and platform compatibility enforcement.
-- iOS/Android store readiness, privacy declarations, and mobile-specific security testing.
+`packages/ai` defines the request, result, usage, and truth-gate types. A provider implementation, model and prompt registry, cost controls, and the acceptance review that goes with live generation do not exist. Nothing changes about the truth gate if a provider is added: admissibility stays `career_facts.status = 'confirmed'`.
 
-Each phase requires its own schema/security review, positive and negative tests, observability, operational runbooks, owner actions, and explicit release decision.
+### 4. Account export and deletion
 
-The Phase 2 activation checkpoint is implemented locally and has its own schema, security, database, application, worker, and browser validation. The remaining career-foundation items above are not started. Phase 3 has not started. Hosted Supabase, Resend/DNS, production infrastructure, legal, owner-bootstrap, and deployment gates remain conditional release work; see [Phase 2 report](phase-2-report.md) and [Owner actions](owner-actions.md).
+No export route, no deletion route, and no deletion worker exist. `profiles.account_status` already has a `pending_deletion` value and the account-state machinery handles it, but nothing produces the export or performs the deletion.
+
+### 5. Deliver opportunity notifications
+
+Job alerts and the digest are implemented end to end in code. `20260919090000_job_alerts_and_digest.sql` adds real consent toggles (`job_alerts`, `daily_digest`, `instant_alerts`, `weekly_strategy`), quiet hours, the `notification_outbox` table, consent-and-entitlement gating in `app_private.notification_allowed`, and the queue, claim, complete, and release functions. `apps/web/src/components/notification-settings-form.tsx` renders all four toggles and both quiet-hours fields. `packages/email` ships `job-alert` and `daily-digest` templates with their required categories, and the notification cycle in `services/worker/src/jobs.ts` resolves each row's category from its template id, delivers through the configured provider, and completes or releases the claim with bounded retries.
+
+What is not done is operational: delivery runs through the email provider, and the shipped default is `EMAIL_PROVIDER=disabled`, so nothing leaves the process until an owner configures and approves Resend and sender DNS. Two smaller gaps remain: `instant_alerts` and `weekly_strategy` are stored preferences with no queue function or template behind them, and browser push is not implemented at all — `browserNotifications` is an entitlement key with no delivery mechanism. `platform_settings` and the `futureMobileAccess` entitlement are seams, not features.
+
+### 6. Production queue and worker monitoring
+
+`services/worker/src/queue.ts` provides `TaskQueue`, `DisabledQueueAdapter`, `InMemoryTaskQueue`, `retryDelayMilliseconds`, and `isRetryableTaskError`, but no production queue adapter is selected and the module is not imported by the worker runtime. Both live workers call Supabase RPCs directly and rely on database-side locking. Selecting a queue, adding dead-letter storage, and approving worker monitoring are owner decisions.
+
+### 7. Native mobile
+
+No React Native client exists. `platform_settings` seeds `ios` and `android` as `planned` for every environment, `/v1/meta` evaluates platform lifecycle, and `@hanaply/contracts` plus its fetch client are DOM-free so a native client can reuse them. See [Mobile readiness](mobile-readiness.md).
+
+### 8. Every hosted gate
+
+Hosted Supabase, Resend and sender DNS, production infrastructure and networking, a distributed rate-limit store, the first Super Admin bootstrap, legal review, deployment, and production smoke validation. None has been performed. See [Owner actions](owner-actions.md).
+
+## How a phase is closed
+
+Each phase requires its own schema and security review, positive and negative tests, observability, operational runbooks, owner actions, and an explicit release decision. The local validation gates are listed in [Testing](testing.md); the owner gates are listed in [Owner actions](owner-actions.md). Local success never proves a hosted gate.

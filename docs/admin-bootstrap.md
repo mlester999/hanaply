@@ -8,7 +8,7 @@ The bootstrap tool assigns exactly the first Super Admin. It is not a general ro
 - Create the owner through the normal Auth flow.
 - Verify the owner's email.
 - Obtain the exact Auth UUID from an authenticated admin console/private server process.
-- Review the migrations and ensure the expanded `super_admin` role exists.
+- Review the migrations and ensure the expanded `super_admin` role exists. The reviewed migration count is now 26 in `supabase/migrations`.
 - Open a private server shell with access to the secret manager.
 
 Do not run bootstrap for an unverified identity, from a browser, in a developer's shared shell history, or through an unreviewed CI job.
@@ -58,7 +58,7 @@ Also remove any temporary secret-manager lease or one-off job. Sign in through `
 - If the selected user is unverified, complete normal email verification first.
 - If the RPC fails, preserve the error/request context without copying service credentials; verify migration state and database logs.
 - If the first owner's access is lost, use a documented owner incident process and database backup/audit evidence. Do not edit JWT metadata or silently run SQL to create a second owner.
-- Later admin assignments require a separate permissioned role-administration feature; Phase 1 intentionally does not expose one.
+- Later admin assignments require a separate permissioned role-administration feature; the current API exposes no membership or role-assignment route (`services/api/src/controllers.ts` declares only the admin identity, directory, account-status, audit, and security routes), so a second owner has to be created through a reviewed database change rather than a supported endpoint.
 
 ## Security warnings
 

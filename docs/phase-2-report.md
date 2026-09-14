@@ -1,4 +1,6 @@
-# Phase 2 report
+﻿# Phase 2 report
+
+This is a historical Phase 2 snapshot. The counts, file inventories, command results, and status statements below describe the repository as it stood on this report date and have been superseded. For current status see [README](../README.md) and [Roadmap](roadmap.md). Current figures: 27 forward-only migrations in `supabase/migrations`, 14 pgTAP suites with 582 assertions, 13 Playwright scenarios, and 87 routes in the contract registry. A Dockerless database harness (`tooling/db/local-cluster.mjs`) also exists now and `.github/workflows/ci.yml` still uses the Supabase CLI with Docker; the harness is exposed as `pnpm db:harness`, `pnpm db:harness:reset`, `pnpm db:harness:test`, `pnpm db:harness:stop`, `pnpm db:verify`, and `pnpm validate:dockerless`. The career-foundation items this report calls "not started" were subsequently implemented: the career profile and truth ledger (`career_profiles`, `career_facts`), career documents with deterministic parsing (`services/api/src/career-extraction.ts`, whose `extractorVersion` is `'deterministic-v1'`), job ingestion (`job_sources`, `jobs`, `packages/jobs`, `services/worker/src/jobs.ts`), the Career Radar feed, opportunity intelligence and the matching engine (`packages/matching/src/index.ts`, `modelVersion = 'matching-v1'`), application packs with usage metering, and the application tracker. Live AI generation, push notifications, account export and deletion, and mobile clients remain unimplemented.
 
 Date: 2026-08-26 (Asia/Singapore)
 
@@ -8,7 +10,7 @@ Scope: manual-payment activation checkpoint only. Career Profile, resume/portfol
 
 The Phase 2 manual-payment activation checkpoint is implemented locally and all local quality gates pass as of this report. Production release remains conditional on hosted Supabase/Auth/RLS/storage validation, worker operations, Resend/DNS delivery, production networking and rate limiting, owner bootstrap, legal/support approval, backups, monitoring, and deployment authorization.
 
-The broader roadmap entry “Phase 2: activation and career foundation” is not fully complete because the career-foundation items remain intentionally deferred. Phase 3 has not started.
+The broader roadmap entry â€œPhase 2: activation and career foundationâ€ is not fully complete because the career-foundation items remain intentionally deferred. Phase 3 has not started.
 
 ## Implemented lifecycle
 
@@ -31,10 +33,10 @@ The `payment-proofs` and `payment-qr-codes` buckets are private, MIME/size const
 
 Final local validation:
 
-- `pnpm validate:local` — PASS. This includes `pnpm format:check`, `pnpm lint` (zero errors and warnings), `pnpm typecheck` (25 Turbo tasks plus the test TypeScript project), `pnpm test` (14 files, 125 tests), design-token generation check, `pnpm build` (15 packages), OpenAPI check, secret scan, clean database reset, schema lint, database tests, generated database-type check, and E2E.
-- `pnpm db:test` — PASS: 9 files, 278 assertions.
-- `pnpm e2e` — PASS: 13 browser scenarios.
-- `pnpm audit:prod` — PASS: no known production dependency vulnerabilities.
+- `pnpm validate:local` â€” PASS. This includes `pnpm format:check`, `pnpm lint` (zero errors and warnings), `pnpm typecheck` (25 Turbo tasks plus the test TypeScript project), `pnpm test` (14 files, 125 tests), design-token generation check, `pnpm build` (15 packages), OpenAPI check, secret scan, clean database reset, schema lint, database tests, generated database-type check, and E2E.
+- `pnpm db:test` â€” PASS: 9 files, 278 assertions.
+- `pnpm e2e` â€” PASS: 13 browser scenarios.
+- `pnpm audit:prod` â€” PASS: no known production dependency vulnerabilities.
 
 The formatter was run with `pnpm format`, and the canonical contract was regenerated with `pnpm openapi:generate` before the checks above.
 

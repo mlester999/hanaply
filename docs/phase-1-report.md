@@ -1,8 +1,8 @@
-# Phase 1 report
+﻿# Phase 1 report
 
 Date: 2026-07-22 (Asia/Singapore)
 
-This is a historical Phase 1 snapshot. The current manual-payment activation checkpoint is documented in [Phase 2 report](phase-2-report.md); the Phase 1 statements below describe the repository as it stood on this report date.
+This is a historical Phase 1 snapshot. The current manual-payment activation checkpoint is documented in [Phase 2 report](phase-2-report.md); the Phase 1 statements below describe the repository as it stood on this report date. Current figures: 27 forward-only migrations in `supabase/migrations`, 14 pgTAP suites with 582 assertions, 13 Playwright scenarios, and 87 routes in the contract registry. A Dockerless database harness (`tooling/db/local-cluster.mjs`) also exists now and `.github/workflows/ci.yml` still uses the Supabase CLI with Docker; the harness is exposed as `pnpm db:harness`, `pnpm db:harness:reset`, `pnpm db:harness:test`, `pnpm db:harness:stop`, `pnpm db:verify`, and `pnpm validate:dockerless`.
 
 Decision: **CONDITIONAL GO for Phase 2**
 
@@ -88,7 +88,7 @@ Overview counts and user rows come from PostgreSQL. Directory filters include se
 
 ## 9. Roles and permissions
 
-Eight catalog roles and 25 explicit permissions remain expanded in PostgreSQL. No runtime wildcard or JWT permission claim is accepted.
+Eight catalog roles and 25 explicit permissions remain expanded in PostgreSQL. No runtime wildcard or JWT permission claim is accepted. (Erratum: the permission count was already wrong when this sentence was written â€” `20260722094000_foundation_catalog.sql` seeded 26 permissions, and `20260728090000_phase2_payment_schema.sql` later added `payment_methods.read` and `payment_methods.manage` for 28 today, as asserted by `supabase/tests/database/10_catalog.test.sql`. The eight-role count and the expanded-rows statement are correct.)
 
 Implemented route requirements are active admin membership for `/v1/admin/me`; `users.read` for overview/directory/detail; `users.manage` for suspend/restore; `users.manage` or `security.manage` for revocation; `audit.read` for audit; and `security.manage` for security diagnostics. Nest guards and service-only database functions both enforce the operation.
 
