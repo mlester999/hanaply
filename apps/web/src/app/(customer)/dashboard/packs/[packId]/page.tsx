@@ -5,6 +5,7 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 
 import { ApplicationUnavailable } from '@/components/application/application-unavailable';
+import { GeneratePackPanel } from '@/components/application/generate-pack-panel';
 import { PackArtifactCard } from '@/components/application/pack-artifact';
 import {
   packFailureExplanation,
@@ -139,6 +140,13 @@ export default async function ApplicationPackPage({
         </div>
 
         <p className="application-detail-status">{packStatusExplanation(detail.status)}</p>
+
+        <GeneratePackPanel
+          artifactCount={artifacts.length}
+          evidenceFactCount={cited}
+          jobId={detail.jobId}
+          packId={detail.id}
+        />
 
         <dl className="application-detail-facts">
           <div>

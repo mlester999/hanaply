@@ -14,6 +14,8 @@ import { formEntry } from '@/lib/career-action';
 import { assertTrustedMutationOrigin } from '@/lib/request-integrity';
 import { createAuthenticatedApiClient, requireUser } from '@/lib/session';
 
+const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu;
+
 /**
  * Requesting a pack changes the pack list, the usage figures on the dashboard,
  * and the opportunity it belongs to, so all of them are revalidated together.
@@ -67,5 +69,47 @@ export async function createApplicationPackAction(
     );
   } catch (error) {
     return applicationErrorState(error, 'The Application Pack could not be requested.');
+  }
+}
+
+/**
+ * Generates the pack artifacts from the facts the subscriber has confirmed.
+ *
+ * Generation is deterministic and grounded: the API composes each artifact from
+ * confirmed career facts only, and the database rejects any artifact that cites
+ * a fact the subscriber has not confirmed. The message therefore reports what
+ * was actually written and how many confirmed facts it drew on, and never
+ * claims an artifact exists that the response did not return.
+ */
+export async function generateApplicationPackAction(
+  previous: ApplicationActionState,
+  formData: FormData,
+): Promise<ApplicationActionState> {
+  void previous;
+  await assertTrustedMutationOrigin();
+
+  const packId = formEntry(formData, 'packId');
+  const jobId = formEntry(formData, 'jobId');
+  if (!packId || !uuidPattern.test(packId)) {
+    return applicationFailure('This pack could not be identified. Reload the page and try again.');
+  }
+
+  const { session } = await requireUser();
+  try {
+    const result = await createAuthenticatedApiClient(session).generateApplicationPack(packId, {});
+    revalidatePacks(jobId ?? result.data.jobId, packId);
+    const count = result.data.artifacts.length;
+    if (count === 0) {
+      return applicationFailure(
+        'No artifact could be written. Confirm at least one career fact on your profile, then generate again.',
+      );
+    }
+    const cited = result.data.evidenceFactIds.length;
+    return applicationSuccess(
+      `Wrote ${count} ${count === 1 ? 'artifact' : 'artifacts'} from ${cited} confirmed ${cited === 1 ? 'fact' : 'facts'}. Every statement traces to something you confirmed.`,
+      packId,
+    );
+  } catch (error) {
+    return applicationErrorState(error, 'The pack artifacts could not be generated.');
   }
 }
