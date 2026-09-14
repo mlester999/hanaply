@@ -2031,6 +2031,69 @@ export type Database = {
           },
         ]
       }
+      notification_outbox: {
+        Row: {
+          attempts: number
+          available_at: string
+          category: string
+          claim_token: string | null
+          claimed_at: string | null
+          completed_at: string | null
+          created_at: string
+          failure_code: string | null
+          id: string
+          idempotency_key: string
+          last_attempt_at: string | null
+          provider_message_id: string | null
+          status: string
+          template_id: string
+          template_version: string
+          updated_at: string
+          user_id: string
+          variables: Json
+        }
+        Insert: {
+          attempts?: number
+          available_at?: string
+          category: string
+          claim_token?: string | null
+          claimed_at?: string | null
+          completed_at?: string | null
+          created_at?: string
+          failure_code?: string | null
+          id?: string
+          idempotency_key: string
+          last_attempt_at?: string | null
+          provider_message_id?: string | null
+          status?: string
+          template_id: string
+          template_version?: string
+          updated_at?: string
+          user_id: string
+          variables?: Json
+        }
+        Update: {
+          attempts?: number
+          available_at?: string
+          category?: string
+          claim_token?: string | null
+          claimed_at?: string | null
+          completed_at?: string | null
+          created_at?: string
+          failure_code?: string | null
+          id?: string
+          idempotency_key?: string
+          last_attempt_at?: string | null
+          provider_message_id?: string | null
+          status?: string
+          template_id?: string
+          template_version?: string
+          updated_at?: string
+          user_id?: string
+          variables?: Json
+        }
+        Relationships: []
+      }
       payment_method_versions: {
         Row: {
           change_type: string
@@ -3133,30 +3196,48 @@ export type Database = {
       user_notification_preferences: {
         Row: {
           created_at: string
+          daily_digest: boolean
           future_daily_digest: boolean
           future_job_alerts: boolean
+          instant_alerts: boolean
+          job_alerts: boolean
           marketing_emails: boolean
           product_updates: boolean
+          quiet_hours_end: number | null
+          quiet_hours_start: number | null
           updated_at: string
           user_id: string
+          weekly_strategy: boolean
         }
         Insert: {
           created_at?: string
+          daily_digest?: boolean
           future_daily_digest?: boolean
           future_job_alerts?: boolean
+          instant_alerts?: boolean
+          job_alerts?: boolean
           marketing_emails?: boolean
           product_updates?: boolean
+          quiet_hours_end?: number | null
+          quiet_hours_start?: number | null
           updated_at?: string
           user_id: string
+          weekly_strategy?: boolean
         }
         Update: {
           created_at?: string
+          daily_digest?: boolean
           future_daily_digest?: boolean
           future_job_alerts?: boolean
+          instant_alerts?: boolean
+          job_alerts?: boolean
           marketing_emails?: boolean
           product_updates?: boolean
+          quiet_hours_end?: number | null
+          quiet_hours_start?: number | null
           updated_at?: string
           user_id?: string
+          weekly_strategy?: boolean
         }
         Relationships: []
       }
@@ -3450,6 +3531,22 @@ export type Database = {
         }
         Returns: Json
       }
+      claim_notification_outbox: {
+        Args: {
+          requested_claim_token: string
+          requested_batch_size?: number
+        }
+        Returns: {
+          id: string
+          user_id: string
+          category: string
+          template_id: string
+          template_version: string
+          idempotency_key: string
+          variables: Json
+          attempts: number
+        }[]
+      }
       claim_payment_notifications: {
         Args: {
           requested_claim_token: string
@@ -3501,6 +3598,17 @@ export type Database = {
         Args: {
           target_run_id: string
           outcome: Json
+        }
+        Returns: boolean
+      }
+      complete_notification_outbox: {
+        Args: {
+          target_notification_id: string
+          requested_claim_token: string
+          requested_status: string
+          requested_provider_message_id?: string
+          requested_failure_code?: string
+          requested_attempts?: number
         }
         Returns: boolean
       }
@@ -3688,6 +3796,23 @@ export type Database = {
           priority: number
         }[]
       }
+      queue_job_alert_notifications: {
+        Args: {
+          evaluated_at?: string
+          window_minutes?: number
+          minimum_score?: number
+          batch_size?: number
+        }
+        Returns: number
+      }
+      queue_job_digest_notifications: {
+        Args: {
+          evaluated_at?: string
+          minimum_score?: number
+          batch_size?: number
+        }
+        Returns: number
+      }
       queue_storage_cleanup: {
         Args: {
           requested_bucket_id: string
@@ -3810,6 +3935,14 @@ export type Database = {
         Args: {
           requested_lock_key: string
           requested_holder: string
+        }
+        Returns: boolean
+      }
+      release_notification_outbox: {
+        Args: {
+          target_notification_id: string
+          requested_claim_token: string
+          retry_at: string
         }
         Returns: boolean
       }
@@ -3995,8 +4128,14 @@ export type Database = {
       }
       update_my_notification_preferences: {
         Args: {
-          requested_product_updates: boolean
-          requested_marketing_emails: boolean
+          requested_product_updates?: boolean
+          requested_marketing_emails?: boolean
+          requested_job_alerts?: boolean
+          requested_daily_digest?: boolean
+          requested_instant_alerts?: boolean
+          requested_weekly_strategy?: boolean
+          requested_quiet_hours_start?: number
+          requested_quiet_hours_end?: number
           requested_request_id?: string
         }
         Returns: Database["public"]["Tables"]["user_notification_preferences"]["Row"]
