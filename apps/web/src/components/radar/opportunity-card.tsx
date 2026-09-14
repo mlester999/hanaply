@@ -25,6 +25,7 @@ import { RadarFeedback } from '@/components/radar/radar-feedback';
 import { useRadarAction } from '@/components/radar/use-radar-action';
 import { humanise, optionLabel } from '@/lib/career';
 import {
+  formatAbsoluteTimestamp,
   jobFeedbackEffects,
   jobFeedbackKinds,
   jobFeedbackLabel,
@@ -83,6 +84,8 @@ export function OpportunityCard({ item, now, careerProfileId }: OpportunityCardP
   });
 
   const freshness = opportunityFreshness(item, now);
+  const absoluteDate =
+    formatAbsoluteTimestamp(item.postedAt ?? item.lastSeenAt) ?? 'date not recorded';
   const salary = salaryDisplay(item);
   const location = locationDisplay(item);
   const skills = radarSkillSplit(item.skills, skillDisplayLimit);
@@ -152,6 +155,7 @@ export function OpportunityCard({ item, now, careerProfileId }: OpportunityCardP
 
       <div className="radar-card-freshness">
         <Freshness freshness={freshness} />
+        <span className="radar-absolute-date">Posted or last seen {absoluteDate}</span>
         {item.sourceCount > 1 ? (
           <span
             className="radar-source-count"

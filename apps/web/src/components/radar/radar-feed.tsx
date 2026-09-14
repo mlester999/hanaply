@@ -7,7 +7,7 @@ import { OpportunityCard } from '@/components/radar/opportunity-card';
 import {
   formatAbsoluteTimestamp,
   radarActiveFilters,
-  radarHrefQueryValues,
+  radarHref,
   radarPaginationWindow,
   radarScope,
   type RadarActiveFilter,
@@ -36,11 +36,7 @@ function Pagination({
 }) {
   if (pagination.totalPages <= 1) return null;
   const links = radarPaginationWindow(pagination.page, pagination.totalPages);
-  const href = (page: number) => {
-    const params = new URLSearchParams(radarHrefQueryValues(query));
-    params.set('page', String(page));
-    return `${basePath}?${params.toString()}`;
-  };
+  const href = (page: number) => radarHref(basePath, query, page);
   return (
     <nav aria-label="Opportunity results pages" className="radar-pagination">
       {pagination.page > 1 ? (

@@ -26,11 +26,6 @@ const salaryFormatter = new Intl.NumberFormat('en-PH', {
   maximumFractionDigits: 0,
 });
 
-const absoluteDateFormatter = new Intl.DateTimeFormat('en-PH', {
-  dateStyle: 'medium',
-  timeZone: 'Asia/Manila',
-});
-
 const absoluteTimestampFormatter = new Intl.DateTimeFormat('en-PH', {
   dateStyle: 'medium',
   timeStyle: 'short',
@@ -49,11 +44,6 @@ function toDate(value: string | null): Date | null {
 /** Minor units (centavos) rendered as whole pesos. */
 export function formatMinor(minor: number): string {
   return salaryFormatter.format(minor / 100);
-}
-
-export function formatAbsoluteDate(value: string | null): string | null {
-  const date = toDate(value);
-  return date === null ? null : absoluteDateFormatter.format(date);
 }
 
 export function formatAbsoluteTimestamp(value: string | null): string | null {
@@ -534,7 +524,7 @@ export function radarActiveFilters(
 }
 
 /** Current filters minus pagination, as strings ready for `URLSearchParams`. */
-export function radarHrefQueryValues(query: JobRadarQuery): Record<string, string> {
+function radarHrefQueryValues(query: JobRadarQuery): Record<string, string> {
   const values: Record<string, string> = {};
   const set = (key: string, value: string | number | boolean | undefined): void => {
     if (value === undefined || value === false || value === '') return;
@@ -626,9 +616,6 @@ export function radarSkillSplit(skills: readonly string[], limit: number) {
 }
 
 /** The same UUID shape the contract schemas enforce, for pre-validating input. */
-export const uuidPattern =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
-
 export function isUuid(value: string): boolean {
-  return uuidPattern.test(value);
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu.test(value);
 }

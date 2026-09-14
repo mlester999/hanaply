@@ -127,12 +127,11 @@ export default async function SavedOpportunitiesPage({
 
       <RadarIgnoredFilters invalidKeys={ignoredKeys} />
 
-      <RadarStatStrip totals={totals.stats} unavailable={totals.unavailable} />
-
       {feed === null ? (
         <RadarUnavailable message={feedError ?? 'Your saved opportunities could not be loaded.'} />
       ) : (
         <>
+          <RadarStatStrip totals={totals.stats} unavailable={totals.unavailable} />
           <div className="radar-results-heading">
             <h2 id="radar-results-title">Saved and ranked</h2>
             <Badge tone={activeFilterCount > 0 ? 'brand' : 'neutral'}>

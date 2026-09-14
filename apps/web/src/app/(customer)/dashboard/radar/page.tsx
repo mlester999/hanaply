@@ -114,12 +114,11 @@ export default async function RadarPage({
 
       <RadarIgnoredFilters invalidKeys={invalidKeys} />
 
-      <RadarStatStrip totals={totals.stats} unavailable={totals.unavailable} />
-
       {feed === null ? (
         <RadarUnavailable message={feedError ?? 'The opportunity feed could not be loaded.'} />
       ) : (
         <>
+          <RadarStatStrip totals={totals.stats} unavailable={totals.unavailable} />
           <div className="radar-results-heading">
             <h2 id="radar-results-title">Ranked opportunities</h2>
             <Badge tone={activeFilterCount > 0 ? 'brand' : 'neutral'}>

@@ -378,7 +378,7 @@ describe('job intelligence worker', () => {
       credentialEnvVars: ['HANAPLY_ABSENT_PROVIDER_KEY'],
       fetchPostings: (context) => {
         captured.push({ ...context.credentials });
-        throw new MissingCredentialError('HANAPLY_ABSENT_PROVIDER_KEY');
+        throw new MissingCredentialError('remotive', ['HANAPLY_ABSENT_PROVIDER_KEY']);
       },
     };
     const { worker, calls } = buildWorker(

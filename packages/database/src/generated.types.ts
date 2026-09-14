@@ -222,6 +222,181 @@ export type Database = {
         }
         Relationships: []
       }
+      application_artifacts: {
+        Row: {
+          content: Json
+          created_at: string
+          evidence_fact_ids: string[]
+          id: string
+          kind: Database["public"]["Enums"]["application_artifact_kind"]
+          pack_id: string
+          plain_text: string
+          style: string | null
+          title: string
+          truth_gate_status: string
+          updated_at: string
+          version: number
+        }
+        Insert: {
+          content: Json
+          created_at?: string
+          evidence_fact_ids?: string[]
+          id?: string
+          kind: Database["public"]["Enums"]["application_artifact_kind"]
+          pack_id: string
+          plain_text: string
+          style?: string | null
+          title: string
+          truth_gate_status?: string
+          updated_at?: string
+          version?: number
+        }
+        Update: {
+          content?: Json
+          created_at?: string
+          evidence_fact_ids?: string[]
+          id?: string
+          kind?: Database["public"]["Enums"]["application_artifact_kind"]
+          pack_id?: string
+          plain_text?: string
+          style?: string | null
+          title?: string
+          truth_gate_status?: string
+          updated_at?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "application_artifacts_pack_id_fkey"
+            columns: ["pack_id"]
+            isOneToOne: false
+            referencedRelation: "application_packs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      application_events: {
+        Row: {
+          application_id: string
+          created_at: string
+          event_type: string
+          id: string
+          new_stage: Database["public"]["Enums"]["application_stage"] | null
+          note: string | null
+          occurred_at: string
+          previous_stage:
+            Database["public"]["Enums"]["application_stage"] | null
+          request_id: string | null
+          user_id: string
+        }
+        Insert: {
+          application_id: string
+          created_at?: string
+          event_type: string
+          id?: string
+          new_stage?: Database["public"]["Enums"]["application_stage"] | null
+          note?: string | null
+          occurred_at?: string
+          previous_stage?:
+            Database["public"]["Enums"]["application_stage"] | null
+          request_id?: string | null
+          user_id: string
+        }
+        Update: {
+          application_id?: string
+          created_at?: string
+          event_type?: string
+          id?: string
+          new_stage?: Database["public"]["Enums"]["application_stage"] | null
+          note?: string | null
+          occurred_at?: string
+          previous_stage?:
+            Database["public"]["Enums"]["application_stage"] | null
+          request_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "application_events_application_id_fkey"
+            columns: ["application_id"]
+            isOneToOne: false
+            referencedRelation: "job_applications"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      application_packs: {
+        Row: {
+          career_profile_id: string
+          created_at: string
+          error_code: string | null
+          evidence_fact_ids: string[]
+          generated_at: string | null
+          id: string
+          job_id: string
+          job_updated_at: string
+          match_snapshot: Json
+          model_version: string | null
+          profile_version: number
+          prompt_version: string | null
+          status: Database["public"]["Enums"]["application_pack_status"]
+          updated_at: string
+          user_id: string
+          version: number
+        }
+        Insert: {
+          career_profile_id: string
+          created_at?: string
+          error_code?: string | null
+          evidence_fact_ids?: string[]
+          generated_at?: string | null
+          id?: string
+          job_id: string
+          job_updated_at: string
+          match_snapshot?: Json
+          model_version?: string | null
+          profile_version: number
+          prompt_version?: string | null
+          status?: Database["public"]["Enums"]["application_pack_status"]
+          updated_at?: string
+          user_id: string
+          version?: number
+        }
+        Update: {
+          career_profile_id?: string
+          created_at?: string
+          error_code?: string | null
+          evidence_fact_ids?: string[]
+          generated_at?: string | null
+          id?: string
+          job_id?: string
+          job_updated_at?: string
+          match_snapshot?: Json
+          model_version?: string | null
+          profile_version?: number
+          prompt_version?: string | null
+          status?: Database["public"]["Enums"]["application_pack_status"]
+          updated_at?: string
+          user_id?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "application_packs_career_profile_id_fkey"
+            columns: ["career_profile_id"]
+            isOneToOne: false
+            referencedRelation: "career_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "application_packs_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       audit_events: {
         Row: {
           action: string
@@ -1235,6 +1410,85 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      job_applications: {
+        Row: {
+          applied_at: string | null
+          career_profile_id: string | null
+          created_at: string
+          id: string
+          job_id: string
+          next_action_at: string | null
+          next_action_note: string | null
+          notes: string | null
+          outcome_note: string | null
+          pack_id: string | null
+          source: Database["public"]["Enums"]["application_source_kind"]
+          stage: Database["public"]["Enums"]["application_stage"]
+          stage_changed_at: string
+          updated_at: string
+          user_id: string
+          version: number
+        }
+        Insert: {
+          applied_at?: string | null
+          career_profile_id?: string | null
+          created_at?: string
+          id?: string
+          job_id: string
+          next_action_at?: string | null
+          next_action_note?: string | null
+          notes?: string | null
+          outcome_note?: string | null
+          pack_id?: string | null
+          source?: Database["public"]["Enums"]["application_source_kind"]
+          stage?: Database["public"]["Enums"]["application_stage"]
+          stage_changed_at?: string
+          updated_at?: string
+          user_id: string
+          version?: number
+        }
+        Update: {
+          applied_at?: string | null
+          career_profile_id?: string | null
+          created_at?: string
+          id?: string
+          job_id?: string
+          next_action_at?: string | null
+          next_action_note?: string | null
+          notes?: string | null
+          outcome_note?: string | null
+          pack_id?: string | null
+          source?: Database["public"]["Enums"]["application_source_kind"]
+          stage?: Database["public"]["Enums"]["application_stage"]
+          stage_changed_at?: string
+          updated_at?: string
+          user_id?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_applications_career_profile_id_fkey"
+            columns: ["career_profile_id"]
+            isOneToOne: false
+            referencedRelation: "career_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_applications_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_applications_pack_id_fkey"
+            columns: ["pack_id"]
+            isOneToOne: false
+            referencedRelation: "application_packs"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       job_dedup_candidates: {
         Row: {
@@ -2777,6 +3031,75 @@ export type Database = {
           },
         ]
       }
+      usage_counters: {
+        Row: {
+          created_at: string
+          feature: Database["public"]["Enums"]["usage_feature"]
+          id: string
+          limit_snapshot: number
+          period_start: string
+          updated_at: string
+          used: number
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          feature: Database["public"]["Enums"]["usage_feature"]
+          id?: string
+          limit_snapshot: number
+          period_start: string
+          updated_at?: string
+          used?: number
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          feature?: Database["public"]["Enums"]["usage_feature"]
+          id?: string
+          limit_snapshot?: number
+          period_start?: string
+          updated_at?: string
+          used?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
+      usage_events: {
+        Row: {
+          application_pack_id: string | null
+          created_at: string
+          feature: Database["public"]["Enums"]["usage_feature"]
+          id: string
+          idempotency_key: string
+          metadata: Json
+          period_start: string
+          units: number
+          user_id: string
+        }
+        Insert: {
+          application_pack_id?: string | null
+          created_at?: string
+          feature: Database["public"]["Enums"]["usage_feature"]
+          id?: string
+          idempotency_key: string
+          metadata?: Json
+          period_start: string
+          units?: number
+          user_id: string
+        }
+        Update: {
+          application_pack_id?: string | null
+          created_at?: string
+          feature?: Database["public"]["Enums"]["usage_feature"]
+          id?: string
+          idempotency_key?: string
+          metadata?: Json
+          period_start?: string
+          units?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_legal_acceptances: {
         Row: {
           accepted_at: string
@@ -3008,6 +3331,32 @@ export type Database = {
           total_count: number
         }[]
       }
+      application_pack_detail: {
+        Args: {
+          actor_user_id: string
+          target_pack_id: string
+        }
+        Returns: Json
+      }
+      application_pack_directory: {
+        Args: {
+          actor_user_id: string
+        }
+        Returns: Json
+      }
+      application_timeline: {
+        Args: {
+          actor_user_id: string
+          target_application_id: string
+        }
+        Returns: Json
+      }
+      application_tracker: {
+        Args: {
+          actor_user_id: string
+        }
+        Returns: Json
+      }
       approve_payment_submission: {
         Args: {
           actor_user_id: string
@@ -3130,6 +3479,15 @@ export type Database = {
           attempts: number
         }[]
       }
+      complete_application_pack: {
+        Args: {
+          actor_user_id: string
+          target_pack_id: string
+          outcome: string
+          error_code?: string
+        }
+        Returns: boolean
+      }
       complete_career_document_processing: {
         Args: {
           actor_user_id: string
@@ -3197,6 +3555,16 @@ export type Database = {
           action_request_id?: string
         }
         Returns: number
+      }
+      create_application_pack: {
+        Args: {
+          actor_user_id: string
+          target_job_id: string
+          target_career_profile_id: string
+          idempotency_key: string
+          action_request_id?: string
+        }
+        Returns: Json
       }
       create_career_profile: {
         Args: {
@@ -3338,6 +3706,15 @@ export type Database = {
       reconcile_my_profile: {
         Args: Record<PropertyKey, never>
         Returns: boolean
+      }
+      record_application_artifact: {
+        Args: {
+          actor_user_id: string
+          target_pack_id: string
+          artifact_input: Json
+          action_request_id?: string
+        }
+        Returns: string
       }
       record_career_document_extraction: {
         Args: {
@@ -3534,6 +3911,17 @@ export type Database = {
         }
         Returns: boolean
       }
+      set_application_stage: {
+        Args: {
+          actor_user_id: string
+          target_application_id: string
+          requested_stage: Database["public"]["Enums"]["application_stage"]
+          expected_version: number
+          requested_note?: string
+          action_request_id?: string
+        }
+        Returns: Json
+      }
       set_career_profile_status: {
         Args: {
           actor_user_id: string
@@ -3642,10 +4030,43 @@ export type Database = {
         }
         Returns: Json
       }
+      upsert_job_application: {
+        Args: {
+          actor_user_id: string
+          application_input: Json
+          action_request_id?: string
+        }
+        Returns: Json
+      }
+      usage_summary: {
+        Args: {
+          actor_user_id: string
+        }
+        Returns: Json
+      }
     }
     Enums: {
       account_status: "active" | "suspended" | "disabled" | "pending_deletion"
       admin_membership_status: "active" | "suspended" | "revoked"
+      application_artifact_kind:
+        | "resume"
+        | "cover_letter"
+        | "strategy"
+        | "requirement_map"
+        | "recruiter_message"
+        | "interview_prep"
+      application_pack_status:
+        "queued" | "generating" | "ready" | "failed" | "archived"
+      application_source_kind: "hanaply" | "external" | "referral"
+      application_stage:
+        | "saved"
+        | "preparing"
+        | "applied"
+        | "interviewing"
+        | "offer"
+        | "rejected"
+        | "withdrawn"
+        | "archived"
       audit_actor_type: "user" | "admin" | "service" | "system"
       availability_status:
         | "immediately"
@@ -3789,6 +4210,14 @@ export type Database = {
         | "suspended"
         | "refunded"
         | "reversed"
+      usage_feature:
+        | "application_pack"
+        | "resume_variant"
+        | "cover_letter"
+        | "ai_analysis"
+        | "interview_prep"
+        | "recruiter_message"
+        | "coach_message"
       work_arrangement: "remote" | "hybrid" | "onsite" | "flexible"
     }
     CompositeTypes: {
@@ -3916,6 +4345,32 @@ export const Constants = {
     Enums: {
       account_status: ["active", "suspended", "disabled", "pending_deletion"],
       admin_membership_status: ["active", "suspended", "revoked"],
+      application_artifact_kind: [
+        "resume",
+        "cover_letter",
+        "strategy",
+        "requirement_map",
+        "recruiter_message",
+        "interview_prep",
+      ],
+      application_pack_status: [
+        "queued",
+        "generating",
+        "ready",
+        "failed",
+        "archived",
+      ],
+      application_source_kind: ["hanaply", "external", "referral"],
+      application_stage: [
+        "saved",
+        "preparing",
+        "applied",
+        "interviewing",
+        "offer",
+        "rejected",
+        "withdrawn",
+        "archived",
+      ],
       audit_actor_type: ["user", "admin", "service", "system"],
       availability_status: [
         "immediately",
@@ -4090,6 +4545,15 @@ export const Constants = {
         "suspended",
         "refunded",
         "reversed",
+      ],
+      usage_feature: [
+        "application_pack",
+        "resume_variant",
+        "cover_letter",
+        "ai_analysis",
+        "interview_prep",
+        "recruiter_message",
+        "coach_message",
       ],
       work_arrangement: ["remote", "hybrid", "onsite", "flexible"],
     },

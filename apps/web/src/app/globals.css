@@ -4378,7 +4378,8 @@ a:hover {
 .radar-remote-state,
 .radar-flag,
 .radar-source-count,
-.radar-freshness {
+.radar-freshness,
+.radar-absolute-date {
   display: inline-flex;
   align-items: center;
   gap: var(--hanaply-space-1);

@@ -9,6 +9,11 @@
 -- yet is still returned, but it sorts after every scored job so the interface
 -- can say "not analysed yet" instead of implying a score it does not have.
 
+/**
+ * Match summary. The full explainable detail is included rather than a trimmed
+ * subset: the detail page is the whole point of the feature, and a partial shape
+ * would fail response validation and leave the user with no explanation at all.
+ */
 create or replace function app_private.job_match_summary(match public.job_matches)
 returns jsonb
 language sql
@@ -28,6 +33,11 @@ as $$
       'strengths', match.strengths,
       'gaps', match.gaps,
       'blockers', match.blockers,
+      'dimensions', match.dimensions,
+      'rejectionRisks', match.rejection_risks,
+      'requirementMapping', match.requirement_mapping,
+      'evidenceFactIds', pg_catalog.to_jsonb(match.evidence_fact_ids),
+      'dataQuality', match.data_quality,
       'computedAt', match.computed_at
     )
   end;
