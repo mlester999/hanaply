@@ -3605,6 +3605,14 @@ export type Database = {
         }
         Returns: Json
       }
+      career_insights: {
+        Args: {
+          actor_user_id: string
+          requested_career_profile_id?: string
+          window_weeks?: number
+        }
+        Returns: Json
+      }
       career_profile_detail: {
         Args: {
           actor_user_id: string
