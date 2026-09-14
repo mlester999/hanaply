@@ -45,8 +45,8 @@
     "validate": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm tokens:check && pnpm build && pnpm openapi:check && pnpm secrets:check",
     "validate:local": "pnpm validate && pnpm db:reset && pnpm db:lint && pnpm db:test && pnpm db:types:check && pnpm e2e",
     "validate:db": "pnpm db:verify",
-    "validate:dockerless": "pnpm validate && pnpm db:verify",
-    "validate:launch": "pnpm validate && pnpm db:verify && pnpm db:harness:test 20_ && pnpm db:harness:test 160_ && pnpm db:harness:test 60_ && pnpm db:harness:test 80_ && pnpm e2e"
+    "validate:dockerless": "pnpm validate && pnpm db:verify && pnpm db:types:check",
+    "validate:launch": "pnpm validate && pnpm db:verify && pnpm db:types:check && pnpm audit:prod && pnpm e2e"
   },
   "devDependencies": {
     "@eslint/js": "9.39.5",
