@@ -140,6 +140,21 @@ const workerEnvironmentSchema = sharedServerEnvironmentSchema.extend({
   RESEND_FROM_ADDRESS: mailboxSchema.optional(),
   RESEND_REPLY_TO_ADDRESS: z.email().optional(),
   RESEND_REQUEST_TIMEOUT_MS: z.coerce.number().int().min(1_000).max(30_000).default(8_000),
+
+  // Job intelligence. Ingestion is shared infrastructure, so these bound one
+  // shared scan per source rather than one request per subscriber.
+  JOB_INGESTION_USER_AGENT: z
+    .string()
+    .trim()
+    .min(8)
+    .max(200)
+    .default('HanaplyBot/1.0 (+https://hanaply.com/bot)'),
+  JOB_INGESTION_TIMEOUT_MS: z.coerce.number().int().min(1_000).max(60_000).default(15_000),
+  JOB_STALE_AFTER_HOURS: z.coerce.number().int().min(1).max(8_760).default(168),
+  JOB_EXPIRE_AFTER_HOURS: z.coerce.number().int().min(2).max(8_760).default(720),
+  MATCHING_BATCH_SIZE: z.coerce.number().int().min(1).max(200).default(25),
+  MATCHING_CANDIDATE_LIMIT: z.coerce.number().int().min(1).max(200).default(60),
+  MATCHING_STALE_AFTER_HOURS: z.coerce.number().int().min(1).max(720).default(12),
 });
 
 const emailEnvironmentSchema = z

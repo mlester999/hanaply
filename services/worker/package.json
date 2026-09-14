@@ -14,6 +14,8 @@
     "@hanaply/contracts": "workspace:*",
     "@hanaply/database": "workspace:*",
     "@hanaply/email": "workspace:*",
+    "@hanaply/jobs": "workspace:*",
+    "@hanaply/matching": "workspace:*",
     "@hanaply/observability": "workspace:*",
     "@supabase/supabase-js": "catalog:",
     "fastify": "catalog:"

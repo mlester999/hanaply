@@ -1,6 +1,7 @@
 import { type CareerProfileDetail, type CareerProfileDirectory } from '@hanaply/contracts';
 import { Alert, Badge, Card, LinkButton, PageHeader } from '@hanaply/ui';
 import {
+  Activity,
   CheckCircle2,
   Circle,
   Compass,
@@ -8,6 +9,8 @@ import {
   FileText,
   ListChecks,
   LockKeyhole,
+  Radar,
+  Sparkles,
   UserRound,
 } from 'lucide-react';
 import type { Metadata } from 'next';
@@ -17,6 +20,39 @@ import { humanise } from '@/lib/career';
 import { createAuthenticatedApiClient, requireUser } from '@/lib/session';
 
 export const metadata: Metadata = { title: 'Career Radar' };
+
+interface RadarSnapshot {
+  total: number;
+  strongMatches: number;
+  unanalysed: number;
+}
+
+/**
+ * The dashboard shortcut reports three radar numbers, each asked for directly:
+ * the feed's own total, the strong-match count, and the count with a score.
+ * Anything the API cannot answer stays hidden rather than being estimated.
+ */
+async function readRadarSnapshot(
+  client: ReturnType<typeof createAuthenticatedApiClient>,
+): Promise<{ snapshot: RadarSnapshot | null; unavailable: string | null }> {
+  try {
+    const [feed, strong, analysed] = await Promise.all([
+      client.jobRadar({ pageSize: 1 }),
+      client.jobRadar({ pageSize: 1, verdicts: ['strong_match'] }),
+      client.jobRadar({ pageSize: 1, minScore: 0 }),
+    ]);
+    return {
+      snapshot: {
+        total: feed.data.pagination.total,
+        strongMatches: strong.data.pagination.total,
+        unanalysed: Math.max(feed.data.pagination.total - analysed.data.pagination.total, 0),
+      },
+      unavailable: null,
+    };
+  } catch {
+    return { snapshot: null, unavailable: 'The radar counts are unavailable right now.' };
+  }
+}
 
 export default async function DashboardPage() {
   const { session, me } = await requireUser();
@@ -37,6 +73,8 @@ export default async function DashboardPage() {
   } catch {
     careerUnavailable = true;
   }
+
+  const radar = await readRadarSnapshot(client);
 
   return (
     <div className="workspace-page">
@@ -138,6 +176,51 @@ export default async function DashboardPage() {
           ) : null}
         </Card>
       </div>
+
+      <Card className="dashboard-radar-card">
+        <div className="dashboard-card-heading">
+          <Radar aria-hidden="true" size={22} />
+          <div>
+            <span className="h-eyebrow">Career radar</span>
+            <h2>Start from your ranked opportunities</h2>
+          </div>
+        </div>
+        {radar.snapshot === null ? (
+          <Alert title="Radar counts unavailable" tone="warning">
+            {radar.unavailable ?? 'Hanaply could not read the radar just now.'} No totals are shown
+            rather than a number that may be stale, but the radar itself may still open.
+          </Alert>
+        ) : (
+          <dl className="dashboard-facts">
+            <div>
+              <dt>Opportunities in your radar</dt>
+              <dd>{radar.snapshot.total}</dd>
+            </div>
+            <div>
+              <dt>Strong matches</dt>
+              <dd>{radar.snapshot.strongMatches}</dd>
+            </div>
+            <div>
+              <dt>Not analysed yet</dt>
+              <dd>{radar.snapshot.unanalysed}</dd>
+            </div>
+          </dl>
+        )}
+        <p className="career-hint">
+          <Sparkles aria-hidden="true" size={16} />A strong match is a stored verdict, and each one
+          is shown with its confidence, because a high score from a thin profile is still low
+          confidence. Opportunities that have not been analysed yet are counted separately and never
+          given a score.
+        </p>
+        <div className="career-card-actions">
+          <LinkButton href="/dashboard/radar">
+            <Radar aria-hidden="true" size={18} /> Open the job radar
+          </LinkButton>
+          <LinkButton href="/dashboard/radar/saved" variant="secondary">
+            <Activity aria-hidden="true" size={18} /> Saved opportunities
+          </LinkButton>
+        </div>
+      </Card>
 
       <Card className="dashboard-career-card">
         <div className="dashboard-card-heading">

@@ -3300,6 +3300,26 @@ export type Database = {
           current_session: boolean
         }[]
       }
+      matching_job_candidates: {
+        Args: {
+          actor_user_id: string
+          target_career_profile_id: string
+          batch_size?: number
+        }
+        Returns: Json
+      }
+      matching_subjects: {
+        Args: {
+          batch_size?: number
+          stale_after_hours?: number
+        }
+        Returns: {
+          user_id: string
+          career_profile_id: string
+          plan_code: string
+          priority: number
+        }[]
+      }
       queue_storage_cleanup: {
         Args: {
           requested_bucket_id: string

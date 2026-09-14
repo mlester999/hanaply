@@ -4,6 +4,7 @@ import type { Permission } from '@hanaply/auth';
 import { Button, Drawer, NavigationItem } from '@hanaply/ui';
 import {
   BadgeCheck,
+  Bookmark,
   Compass,
   CreditCard,
   FileText,
@@ -12,6 +13,7 @@ import {
   Home,
   MailCheck,
   Menu,
+  Radar,
   Settings,
   ShieldCheck,
   SlidersHorizontal,
@@ -27,7 +29,9 @@ import { logout } from '@/app/actions/auth';
 import { BrandLogo } from '@/components/brand-logo';
 
 const customerItems = [
-  { href: '/dashboard', label: 'Career Radar', icon: Gauge },
+  { href: '/dashboard/radar', label: 'Job radar', icon: Radar },
+  { href: '/dashboard/radar/saved', label: 'Saved jobs', icon: Bookmark },
+  { href: '/dashboard', label: 'Dashboard', icon: Gauge },
   { href: '/dashboard/career', label: 'Career profile', icon: Compass },
   { href: '/dashboard/career/documents', label: 'Documents', icon: FileText },
   { href: '/dashboard/activation', label: 'Activation Center', icon: CreditCard },

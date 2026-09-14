@@ -584,6 +584,12 @@ importers:
       '@hanaply/email':
         specifier: workspace:*
         version: link:../../packages/email
+      '@hanaply/jobs':
+        specifier: workspace:*
+        version: link:../../packages/jobs
+      '@hanaply/matching':
+        specifier: workspace:*
+        version: link:../../packages/matching
       '@hanaply/observability':
         specifier: workspace:*
         version: link:../../packages/observability

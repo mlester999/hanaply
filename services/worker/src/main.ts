@@ -3,6 +3,7 @@ import { resolve } from 'node:path';
 
 import { parseWorkerEnvironment } from '@hanaply/config';
 
+import { JobIntelligenceWorker } from './jobs.js';
 import { PaymentMaintenanceWorker } from './payments.js';
 import { createWorkerServer } from './server.js';
 
@@ -11,10 +12,11 @@ if (existsSync(rootEnvironmentFile)) process.loadEnvFile(rootEnvironmentFile);
 
 async function bootstrap(): Promise<void> {
   const environment = parseWorkerEnvironment(process.env);
-  const paymentWorker =
-    environment.WORKER_MODE === 'active' ? new PaymentMaintenanceWorker(environment) : null;
-  const server = createWorkerServer(environment, () =>
-    paymentWorker
+  const active = environment.WORKER_MODE === 'active';
+  const paymentWorker = active ? new PaymentMaintenanceWorker(environment) : null;
+  const jobWorker = active ? new JobIntelligenceWorker(environment) : null;
+  const server = createWorkerServer(environment, () => {
+    const paymentState = paymentWorker
       ? paymentWorker.state()
       : {
           running: false,
@@ -22,18 +24,36 @@ async function bootstrap(): Promise<void> {
           lastCycleAt: null,
           lastMaintenanceAt: null,
           lastErrorCode: null,
-        },
-  );
+        };
+    return {
+      ...paymentState,
+      jobs: jobWorker
+        ? jobWorker.state()
+        : {
+            running: false,
+            cycleActive: false,
+            lastCycleAt: null,
+            lastIngestionAt: null,
+            lastMatchingAt: null,
+            lastFreshnessAt: null,
+            lastErrorCode: null,
+            sourcesAttempted: 0,
+            jobsCreated: 0,
+            profilesScored: 0,
+          },
+    };
+  });
 
   const shutdown = async (signal: string): Promise<void> => {
     server.log.info({ signal }, 'Worker health server shutting down');
-    await paymentWorker?.stop();
+    await Promise.all([paymentWorker?.stop(), jobWorker?.stop()]);
     await server.close();
   };
   process.once('SIGINT', () => void shutdown('SIGINT'));
   process.once('SIGTERM', () => void shutdown('SIGTERM'));
   await server.listen({ host: '0.0.0.0', port: environment.WORKER_HEALTH_PORT });
   paymentWorker?.start();
+  jobWorker?.start();
 }
 
 bootstrap().catch((error: unknown) => {
@@ -42,6 +62,7 @@ bootstrap().catch((error: unknown) => {
   process.exitCode = 1;
 });
 
+export * from './jobs.js';
 export * from './queue.js';
 export * from './payments.js';
 export * from './server.js';
