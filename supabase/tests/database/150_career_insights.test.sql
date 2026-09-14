@@ -15,7 +15,7 @@ exception when others then
 end;
 $$;
 
-select plan(32);
+select plan(36);
 
 -- ---------------------------------------------------------------------------
 -- Fixtures
@@ -258,7 +258,97 @@ select public.record_job_matches(
       'modelVersion', 'matching-v1',
       'recommendedAction', 'Apply now.',
       'requirementMapping', pg_catalog.jsonb_build_array(
-        pg_catalog.jsonb_build_object('requirement', 'Terraform', 'status', 'missing'),
+        pg_catalog.jsonb_build_object('requirement', 'Terraform', 'status', 'unmet'),
+        pg_catalog.jsonb_build_object('requirement', 'Kubernetes', 'status', 'partially_met'),
+        pg_catalog.jsonb_build_object('requirement', 'TypeScript', 'status', 'met')
+      ),
+      'dataQuality', '{}'::jsonb
+    ))
+  ),
+  gen_random_uuid()
+);
+
+-- A second opportunity that repeats the same unmet requirement, so the gap
+-- assertions below are not vacuous. Before the fix in 20260923090000 the gap
+-- detection compared against a status the engine never emits, so `gaps` was
+-- always empty and every gap assertion passed for the wrong reason.
+insert into insight_ids (key, value)
+select 'second-job', (public.upsert_ingested_job(
+  (select value from insight_ids where key = 'source'),
+  pg_catalog.jsonb_build_object(
+    'sourceJobId', 'insights-job-2',
+    'sourceUrl', 'https://example.test/jobs/insights-2',
+    'title', 'Platform Automation Engineer',
+    'companyName', 'Atlas Workflow',
+    'description', repeat('Operate automation platforms for distributed teams. ', 10),
+    'employmentType', 'full_time',
+    'remoteState', 'remote',
+    'locationRaw', 'Remote - Philippines',
+    'countryCode', 'PH',
+    'postedAt', (now() - interval '2 days'),
+    'contentFingerprint', repeat('9', 64),
+    'payloadChecksum', repeat('a', 64),
+    'rawPayload', '{"id":"insights-job-2"}'::jsonb
+  ),
+  gen_random_uuid()
+) ->> 'jobId')::uuid;
+
+select public.record_job_matches(
+  'ae000000-0000-4000-8000-000000000002',
+  pg_catalog.jsonb_build_object(
+    'careerProfileId', (select value from insight_ids where key = 'profile-active'),
+    'items', pg_catalog.jsonb_build_array(pg_catalog.jsonb_build_object(
+      'jobId', (select value from insight_ids where key = 'second-job'),
+      'score', 72,
+      'verdict', 'good_match',
+      'confidence', 'medium',
+      'modelVersion', 'matching-v1',
+      'recommendedAction', 'Worth applying.',
+      'requirementMapping', pg_catalog.jsonb_build_array(
+        pg_catalog.jsonb_build_object('requirement', 'Terraform', 'status', 'partially_met'),
+        pg_catalog.jsonb_build_object('requirement', 'TypeScript', 'status', 'met')
+      ),
+      'dataQuality', '{}'::jsonb
+    ))
+  ),
+  gen_random_uuid()
+);
+
+-- A requirement the engine could not judge must never be reported as a gap.
+insert into insight_ids (key, value)
+select 'third-job', (public.upsert_ingested_job(
+  (select value from insight_ids where key = 'source'),
+  pg_catalog.jsonb_build_object(
+    'sourceJobId', 'insights-job-3',
+    'sourceUrl', 'https://example.test/jobs/insights-3',
+    'title', 'Reliability Engineer',
+    'companyName', 'Meridian Support',
+    'description', repeat('Keep distributed systems reliable for customers. ', 10),
+    'employmentType', 'full_time',
+    'remoteState', 'remote',
+    'locationRaw', 'Remote - Philippines',
+    'countryCode', 'PH',
+    'postedAt', (now() - interval '3 days'),
+    'contentFingerprint', repeat('b', 64),
+    'payloadChecksum', repeat('c', 64),
+    'rawPayload', '{"id":"insights-job-3"}'::jsonb
+  ),
+  gen_random_uuid()
+) ->> 'jobId')::uuid;
+
+select public.record_job_matches(
+  'ae000000-0000-4000-8000-000000000002',
+  pg_catalog.jsonb_build_object(
+    'careerProfileId', (select value from insight_ids where key = 'profile-active'),
+    'items', pg_catalog.jsonb_build_array(pg_catalog.jsonb_build_object(
+      'jobId', (select value from insight_ids where key = 'third-job'),
+      'score', 64,
+      'verdict', 'stretch',
+      'confidence', 'low',
+      'modelVersion', 'matching-v1',
+      'recommendedAction', 'Consider it.',
+      'requirementMapping', pg_catalog.jsonb_build_array(
+        pg_catalog.jsonb_build_object('requirement', 'Terraform', 'status', 'unknown'),
         pg_catalog.jsonb_build_object('requirement', 'TypeScript', 'status', 'met')
       ),
       'dataQuality', '{}'::jsonb
@@ -272,7 +362,7 @@ select is(
     'ae000000-0000-4000-8000-000000000002',
     (select value from insight_ids where key = 'profile-active')
   ) -> 'matching' ->> 'opportunitiesMatched')::integer,
-  1,
+  3,
   'the insight counts the opportunities analysed in the window'
 );
 select is(
@@ -288,7 +378,7 @@ select is(
     'ae000000-0000-4000-8000-000000000002',
     (select value from insight_ids where key = 'profile-active')
   ) -> 'matching' -> 'strongMatchRate'),
-  '100.0'::jsonb,
+  '33.3'::jsonb,
   'a strong match rate is computed from real numbers once a denominator exists'
 );
 
@@ -398,20 +488,55 @@ select is(
   '1',
   'the suggestions are ordered by priority'
 );
+-- The assertion that would have caught the original defect. Before the fix the
+-- gap detection compared against a status the engine never emits, so this always
+-- returned an empty array and every gap assertion passed for the wrong reason.
 select is(
-  (
-    select suggestion ->> 'key'
+  pg_catalog.jsonb_array_length(
+    public.career_insights(
+      'ae000000-0000-4000-8000-000000000002',
+      (select value from insight_ids where key = 'profile-active')
+    ) -> 'gaps'
+  ),
+  1,
+  'a requirement unmet across two opportunities is reported as one gap'
+);
+select is(
+  public.career_insights(
+    'ae000000-0000-4000-8000-000000000002',
+    (select value from insight_ids where key = 'profile-active')
+  ) -> 'gaps' -> 0 ->> 'skill',
+  'terraform',
+  'the gap names the requirement'
+);
+select is(
+  (public.career_insights(
+    'ae000000-0000-4000-8000-000000000002',
+    (select value from insight_ids where key = 'profile-active')
+  ) -> 'gaps' -> 0 ->> 'opportunityCount')::integer,
+  2,
+  'the gap counts only the opportunities where the requirement is unmet or partly met'
+);
+select is(
+  public.career_insights(
+    'ae000000-0000-4000-8000-000000000002',
+    (select value from insight_ids where key = 'profile-active')
+  ) -> 'gaps' -> 0 ->> 'metStatus',
+  'partially_met, unmet',
+  'the gap distinguishes a partly met requirement from an unmet one'
+);
+select ok(
+  not exists (
+    select 1
     from pg_catalog.jsonb_array_elements(
       public.career_insights(
         'ae000000-0000-4000-8000-000000000002',
         (select value from insight_ids where key = 'profile-active')
-      ) -> 'coaching'
-    ) as suggestion
-    where suggestion ->> 'key' = 'address_gaps'
-    limit 1
+      ) -> 'gaps'
+    ) as gap
+    where gap ->> 'metStatus' like '%unknown%'
   ),
-  null,
-  'a single repeated gap does not yet justify a gap suggestion'
+  'a requirement the engine could not judge is never reported as a gap'
 );
 select ok(
   pg_catalog.jsonb_array_length(
