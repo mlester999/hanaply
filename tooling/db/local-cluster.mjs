@@ -266,7 +266,33 @@ function databaseExists(name) {
   return result.status === 0 && result.stdout.trim() === '1';
 }
 
+/**
+ * Rebuilds a database from scratch.
+ *
+ * `dropdb --if-exists` fails while any other session is still connected, and the
+ * failure is easy to miss: `--if-exists` suppresses "does not exist" but not
+ * "is being accessed by other users", so the drop silently did nothing and the
+ * following `createdb` collided with the database it was meant to replace. That
+ * happened whenever an end-to-end stack from a previous run still held a
+ * connection, which made `pnpm e2e` fail intermittently with a message about a
+ * database that already existed. Sessions are terminated first so the drop is
+ * unconditional.
+ */
 function resetDatabase(name) {
+  run(
+    exe('psql'),
+    [
+      ...connectionArgs(),
+      '-d',
+      'postgres',
+      '-v',
+      'ON_ERROR_STOP=1',
+      '-q',
+      '-c',
+      `select pg_catalog.pg_terminate_backend(pid) from pg_catalog.pg_stat_activity where datname = '${name.replaceAll("'", "''")}' and pid <> pg_catalog.pg_backend_pid()`,
+    ],
+    { allowFailure: true },
+  );
   run(exe('dropdb'), [...connectionArgs(), '--if-exists', name], { allowFailure: true });
   run(exe('createdb'), [...connectionArgs(), name]);
 }
