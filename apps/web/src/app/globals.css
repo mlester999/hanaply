@@ -3428,14 +3428,18 @@ a:hover {
   gap: var(--hanaply-space-4);
 }
 
+/*
+ * The search field wants to be wider than the other controls, and the first
+ * version of this said so on the item (`min-width: 14rem`) while the tracks
+ * stayed `minmax(10rem, 1fr)`. A grid item wider than its own track does not
+ * widen the track: it paints over the next one. At 1440px the tracks resolved
+ * to 189px, so the search input overlapped the Status select beside it by 19px
+ * across its full height, and both were clickable in the shared strip. The
+ * requirement belongs in the track size, where the layout can honour it.
+ */
 .admin-payment-filter,
 .admin-subscription-filter {
-  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
-}
-
-.admin-payment-filter .admin-search-field,
-.admin-subscription-filter .admin-search-field {
-  min-width: 14rem;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
 }
 
 .payment-review-layout {
@@ -5213,7 +5217,16 @@ a:hover {
   gap: var(--hanaply-space-2);
 }
 
-.radar-detail-verdict span {
+/*
+ * The verdict line is a badge followed by a plain confidence span. This rule is
+ * for the span: written as `.radar-detail-verdict span` it also matched the
+ * `h-badge` inside the badge component, which is itself a span, and repainted
+ * it `--hanaply-color-neutral-muted` on the badge's own
+ * `--hanaply-color-neutral-subtle` pill. That is 4.43:1, below the 4.5:1 the
+ * component gets from its own ink-on-subtle tokens, and it silently shrank the
+ * badge's type from `xs` to `sm`. A component's own tokens win.
+ */
+.radar-detail-verdict > span:not(.h-badge) {
   color: var(--hanaply-color-neutral-muted);
   font-size: var(--hanaply-font-size-sm);
 }
@@ -6036,7 +6049,15 @@ a:hover {
   gap: var(--hanaply-space-2);
 }
 
-.application-detail-badges span {
+/*
+ * The badge row is a `<Badge>` followed by a plain count span. Written as
+ * `.application-detail-badges span` this also matched the badge component's own
+ * span and the dot inside it, repainting the badge `neutral-muted` on its own
+ * `neutral-subtle` pill — 4.43:1, under the 4.5:1 the component's ink-on-subtle
+ * tokens give it — and enlarging its type from `xs` to `sm`. Same defect as
+ * `.radar-detail-verdict`.
+ */
+.application-detail-badges > span:not(.h-badge) {
   color: var(--hanaply-color-neutral-muted);
   font-size: var(--hanaply-font-size-sm);
 }

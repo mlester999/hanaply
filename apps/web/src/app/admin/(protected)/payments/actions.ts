@@ -48,14 +48,18 @@ function paymentId(formData: FormData) {
   return paymentSubmissionParamsSchema.safeParse({ submissionId: formData.get('submissionId') });
 }
 
-function finish(submissionId: string, message: string): PaymentReviewActionState {
+function finish(submissionId: string): PaymentReviewActionState {
   revalidatePath('/admin');
   revalidatePath('/admin/payments');
   revalidatePath(`/admin/payments/${submissionId}`);
   revalidatePath('/admin/subscriptions');
   revalidatePath('/admin/audit');
   revalidatePath('/dashboard/activation');
-  return { status: 'success', message };
+  revalidatePath('/dashboard');
+  // The member-facing sentence is derived from the submission's own event history
+  // by the page that renders it, so nothing here has to carry it across a
+  // navigation that unmounts the form.
+  return { status: 'idle', message: null };
 }
 
 export async function startPaymentReviewAction(
@@ -76,7 +80,7 @@ export async function startPaymentReviewAction(
       params.data.submissionId,
       body.data,
     );
-    return finish(params.data.submissionId, 'The review lock is assigned to you for 15 minutes.');
+    return finish(params.data.submissionId);
   } catch (error) {
     return { status: 'error', message: safeError(error) };
   }
@@ -107,10 +111,7 @@ export async function requestPaymentInformationAction(
       params.data.submissionId,
       body.data,
     );
-    return finish(
-      params.data.submissionId,
-      'The information request was saved and queued for notification.',
-    );
+    return finish(params.data.submissionId);
   } catch (error) {
     return { status: 'error', message: safeError(error) };
   }
@@ -132,14 +133,11 @@ export async function approvePaymentAction(
     return { status: 'error', message: 'Enter an approval reason between 10 and 500 characters.' };
   const { session } = await requireAdminPermission('payments.review');
   try {
-    const result = await createAuthenticatedApiClient(session).approvePaymentSubmission(
+    await createAuthenticatedApiClient(session).approvePaymentSubmission(
       params.data.submissionId,
       body.data,
     );
-    return finish(
-      params.data.submissionId,
-      `Payment approved. ${result.data.subscription.planCode.replaceAll('_', ' ')} is active until ${new Date(result.data.subscription.endsAt ?? '').toLocaleString('en-PH')}.`,
-    );
+    return finish(params.data.submissionId);
   } catch (error) {
     return { status: 'error', message: safeError(error) };
   }
@@ -170,10 +168,7 @@ export async function rejectPaymentAction(
       params.data.submissionId,
       body.data,
     );
-    return finish(
-      params.data.submissionId,
-      'The payment was rejected and the reason was recorded.',
-    );
+    return finish(params.data.submissionId);
   } catch (error) {
     return { status: 'error', message: safeError(error) };
   }
@@ -216,10 +211,7 @@ export async function recordPaymentRefundAction(
       params.data.submissionId,
       body.data,
     );
-    return finish(
-      params.data.submissionId,
-      'The external refund record and subscription impact were saved. No money was moved by Hanaply.',
-    );
+    return finish(params.data.submissionId);
   } catch (error) {
     return { status: 'error', message: safeError(error) };
   }
@@ -256,10 +248,7 @@ export async function reversePaymentApprovalAction(
       params.data.submissionId,
       body.data,
     );
-    return finish(
-      params.data.submissionId,
-      'The approval was reversed and its subscription access was ended.',
-    );
+    return finish(params.data.submissionId);
   } catch (error) {
     return { status: 'error', message: safeError(error) };
   }

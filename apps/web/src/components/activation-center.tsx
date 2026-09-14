@@ -34,6 +34,31 @@ import { PreviewDialog } from '@/components/preview-dialog';
 
 const initialActionState: PaymentActionState = { status: 'idle', message: null };
 
+/**
+ * The result the Activation Center is currently reporting.
+ *
+ * All three payment actions are held by `ActivationCenter` rather than by the
+ * form that submits them, because submitting a draft removes it from the
+ * editable list and unmounts that form. A result owned by the unmounted form was
+ * never displayed: "Submit for Review" succeeded, the form disappeared, and
+ * nothing on the page said the payment had reached review. `Submit` is reported
+ * ahead of `Save` and `Cancel` so the sentence that matters most is the one the
+ * member reads.
+ */
+function currentOutcome(
+  submitState: PaymentActionState,
+  saveState: PaymentActionState,
+  cancelState: PaymentActionState,
+): PaymentActionState {
+  const state = [submitState, saveState, cancelState].find(
+    (candidate) => candidate.message !== null,
+  );
+  if (state === undefined) return initialActionState;
+  // An `idle` result with a message is not a shape the actions produce; treating
+  // it as a success keeps the alert from being styled as a failure.
+  return { status: state.status === 'error' ? 'error' : 'success', message: state.message };
+}
+
 function money(minor: number): string {
   return new Intl.NumberFormat('en-PH', {
     style: 'currency',
@@ -253,11 +278,34 @@ function PaymentForm({
   methods,
   payment,
   proofUrl,
+  saveAction,
+  saving,
+  submitAction,
+  submitting,
+  cancelState,
+  cancelAction,
+  cancelling,
 }: {
   plans: readonly Plan[];
   methods: readonly PaymentMethod[];
   payment?: PaymentSubmission;
   proofUrl?: string | null | undefined;
+  /**
+   * The three payment actions.
+   *
+   * They live on `ActivationCenter` rather than here on purpose: submitting a
+   * draft moves it out of the editable list, which unmounts this form, and the
+   * result the member needs to read — "your payment was submitted for review" —
+   * would go with it. The owner of the page holds the result and renders it, so
+   * the confirmation outlives the form that produced it.
+   */
+  saveAction: (payload: FormData) => void;
+  saving: boolean;
+  submitAction: (payload: FormData) => void;
+  submitting: boolean;
+  cancelState: PaymentActionState;
+  cancelAction: (payload: FormData) => void;
+  cancelling: boolean;
 }) {
   const locked = payment?.status === 'needs_information';
   const firstPlan = payment?.planCode ?? plans[0]?.code ?? '';
@@ -265,21 +313,8 @@ function PaymentForm({
   const [planCode, setPlanCode] = useState(firstPlan);
   const [methodId, setMethodId] = useState(firstMethod);
   const [localPreview, setLocalPreview] = useState<string | null>(null);
-  const [saveState, saveAction, saving] = useActionState(
-    savePaymentDraftAction,
-    initialActionState,
-  );
-  const [submitState, submitAction, submitting] = useActionState(
-    submitPaymentAction,
-    initialActionState,
-  );
-  const [cancelState, cancelAction, cancelling] = useActionState(
-    cancelPaymentAction,
-    initialActionState,
-  );
   const selectedPlan = plans.find((plan) => plan.code === planCode);
   const selectedMethod = methods.find((method) => method.id === methodId);
-  const currentState = submitState.message ? submitState : saveState;
 
   useEffect(
     () => () => {
@@ -315,15 +350,6 @@ function PaymentForm({
           tone="warning"
         >
           {payment.publicReviewMessage}
-        </Alert>
-      ) : null}
-      {currentState.message ? (
-        <Alert
-          aria-live="polite"
-          title={currentState.status === 'success' ? 'Payment updated' : 'Payment not updated'}
-          tone={currentState.status === 'success' ? 'success' : 'danger'}
-        >
-          {currentState.message}
         </Alert>
       ) : null}
 
@@ -695,6 +721,20 @@ export function ActivationCenter({
     () => payments.filter((payment) => !['draft', 'needs_information'].includes(payment.status)),
     [payments],
   );
+  const [saveState, saveAction, saving] = useActionState(
+    savePaymentDraftAction,
+    initialActionState,
+  );
+  const [submitState, submitAction, submitting] = useActionState(
+    submitPaymentAction,
+    initialActionState,
+  );
+  const [cancelState, cancelAction, cancelling] = useActionState(
+    cancelPaymentAction,
+    initialActionState,
+  );
+  const outcome = currentOutcome(submitState, saveState, cancelState);
+
   return (
     <>
       <div className="activation-summary-grid">
@@ -722,6 +762,22 @@ export function ActivationCenter({
         Hanaply does not charge automatically. Each activation or renewal requires a separate
         payment and review.
       </Alert>
+      {/*
+        The result of the last action taken on this page.
+        A submitted draft leaves the editable list, which unmounts the form that
+        held the result — including the sentence that says the payment reached
+        review. The state lives here, so that confirmation survives the unmount
+        instead of disappearing with the form.
+      */}
+      {outcome.message && outcome.status !== 'idle' ? (
+        <Alert
+          aria-live="polite"
+          title={outcome.status === 'success' ? 'Payment updated' : 'Payment not updated'}
+          tone={outcome.status === 'success' ? 'success' : 'danger'}
+        >
+          {outcome.message}
+        </Alert>
+      ) : null}
       {methods.length === 0 ? (
         <EmptyState
           description="An administrator must enable a payment method before a new payment draft can be created."
@@ -733,14 +789,32 @@ export function ActivationCenter({
         <div className="activation-form-stack">
           {editable.map((payment) => (
             <PaymentForm
+              cancelAction={cancelAction}
+              cancelState={cancelState}
+              cancelling={cancelling}
               key={payment.id}
               methods={methods}
               payment={payment}
               plans={plans}
               proofUrl={proofUrls[payment.id]}
+              saveAction={saveAction}
+              saving={saving}
+              submitAction={submitAction}
+              submitting={submitting}
             />
           ))}
-          <PaymentForm methods={methods} plans={plans} />
+          <PaymentForm
+            cancelAction={cancelAction}
+            cancelState={cancelState}
+            cancelling={cancelling}
+            key="new-payment"
+            methods={methods}
+            plans={plans}
+            saveAction={saveAction}
+            saving={saving}
+            submitAction={submitAction}
+            submitting={submitting}
+          />
         </div>
       )}
       <section className="activation-history-section">

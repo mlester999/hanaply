@@ -26,41 +26,68 @@ function HiddenPayment({ payment }: { payment: AdminPaymentSubmission }) {
   );
 }
 
-function Result({ state }: { state: PaymentReviewActionState }) {
-  return state.message ? (
-    <Alert
-      aria-live="polite"
-      title={state.status === 'success' ? 'Review updated' : 'Review not updated'}
-      tone={state.status === 'success' ? 'success' : 'danger'}
-    >
-      {state.message}
+/**
+ * The result of the last review action, read from the submission's own history.
+ *
+ * Every action here changes `payment.status`, and the controls below render a
+ * different set of forms for each status — "Start Review" is replaced by the
+ * decision forms the moment the lock is claimed, and approving them replaces
+ * those with the read-only state. The result therefore cannot live in a card
+ * that unmounts with its own form, and it cannot be "the first result still
+ * remembered" either: the reviewer claims a review and then approves it, and
+ * reporting the claim while the approval has already committed tells them the
+ * opposite of what happened to the payment in front of them.
+ *
+ * `payment_submission_events` is append-only and is written by the same database
+ * function that makes the decision, so its newest reviewer-caused entry is what
+ * actually happened to this payment.
+ */
+function Result({ notice }: { notice: string | null }) {
+  if (notice === null) return null;
+  return (
+    <Alert aria-live="polite" title="Review updated" tone="success">
+      {notice}
     </Alert>
-  ) : null;
+  );
 }
 
-export function PaymentReviewActions({
-  payment,
-  reviewerId,
-  permissions,
-}: {
+interface PaymentReviewControlsProps {
   payment: AdminPaymentSubmission;
   reviewerId: string;
-  permissions: readonly string[];
-}) {
-  const [startState, startAction, starting] = useActionState(startPaymentReviewAction, initial);
-  const [infoState, infoAction, requesting] = useActionState(
-    requestPaymentInformationAction,
-    initial,
-  );
-  const [approveState, approveAction, approving] = useActionState(approvePaymentAction, initial);
-  const [rejectState, rejectAction, rejecting] = useActionState(rejectPaymentAction, initial);
-  const [refundState, refundAction, refunding] = useActionState(recordPaymentRefundAction, initial);
-  const [reverseState, reverseAction, reversing] = useActionState(
-    reversePaymentApprovalAction,
-    initial,
-  );
-  const mayReview = permissions.includes('payments.review');
-  const mayChangeSubscription = permissions.includes('subscriptions.manage');
+  mayReview: boolean;
+  mayChangeSubscription: boolean;
+  startAction: (payload: FormData) => void;
+  starting: boolean;
+  infoAction: (payload: FormData) => void;
+  requesting: boolean;
+  approveAction: (payload: FormData) => void;
+  approving: boolean;
+  rejectAction: (payload: FormData) => void;
+  rejecting: boolean;
+  refundAction: (payload: FormData) => void;
+  refunding: boolean;
+  reverseAction: (payload: FormData) => void;
+  reversing: boolean;
+}
+
+function PaymentReviewControls({
+  payment,
+  reviewerId,
+  mayReview,
+  mayChangeSubscription,
+  startAction,
+  starting,
+  infoAction,
+  requesting,
+  approveAction,
+  approving,
+  rejectAction,
+  rejecting,
+  refundAction,
+  refunding,
+  reverseAction,
+  reversing,
+}: PaymentReviewControlsProps) {
   const ownsReview =
     payment.status === 'under_review' &&
     payment.reviewerId === reviewerId &&
@@ -82,7 +109,6 @@ export function PaymentReviewActions({
             <p>A 15 minute lock prevents another reviewer from approving the same payment.</p>
           </div>
         </div>
-        <Result state={startState} />
         <form action={startAction}>
           <HiddenPayment payment={payment} />
           <Button loading={starting} type="submit">
@@ -113,7 +139,6 @@ export function PaymentReviewActions({
               </p>
             </div>
           </div>
-          <Result state={infoState} />
           <form action={infoAction} className="admin-confirmation-form">
             <HiddenPayment payment={payment} />
             <FormField id="informationCategory" label="Reason category" required>
@@ -162,7 +187,6 @@ export function PaymentReviewActions({
               </p>
             </div>
           </div>
-          <Result state={approveState} />
           <form action={approveAction} className="admin-confirmation-form">
             <HiddenPayment payment={payment} />
             <FormField id="approvalReason" label="Approval reason" required>
@@ -184,7 +208,6 @@ export function PaymentReviewActions({
               <p>Rejection does not change existing paid access.</p>
             </div>
           </div>
-          <Result state={rejectState} />
           <form action={rejectAction} className="admin-confirmation-form">
             <HiddenPayment payment={payment} />
             <FormField id="rejectionCode" label="Rejection code" required>
@@ -233,7 +256,6 @@ export function PaymentReviewActions({
               <p>This records a refund completed outside Hanaply. It does not move money.</p>
             </div>
           </div>
-          <Result state={refundState} />
           <form action={refundAction} className="admin-confirmation-form">
             <HiddenPayment payment={payment} />
             <FormField id="refundAmount" label="Refund amount in PHP" required>
@@ -281,7 +303,6 @@ export function PaymentReviewActions({
               </p>
             </div>
           </div>
-          <Result state={reverseState} />
           <form action={reverseAction} className="admin-confirmation-form">
             <HiddenPayment payment={payment} />
             <FormField id="reversalReason" label="Reversal reason" required>
@@ -303,5 +324,48 @@ export function PaymentReviewActions({
       This payment is in {payment.status.replaceAll('_', ' ')} state. Its append-only history
       remains available.
     </Alert>
+  );
+}
+
+export function PaymentReviewActions({
+  payment,
+  reviewerId,
+  permissions,
+  notice,
+}: {
+  payment: AdminPaymentSubmission;
+  reviewerId: string;
+  permissions: readonly string[];
+  /** The outcome of the newest reviewer action on this submission. */
+  notice: string | null;
+}) {
+  const [, startAction, starting] = useActionState(startPaymentReviewAction, initial);
+  const [, infoAction, requesting] = useActionState(requestPaymentInformationAction, initial);
+  const [, approveAction, approving] = useActionState(approvePaymentAction, initial);
+  const [, rejectAction, rejecting] = useActionState(rejectPaymentAction, initial);
+  const [, refundAction, refunding] = useActionState(recordPaymentRefundAction, initial);
+  const [, reverseAction, reversing] = useActionState(reversePaymentApprovalAction, initial);
+  return (
+    <>
+      <Result notice={notice} />
+      <PaymentReviewControls
+        approveAction={approveAction}
+        approving={approving}
+        infoAction={infoAction}
+        mayChangeSubscription={permissions.includes('subscriptions.manage')}
+        mayReview={permissions.includes('payments.review')}
+        payment={payment}
+        refundAction={refundAction}
+        refunding={refunding}
+        rejectAction={rejectAction}
+        rejecting={rejecting}
+        requesting={requesting}
+        reverseAction={reverseAction}
+        reversing={reversing}
+        reviewerId={reviewerId}
+        startAction={startAction}
+        starting={starting}
+      />
+    </>
   );
 }

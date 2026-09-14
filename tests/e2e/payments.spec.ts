@@ -13,24 +13,70 @@ import { getAuthUserByEmail, getServiceRows } from './test-data.js';
  * spec asserts that the Activation Center says no payment method is available,
  * so a method left enabled here would break it.
  *
- * Only the first step is verified today. Configuring a method works and is
- * asserted below; the member-side submission does not reach the review state in
- * this environment, and I could not finish diagnosing it, so the four tests that
- * depend on it are marked `fixme` rather than written as assertions that would
- * pass for the wrong reason. What is known:
+ * Two things this file is careful about, because both were the reason the
+ * lifecycle could not be verified before:
  *
- *   - The plan chooser, the method chooser, the reference field, the proof
- *     upload, the draft save and the declaration all render and accept input.
- *   - `Submit for Review` does not produce the submission confirmation, so the
- *     submission never reaches `submitted` and the admin queue stays empty.
- *   - The browser console records an uncaught rendering error at that point,
- *     which the health fixture reports as a finding.
+ *   - Approval is asserted from the member's side and from the database, not
+ *     only from the administrator's own page. The `approve_payment_submission`
+ *     function decides whether a payment activates a subscription or renews one,
+ *     so the assertions read the subscription row itself — its `version` and
+ *     `ends_at` — before and after the decision.
+ *   - The member fixture already has an active subscription (every product
+ *     fixture does), so approving this payment is a *renewal*. The named
+ *     requirement is that a second approval creates no second subscription, no
+ *     second subscription event, and no second entitlement grant, which is
+ *     exactly what a renewal makes meaningful.
  */
 test.describe.configure({ mode: 'serial' });
 
 const methodName = 'E2E Manual Transfer';
 let submissionId = '';
 let paymentMethodId = '';
+let memberId = '';
+let subscriptionId = '';
+
+interface SubscriptionSnapshot {
+  id: string;
+  status: string;
+  version: number;
+  ends_at: string | null;
+}
+
+/**
+ * Every subscription the member owns, newest first.
+ *
+ * Scoped to the member on purpose: the suite's other fixtures have subscriptions
+ * of their own, and a global "latest active subscription" query would let this
+ * spec pass on somebody else's row.
+ */
+async function memberSubscriptions(): Promise<SubscriptionSnapshot[]> {
+  return getServiceRows<SubscriptionSnapshot[]>(
+    `/rest/v1/subscriptions?select=id,status,version,ends_at&user_id=eq.${memberId}&order=created_at.desc`,
+  );
+}
+
+async function subscriptionEventCount(type: string): Promise<number> {
+  const rows = await getServiceRows<{ id: string }[]>(
+    `/rest/v1/subscription_events?select=id&subscription_id=eq.${subscriptionId}&event_type=eq.${type}`,
+  );
+  return rows.length;
+}
+
+/**
+ * One row of the append-only grant record for this subscription.
+ *
+ * The table is `entitlement_events`, and the approval writes `entitlement.renewed`
+ * when it extends an existing subscription and `entitlement.activated` when it
+ * creates one. This spec's member already holds a subscription, so the renewal
+ * event is the one an approval must produce — exactly one of them, and no second
+ * one for a repeated approval.
+ */
+async function entitlementEventCount(type: string): Promise<number> {
+  const rows = await getServiceRows<{ id: string }[]>(
+    `/rest/v1/entitlement_events?select=id&subscription_id=eq.${subscriptionId}&event_type=eq.${type}`,
+  );
+  return rows.length;
+}
 
 test('an administrator configures a manual payment method', async ({ page }) => {
   test.setTimeout(90_000);
@@ -62,10 +108,17 @@ test('an administrator configures a manual payment method', async ({ page }) => 
   expect(paymentMethodId).not.toBe('');
 });
 
-test.fixme('a member chooses a plan and a method and submits a reference with proof', async ({
+test('a member chooses a plan and a method and submits a reference with proof', async ({
   page,
 }) => {
   test.setTimeout(120_000);
+  const member = await getAuthUserByEmail(testAccounts.payments.email);
+  expect(member?.id, 'the payments fixture account exists').toBeTruthy();
+  memberId = member?.id ?? '';
+  const before = await memberSubscriptions();
+  expect(before[0]?.status).toBe('active');
+  subscriptionId = before[0]?.id ?? '';
+
   await signIn(page, testAccounts.payments);
   await page.goto('/dashboard/activation');
   await expect(page.getByRole('heading', { name: 'Activate Hanaply', level: 1 })).toBeVisible();
@@ -110,32 +163,44 @@ test.fixme('a member chooses a plan and a method and submits a reference with pr
     .first()
     .check();
   await page.getByRole('button', { name: 'Submit for Review' }).first().click();
+  // The confirmation is read here because submitting the draft removes the form
+  // that submitted it; before the Activation Center held the result itself, the
+  // form for the new payment silently replaced it and the member was told
+  // nothing at all.
   await expect(
     page.getByText('Your payment was submitted for review. Approval is not guaranteed.'),
   ).toBeVisible();
-  await expect(page.getByText('Submitted', { exact: true }).first()).toBeVisible();
-  await expect(page.getByRole('list', { name: 'Payment review status' })).toBeVisible();
 
-  // The member still has no paid access, and the dashboard says so.
-  await page.goto('/dashboard');
-  await expect(page.getByText('Registered, not activated')).toBeVisible();
-  await expect(page.getByText('Subscription activation pending')).toBeVisible();
+  // Submission alone changes no access: the same subscription row, unchanged.
+  const after = await memberSubscriptions();
+  expect(after).toEqual(before);
+  await expect(
+    page.locator('.activation-history-card').filter({ hasText: 'E2E-REF-123456' }).first(),
+  ).toContainText('Submitted');
+  await expect(page.getByRole('list', { name: 'Payment review status' }).first()).toBeVisible();
 });
 
-test.fixme('an administrator reviews the submission, approves it, and the subscription activates', async ({
+test('an administrator reviews the submission, approves it, and the subscription activates', async ({
   page,
 }) => {
   test.setTimeout(120_000);
+  const before = await memberSubscriptions();
+  expect(before[0]?.id).toBe(subscriptionId);
+  const beforeEvents = await subscriptionEventCount('subscription.renewed');
+  const beforeGrants = await entitlementEventCount('entitlement.renewed');
+  const beforeEndsAt = Date.parse(before[0]?.ends_at ?? '');
+  expect(Number.isNaN(beforeEndsAt)).toBe(false);
+
   await signIn(page, testAccounts.admin, { admin: true });
   await page.goto('/admin/payments?status=submitted');
   await expect(page.getByRole('heading', { name: 'Payment Reviews', level: 1 })).toBeVisible();
-  await expect(page.getByRole('link', { name: 'Review' }).first()).toBeVisible();
-  await page.getByRole('link', { name: 'Review' }).first().click();
+  await expect(page.getByRole('link', { name: 'Review details' }).first()).toBeVisible();
+  await page.getByRole('link', { name: 'Review details' }).first().click();
   await expect(page).toHaveURL(/\/admin\/payments\/[0-9a-f-]{36}$/u);
   submissionId = page.url().split('/').pop() ?? '';
 
   // The proof is inspectable before the decision is made.
-  await expect(page.getByRole('heading', { name: /^Payment /u })).toBeVisible();
+  await expect(page.getByRole('heading', { name: /^Payment [0-9a-f]{8}$/u })).toBeVisible();
   await expect(page.getByText('E2E-REF-123456')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Enlarge payment proof preview' })).toBeVisible();
 
@@ -148,28 +213,50 @@ test.fixme('an administrator reviews the submission, approves it, and the subscr
   await page.getByRole('button', { name: 'Approve Payment' }).click();
   await expect(page.getByText(/^Payment approved\./u)).toBeVisible();
 
-  // The subscription is active, on the page and in the database.
-  const subscriptions = await getServiceRows<
-    { status: string; ends_at: string; plan_id: string }[]
-  >(
-    `/rest/v1/subscriptions?select=status,ends_at,plan_id&status=eq.active&order=created_at.desc&limit=1`,
-  );
-  expect(subscriptions[0]?.status).toBe('active');
+  /*
+   * The subscription activated, read from the database rather than from the
+   * administrator's page.
+   *
+   * The member already held an active subscription, so the controlled function
+   * renews that row: the same subscription identity, a higher `version`, and a
+   * later `ends_at`. A second subscription row would be a defect, so the check
+   * is on the count as well as on the row.
+   */
+  const after = await memberSubscriptions();
+  expect(after).toHaveLength(before.length);
+  expect(after[0]?.id).toBe(subscriptionId);
+  expect(after[0]?.status).toBe('active');
+  expect(after[0]?.version).toBeGreaterThan(before[0]?.version ?? 0);
+  expect(Date.parse(after[0]?.ends_at ?? '')).toBeGreaterThan(beforeEndsAt);
+  expect(await subscriptionEventCount('subscription.renewed')).toBe(beforeEvents + 1);
+  expect(await entitlementEventCount('entitlement.renewed')).toBe(beforeGrants + 1);
 
+  // And the member can see it.
+  await signIn(page, testAccounts.payments);
+  await page.goto('/dashboard');
+  await expect(page.getByText('Active subscription')).toBeVisible();
+  await expect(page.getByText('Subscription active')).toBeVisible();
+
+  await signIn(page, testAccounts.admin, { admin: true });
   await page.goto('/admin/payments/' + submissionId);
-  await expect(page.getByText('approved', { exact: false }).first()).toBeVisible();
+  // The decision is visible on the page the reviewer lands back on, and the
+  // controls for a second decision are gone. What replaces them is the
+  // post-approval surface — a refund or a reversal — not another approval.
+  await expect(
+    page.getByText('Payment approved. Your subscription is active.').first(),
+  ).toBeVisible();
   await expect(page.getByRole('button', { name: 'Approve Payment' })).toHaveCount(0);
-  await expect(page.getByRole('heading', { name: 'No review action is available' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Start Review' })).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Reverse incorrect approval' })).toBeVisible();
 });
 
-test.fixme('approving the same submission a second time changes nothing', async ({ page }) => {
+test('approving the same submission a second time changes nothing', async ({ page }) => {
   test.setTimeout(90_000);
-  const before = await getServiceRows<{ ends_at: string; version: number }[]>(
-    `/rest/v1/subscriptions?select=ends_at,version&status=eq.active&order=created_at.desc&limit=1`,
-  );
-  const eventsBefore = await submissionEventCount();
-  expect(eventsBefore).toBe(1);
-  expect(before).toHaveLength(1);
+  const before = await memberSubscriptions();
+  const eventsBefore = await subscriptionEventCount('subscription.renewed');
+  const grantsBefore = await entitlementEventCount('entitlement.renewed');
+  const submissionEventsBefore = await submissionEventCount();
+  expect(submissionEventsBefore).toBe(1);
 
   /*
    * The interface cannot be asked twice — the form is gone once the submission
@@ -200,11 +287,13 @@ test.fixme('approving the same submission a second time changes nothing', async 
   const body = (await replay.json()) as { message?: string };
   expect(body.message ?? '').toContain('not under review');
 
-  const after = await getServiceRows<{ ends_at: string; version: number }[]>(
-    `/rest/v1/subscriptions?select=ends_at,version&status=eq.active&order=created_at.desc&limit=1`,
-  );
+  // Nothing moved: no second subscription, no second subscription event, no
+  // second entitlement grant, and no second approved-payment event.
+  const after = await memberSubscriptions();
   expect(after).toEqual(before);
-  expect(await submissionEventCount()).toBe(eventsBefore);
+  expect(await subscriptionEventCount('subscription.renewed')).toBe(eventsBefore);
+  expect(await entitlementEventCount('entitlement.renewed')).toBe(grantsBefore);
+  expect(await submissionEventCount()).toBe(submissionEventsBefore);
 
   await signIn(page, testAccounts.payments);
   await page.goto('/dashboard');
@@ -212,7 +301,54 @@ test.fixme('approving the same submission a second time changes nothing', async 
   await expect(page.getByText('Subscription active')).toBeVisible();
 });
 
-test.fixme('the payment method is archived again so the catalogue is left as it was found', async ({
+test('a member can never approve their own payment', async ({ page }) => {
+  test.setTimeout(90_000);
+  const before = await memberSubscriptions();
+  const environment = readLocalSupabaseEnvironment();
+
+  /*
+   * The member asks the API to approve their own submission.
+   *
+   * The administrative surface is what the member would have to reach, so the
+   * request is made against the real admin endpoint with the member's own
+   * session — the strongest form of "cannot", because it does not depend on a
+   * button being absent from a page.
+   */
+  const token = await memberToken(environment);
+  const headers = {
+    apikey: environment.publishableKey,
+    Authorization: `Bearer ${token}`,
+    'Content-Type': 'application/json',
+  };
+  // The API under test listens on the port the Playwright configuration gives
+  // it; `readLocalSupabaseEnvironment` publishes the Supabase-compatible origin.
+  const api = 'http://127.0.0.1:3101';
+  const rejected = await fetch(`${api}/v1/admin/payment-submissions/${submissionId}/approve`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      expectedVersion: 99,
+      reason: 'The member is attempting to approve their own payment.',
+      internalNote: null,
+    }),
+  });
+  expect(rejected.status).toBeGreaterThanOrEqual(400);
+  const envelope = (await rejected.json()) as { error?: { code?: string } };
+  expect(['FORBIDDEN', 'AUTHENTICATION_REQUIRED', 'NOT_FOUND']).toContain(
+    envelope.error?.code ?? '',
+  );
+
+  // The approval did not happen, and no access changed.
+  expect(await memberSubscriptions()).toEqual(before);
+
+  // The member's own surface offers no approval control either.
+  await signIn(page, testAccounts.payments);
+  await page.goto('/dashboard/activation');
+  await expect(page.getByRole('button', { name: 'Approve Payment' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Start Review' })).toHaveCount(0);
+});
+
+test('the payment method is archived again so the catalogue is left as it was found', async ({
   page,
 }) => {
   test.setTimeout(90_000);
@@ -222,14 +358,42 @@ test.fixme('the payment method is archived again so the catalogue is left as it 
   await page.getByRole('button', { name: 'Archive Payment Method' }).click();
   await expect(page.getByText('The payment method was archived and audited.')).toBeVisible();
 
+  // The catalogue is genuinely back where it started: archiving removes the
+  // method from the pool of methods a member may choose, which is the state the
+  // Activation Center spec asserts. The confirmation above is the interface's
+  // word for it; this is the record's.
+  const archived = await getServiceRows<{ archived_at: string | null; enabled: boolean }[]>(
+    `/rest/v1/payment_methods?select=archived_at,enabled&id=eq.${paymentMethodId}`,
+  );
+  expect(archived).toHaveLength(1);
+  expect(archived[0]?.archived_at).not.toBeNull();
+
+  // Signing out of the administrative area lands on the customer sign-in page
+  // the sign-out itself redirects to, not on `/admin/login`: the session is gone
+  // by then, so the protected route is no longer the destination.
   await page.getByRole('button', { name: 'Sign Out' }).first().click();
-  await expect(page).toHaveURL(/\/admin\/login/u);
+  await expect(page).toHaveURL(/\/login\?loggedOut=1$/u);
 });
 
 async function adminId(): Promise<string> {
   const admin = await getAuthUserByEmail(testAccounts.admin.email);
   if (!admin?.id) throw new Error('The admin fixture account is missing');
   return admin.id;
+}
+
+/** A real member session token, so the refusal is the API's own decision. */
+async function memberToken(environment: ReturnType<typeof readLocalSupabaseEnvironment>) {
+  const response = await fetch(`${environment.apiUrl}/auth/v1/token?grant_type=password`, {
+    method: 'POST',
+    headers: { apikey: environment.publishableKey, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      email: testAccounts.payments.email,
+      password: testAccounts.payments.password,
+    }),
+  });
+  const body = (await response.json()) as { access_token?: string };
+  if (!body.access_token) throw new Error('The payments fixture account could not sign in');
+  return body.access_token;
 }
 
 async function submissionEventCount(): Promise<number> {

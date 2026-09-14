@@ -18,7 +18,11 @@ function createContentSecurityPolicy(nonce: string, request: NextRequest): strin
     // Production keeps the strict policy.
     development ? "style-src-elem 'self' 'unsafe-inline'" : '',
     "style-src-attr 'unsafe-inline'",
-    "img-src 'self' data: blob:",
+    // Signed storage URLs are absolute and point at the Supabase origin, so the
+    // payment proof, the payment-method QR code, and the resume preview can only
+    // render if that origin is allowed here. `'self'` alone blocked every one of
+    // them and the browser reported a CSP violation on each proof render.
+    `img-src 'self' data: blob: ${supabaseOrigin}`,
     "font-src 'self' data:",
     `connect-src 'self' ${apiOrigin} ${supabaseOrigin}${development ? ` ws: wss: ${request.nextUrl.origin}` : ''}`,
     "object-src 'none'",

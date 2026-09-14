@@ -198,11 +198,51 @@ function mapCoachConversationRow(row: unknown): unknown {
   };
 }
 
-/** The detail RPC nests the same row under `conversation`. */
+/**
+ * Maps one `coach_messages` row onto the shape the contract publishes.
+ *
+ * `append_coach_message` returns the table row itself, so it is snake_case
+ * (`cited_fact_ids`, `created_at`) while `coachMessageRowSchema` is camelCase.
+ * Without this translation every appended message failed validation and the
+ * caller answered 503 "the coach message could not be stored" — after the row
+ * had in fact been written, which made a send look like a total failure while
+ * the member's text was already in the thread.
+ */
+function mapCoachMessageRow(row: unknown): unknown {
+  if (typeof row !== 'object' || row === null || Array.isArray(row)) return row;
+  const value = row as Record<string, unknown>;
+  return {
+    id: value.id,
+    sequence: value.sequence,
+    role: value.role,
+    body: value.body,
+    facts: value.facts ?? [],
+    suggestions: value.suggestions ?? [],
+    citedFactIds: value.citedFactIds ?? value.cited_fact_ids ?? [],
+    createdAt: value.createdAt ?? value.created_at,
+  };
+}
+
+/**
+ * Maps the `coach_conversation_detail` payload onto the shape the contract publishes.
+ *
+ * The function returns a *flat* object — `jsonb_build_object('id', …, 'messages',
+ * …)` in `20260924090000_ai_layer.sql`, already camelCase — while
+ * `coachConversationDetailRowSchema` is `{ conversation, messages }`. Spreading
+ * the payload and reassigning only `conversation` therefore produced an object
+ * with no `conversation` key at all: the schema rejected it, `openCoachConversation`
+ * answered 503, and the browser stayed on the coach index. Nesting the
+ * conversation fields under `conversation` and keeping `messages` beside them is
+ * the whole translation; `updatedAt` is not part of the detail contract and is
+ * dropped by the schema.
+ */
 function mapCoachConversationDetail(row: unknown): unknown {
   if (typeof row !== 'object' || row === null || Array.isArray(row)) return row;
   const value = row as Record<string, unknown>;
-  return { ...value, conversation: mapCoachConversationRow(value.conversation) };
+  return {
+    conversation: mapCoachConversationRow(value.conversation ?? value),
+    messages: Array.isArray(value.messages) ? value.messages.map(mapCoachMessageRow) : [],
+  };
 }
 
 const uuidRowSchema = z.uuid();
@@ -603,7 +643,7 @@ export class AiRepository {
           requested_input_tokens: input.inputTokens,
           requested_output_tokens: input.outputTokens,
         }),
-      (value) => coachMessageRowSchema.safeParse(value).data ?? null,
+      (value) => coachMessageRowSchema.safeParse(mapCoachMessageRow(value)).data ?? null,
       'The coach message could not be stored',
     );
   }

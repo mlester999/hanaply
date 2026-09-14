@@ -60,7 +60,14 @@ export function createLogger(
       environment: configuration.environment,
     },
     redact: { paths: redactionPaths, censor: '[REDACTED]' },
-    mixin: () => contextStorage.getStore() ?? {},
+    // A fresh object per call, deliberately. The context store holds a frozen
+    // value, and pino's fast path merges its own bindings into whatever `mixin`
+    // returns with `Object.assign`: handing it the frozen object threw
+    // "Cannot add property context, object is not extensible" from inside
+    // `logger.info(...)`. That is a logging statement taking down the request it
+    // was describing — the coach message path answered 503 for a request whose
+    // only problem was that it logged its meter decision.
+    mixin: () => ({ ...contextStorage.getStore() }),
   };
   if (configuration.pretty && destination === undefined) {
     return pino(

@@ -15,34 +15,44 @@ import {
 
 const initial: PaymentMethodActionState = { status: 'idle', message: null, paymentMethodId: null };
 
-export function PaymentMethodActions({ method }: { method: AdminPaymentMethod }) {
-  const [enableState, enableAction, enabling] = useActionState(enablePaymentMethodAction, initial);
-  const [disableState, disableAction, disabling] = useActionState(
-    disablePaymentMethodAction,
-    initial,
-  );
-  const [archiveState, archiveAction, archiving] = useActionState(
-    archivePaymentMethodAction,
-    initial,
-  );
-  const [qrState, qrAction, uploading] = useActionState(uploadPaymentMethodQrAction, initial);
-  const message =
-    qrState.message ?? archiveState.message ?? disableState.message ?? enableState.message;
-  const successful = [qrState, archiveState, disableState, enableState].some(
-    (state) => state.message === message && state.status === 'success',
-  );
+/**
+ * The result of the last action, kept outside the cards that raise it.
+ *
+ * Archiving succeeds by setting `archivedAt`, which unmounts the "Archive
+ * method" card — and a result stored in that card went with it: the button
+ * stayed in its pending state and the page never said the method had been
+ * archived. Reporting happens here, in the one part of the panel whose position
+ * in the tree does not depend on the method's state.
+ */
+function Result({ states }: { states: readonly PaymentMethodActionState[] }) {
+  const state = states.find((candidate) => candidate.message !== null);
+  if (state?.message == null) return null;
   return (
-    <div className="admin-payment-action-grid">
-      {message ? (
-        <Alert
-          aria-live="polite"
-          className="admin-payment-action-message"
-          title={successful ? 'Method updated' : 'Method not updated'}
-          tone={successful ? 'success' : 'danger'}
-        >
-          {message}
-        </Alert>
-      ) : null}
+    <Alert
+      aria-live="polite"
+      className="admin-payment-action-message"
+      title={state.status === 'success' ? 'Method updated' : 'Method not updated'}
+      tone={state.status === 'success' ? 'success' : 'danger'}
+    >
+      {state.message}
+    </Alert>
+  );
+}
+
+interface MethodActions {
+  enableAction: (payload: FormData) => void;
+  enabling: boolean;
+  disableAction: (payload: FormData) => void;
+  disabling: boolean;
+  archiveAction: (payload: FormData) => void;
+  archiving: boolean;
+  qrAction: (payload: FormData) => void;
+  uploading: boolean;
+}
+
+function Controls({ method, actions }: { method: AdminPaymentMethod; actions: MethodActions }) {
+  return (
+    <>
       <Card className="admin-payment-action-card">
         <div>
           <Power aria-hidden="true" size={21} />
@@ -53,7 +63,7 @@ export function PaymentMethodActions({ method }: { method: AdminPaymentMethod })
         </div>
         {!method.archivedAt ? (
           <form
-            action={method.enabled ? disableAction : enableAction}
+            action={method.enabled ? actions.disableAction : actions.enableAction}
             className="admin-confirmation-form"
           >
             <input name="paymentMethodId" type="hidden" value={method.id} />
@@ -62,7 +72,7 @@ export function PaymentMethodActions({ method }: { method: AdminPaymentMethod })
               <Input id="methodStateReason" maxLength={500} minLength={10} name="reason" required />
             </FormField>
             <Button
-              loading={method.enabled ? disabling : enabling}
+              loading={method.enabled ? actions.disabling : actions.enabling}
               type="submit"
               variant={method.enabled ? 'secondary' : 'primary'}
             >
@@ -85,7 +95,11 @@ export function PaymentMethodActions({ method }: { method: AdminPaymentMethod })
           </div>
         </div>
         {!method.archivedAt ? (
-          <form action={qrAction} className="admin-confirmation-form" encType="multipart/form-data">
+          <form
+            action={actions.qrAction}
+            className="admin-confirmation-form"
+            encType="multipart/form-data"
+          >
             <input name="paymentMethodId" type="hidden" value={method.id} />
             <FormField
               id="methodQrCode"
@@ -100,7 +114,7 @@ export function PaymentMethodActions({ method }: { method: AdminPaymentMethod })
                 type="file"
               />
             </FormField>
-            <Button loading={uploading} type="submit" variant="secondary">
+            <Button loading={actions.uploading} type="submit" variant="secondary">
               {method.qrCodeVersion ? 'Replace QR Image' : 'Upload QR Image'}
             </Button>
           </form>
@@ -117,7 +131,7 @@ export function PaymentMethodActions({ method }: { method: AdminPaymentMethod })
               <p>Archiving is permanent for new use. Historical snapshots remain available.</p>
             </div>
           </div>
-          <form action={archiveAction} className="admin-confirmation-form">
+          <form action={actions.archiveAction} className="admin-confirmation-form">
             <input name="paymentMethodId" type="hidden" value={method.id} />
             <input name="expectedVersion" type="hidden" value={method.version} />
             <FormField id="methodArchiveReason" label="Archive reason" required>
@@ -129,12 +143,43 @@ export function PaymentMethodActions({ method }: { method: AdminPaymentMethod })
                 required
               />
             </FormField>
-            <Button loading={archiving} type="submit" variant="danger">
+            <Button loading={actions.archiving} type="submit" variant="danger">
               Archive Payment Method
             </Button>
           </form>
         </Card>
       ) : null}
+    </>
+  );
+}
+
+export function PaymentMethodActions({ method }: { method: AdminPaymentMethod }) {
+  const [enableState, enableAction, enabling] = useActionState(enablePaymentMethodAction, initial);
+  const [disableState, disableAction, disabling] = useActionState(
+    disablePaymentMethodAction,
+    initial,
+  );
+  const [archiveState, archiveAction, archiving] = useActionState(
+    archivePaymentMethodAction,
+    initial,
+  );
+  const [qrState, qrAction, uploading] = useActionState(uploadPaymentMethodQrAction, initial);
+  return (
+    <div className="admin-payment-action-grid">
+      <Result states={[qrState, archiveState, disableState, enableState]} />
+      <Controls
+        actions={{
+          enableAction,
+          enabling,
+          disableAction,
+          disabling,
+          archiveAction,
+          archiving,
+          qrAction,
+          uploading,
+        }}
+        method={method}
+      />
     </div>
   );
 }

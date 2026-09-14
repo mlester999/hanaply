@@ -77,17 +77,19 @@ export function createStorageServer({ root }) {
     const body = Buffer.concat(chunks);
     const url = new URL(request.url ?? '/', 'http://storage.local');
     const segments = url.pathname.split('/').filter(Boolean);
-    // `storage-js` calls `/storage/v1/object/...`; the gateway strips the
-    // `/storage/v1` prefix before forwarding, and a direct call keeps it. Both
-    // shapes resolve to the same slice starting at `object`.
+    // `storage-js` calls `/storage/v1/object/sign/...`; the gateway strips the
+    // `/storage/v1` prefix before forwarding, and a direct call keeps it. Slicing
+    // from `object` makes both shapes the same list, so the signed-URL route is
+    // `object/sign/{bucket}/{path}` and the object routes are
+    // `object/{bucket}/{path}`.
     const start = segments.indexOf('object');
     const rest = start === -1 ? segments : segments.slice(start);
     const method = (request.method ?? 'GET').toUpperCase();
 
-    if (rest[0] === 'sign') {
-      const [, bucket, ...objectParts] = rest;
-      const objectPath = objectParts.join('/');
-      const file = resolveObject(root, bucket ?? '', objectPath);
+    if (rest[1] === 'sign') {
+      const bucket = rest[2] ?? '';
+      const objectPath = rest.slice(3).join('/');
+      const file = resolveObject(root, bucket, objectPath);
       if (!bucket || !file) return sendJson(response, 400, { message: 'Invalid object path' });
 
       if (method === 'POST') {

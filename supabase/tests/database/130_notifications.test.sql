@@ -283,6 +283,21 @@ select is(
 -- Claim, complete, and release
 -- ---------------------------------------------------------------------------
 
+-- The quiet-hours section above deliberately empties the outbox, and whether it
+-- leaves anything behind depends on the wall clock: a notification is held when
+-- the test host's current Manila time falls inside the window. That made the
+-- claim assertions below flaky - they passed in the morning and failed in the
+-- evening. The claim tests need a row to exist, so one is queued explicitly
+-- here with quiet hours cleared, rather than relying on the previous section
+-- having left something behind.
+update public.user_notification_preferences
+set quiet_hours_start = null, quiet_hours_end = null
+where user_id = 'ac000000-0000-4000-8000-000000000001';
+
+delete from public.notification_outbox;
+
+select public.queue_job_alert_notifications(now(), 30, 75, 100);
+
 insert into alert_ids (key, value)
 select 'claim', gen_random_uuid();
 

@@ -8,6 +8,7 @@ import { notFound } from 'next/navigation';
 
 import { PaymentReviewActions } from '@/components/payment-review-actions';
 import { PreviewDialog } from '@/components/preview-dialog';
+import { paymentReviewOutcomeMessage } from '@/lib/payment-review-outcome';
 import { createAuthenticatedApiClient, requireAdminPermission } from '@/lib/session';
 
 export const metadata: Metadata = { title: 'Payment Review Detail' };
@@ -244,6 +245,7 @@ export default async function PaymentReviewDetailPage({
             </dl>
           </Card>
           <PaymentReviewActions
+            notice={paymentReviewOutcomeMessage(payment.events)}
             payment={payment}
             permissions={admin.permissions}
             reviewerId={admin.userId}
