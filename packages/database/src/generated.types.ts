@@ -3304,6 +3304,45 @@ export type Database = {
         }
         Returns: string
       }
+      admin_dedup_candidates: {
+        Args: {
+          actor_user_id: string
+          include_resolved?: boolean
+          page_size?: number
+          page_offset?: number
+        }
+        Returns: Json
+      }
+      admin_ingestion_health: {
+        Args: {
+          actor_user_id: string
+          run_limit?: number
+        }
+        Returns: Json
+      }
+      admin_job_detail: {
+        Args: {
+          actor_user_id: string
+          target_job_id: string
+        }
+        Returns: Json
+      }
+      admin_job_directory: {
+        Args: {
+          actor_user_id: string
+          search_query?: string
+          status_filter?: Database["public"]["Enums"]["job_status"]
+          page_size?: number
+          page_offset?: number
+        }
+        Returns: Json
+      }
+      admin_job_source_directory: {
+        Args: {
+          actor_user_id: string
+        }
+        Returns: Json
+      }
       admin_overview: {
         Args: {
           actor_user_id: string
@@ -3315,6 +3354,24 @@ export type Database = {
           active_administrators: number
           auth_events_last_24_hours: number
         }[]
+      }
+      admin_request_source_scan: {
+        Args: {
+          actor_user_id: string
+          target_source_id: string
+          action_request_id?: string
+        }
+        Returns: boolean
+      }
+      admin_resolve_dedup_candidate: {
+        Args: {
+          actor_user_id: string
+          target_candidate_id: string
+          requested_resolution: string
+          action_reason: string
+          action_request_id?: string
+        }
+        Returns: boolean
       }
       admin_revoke_user_sessions: {
         Args: {
@@ -3335,6 +3392,26 @@ export type Database = {
         }
         Returns: boolean
       }
+      admin_set_job_source_state: {
+        Args: {
+          actor_user_id: string
+          target_source_id: string
+          requested_action: string
+          action_reason: string
+          action_request_id?: string
+        }
+        Returns: number
+      }
+      admin_set_job_status: {
+        Args: {
+          actor_user_id: string
+          target_job_id: string
+          requested_status: Database["public"]["Enums"]["job_status"]
+          action_reason: string
+          action_request_id?: string
+        }
+        Returns: boolean
+      }
       admin_set_payment_method_state: {
         Args: {
           actor_user_id: string
@@ -3345,6 +3422,16 @@ export type Database = {
           action_request_id?: string
         }
         Returns: number
+      }
+      admin_update_job_source_config: {
+        Args: {
+          actor_user_id: string
+          target_source_id: string
+          requested_config: Json
+          action_reason: string
+          action_request_id?: string
+        }
+        Returns: boolean
       }
       admin_update_payment_method: {
         Args: {
