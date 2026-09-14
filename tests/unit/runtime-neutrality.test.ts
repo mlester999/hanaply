@@ -25,6 +25,7 @@ const neutralPackages = [
   'packages/platform/src',
   'packages/jobs/src',
   'packages/matching/src',
+  'packages/mobile-client/src',
 ] as const;
 
 /**
@@ -86,6 +87,7 @@ describe('mobile readiness', () => {
       'packages/platform/package.json',
       'packages/jobs/package.json',
       'packages/matching/package.json',
+      'packages/mobile-client/package.json',
     ];
     for (const manifest of packages) {
       const parsed = JSON.parse(readFileSync(resolve(root, manifest), 'utf8')) as {

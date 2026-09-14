@@ -404,6 +404,19 @@ importers:
         specifier: 6.0.3
         version: 6.0.3
 
+  packages/mobile-client:
+    dependencies:
+      '@hanaply/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      zod:
+        specifier: 'catalog:'
+        version: 4.4.3
+    devDependencies:
+      typescript:
+        specifier: 6.0.3
+        version: 6.0.3
+
   packages/observability:
     dependencies:
       pino:
