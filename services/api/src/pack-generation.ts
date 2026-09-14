@@ -707,9 +707,7 @@ function requirementParagraphs(
   const gap = met ? null : requirementGapParagraph(requirement.requirement);
 
   if (style === 'achievement_led') {
-    return [evidence, profile, namedStatus, gap].filter(
-      (value): value is string => value !== null,
-    );
+    return [evidence, profile, namedStatus, gap].filter((value): value is string => value !== null);
   }
   if (style === 'concise') {
     const pieces = [namedStatus, profile, evidence, gap].filter(

@@ -471,7 +471,8 @@ export class CareerController {
 
   @Get(apiContract.usageSummary.path)
   @Throttle({ default: { limit: 120, ttl: 60_000 } })
-  async usageSummary(@Req() request: AuthenticatedRequest) {    return apiContract.usageSummary.response.parse(
+  async usageSummary(@Req() request: AuthenticatedRequest) {
+    return apiContract.usageSummary.response.parse(
       successEnvelope(request, await this.service.usageSummary(request)),
     );
   }

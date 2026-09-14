@@ -202,7 +202,10 @@ describe('entitlement parity between SQL and TypeScript', () => {
           mismatches.push(`${tierCode}.${key} is not an integer`);
         }
         if (definition.type === 'string') {
-          const allowed = 'allowedValues' in definition ? definition.allowedValues : undefined;
+          const allowed =
+            'allowedValues' in definition
+              ? (definition.allowedValues as readonly string[])
+              : undefined;
           if (allowed && !allowed.includes(row.value)) {
             mismatches.push(`${tierCode}.${key} is not an allowed value`);
           }
