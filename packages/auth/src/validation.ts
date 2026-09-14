@@ -179,12 +179,38 @@ export const profileUpdateSchema = z
   })
   .strict();
 
+export const notificationHourSchema = z
+  .number()
+  .int('Use a whole hour from 0 to 23.')
+  .min(0, 'Use a whole hour from 0 to 23.')
+  .max(23, 'Use a whole hour from 0 to 23.');
+
+/**
+ * Optional email consent. Every category is explicit, and quiet hours are sent
+ * on every write because the database assigns them directly: omitting them
+ * would silently clear an existing quiet-hours window.
+ */
 export const notificationPreferencesSchema = z
   .object({
     productUpdates: z.boolean(),
     marketingEmails: z.boolean(),
+    jobAlerts: z.boolean(),
+    dailyDigest: z.boolean(),
+    instantAlerts: z.boolean(),
+    weeklyStrategy: z.boolean(),
+    quietHoursStart: notificationHourSchema.nullable(),
+    quietHoursEnd: notificationHourSchema.nullable(),
   })
-  .strict();
+  .strict()
+  .superRefine((value, context) => {
+    if ((value.quietHoursStart === null) !== (value.quietHoursEnd === null)) {
+      context.addIssue({
+        code: 'custom',
+        path: ['quietHoursEnd'],
+        message: 'Set both quiet hours or leave both blank.',
+      });
+    }
+  });
 
 export type RegistrationInput = z.infer<typeof registrationSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;

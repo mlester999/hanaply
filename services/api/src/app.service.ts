@@ -1,5 +1,10 @@
 import { apiContract, type Platform } from '@hanaply/contracts';
-import { EntitlementConfigurationError, evaluateEntitlements } from '@hanaply/entitlements';
+import type { NotificationPreferencesInput } from '@hanaply/auth';
+import {
+  EntitlementConfigurationError,
+  evaluateEntitlements,
+  type EntitlementKey,
+} from '@hanaply/entitlements';
 import {
   evaluateClientFeatureFlags,
   evaluatePlatform,
@@ -134,7 +139,61 @@ export class HanaplyService {
   async updatePreferences(request: AuthenticatedRequest, body: unknown) {
     const auth = this.requireAuthentication(request);
     const parsed = apiContract.updatePreferences.body.parse(body);
+    await this.assertNotificationEntitlements(auth, parsed);
     return this.repository.updateNotificationPreferences(auth.accessToken, parsed, request.id);
+  }
+
+  /**
+   * Consent alone is not enough: the queueing functions only create a message
+   * when the plan entitlement is also present. Refusing the write here means a
+   * subscriber learns that immediately, in the API's own words, instead of
+   * silently saving a preference that can never deliver anything.
+   *
+   * Turning a category off is always allowed.
+   */
+  private async assertNotificationEntitlements(
+    auth: { accessToken: string; userId: string },
+    requested: NotificationPreferencesInput,
+  ): Promise<void> {
+    const requirements: readonly { enabled: boolean; key: EntitlementKey; message: string }[] = [
+      {
+        enabled: requested.jobAlerts,
+        key: 'emailAlerts',
+        message:
+          'Job alerts are not included in your current plan. Upgrade your plan to turn them on.',
+      },
+      {
+        enabled: requested.dailyDigest,
+        key: 'dailyDigest',
+        message:
+          'The daily digest is not included in your current plan. Upgrade your plan to turn it on.',
+      },
+      {
+        enabled: requested.instantAlerts,
+        key: 'instantAlerts',
+        message:
+          'Instant alerts are not included in your current plan. Upgrade to the Pro plan to turn them on.',
+      },
+      {
+        enabled: requested.weeklyStrategy,
+        key: 'weeklyAiCareerStrategy',
+        message:
+          'The weekly strategy summary is not included in your current plan. Upgrade to the Pro plan to turn it on.',
+      },
+    ];
+    if (!requirements.some((requirement) => requirement.enabled)) return;
+
+    const snapshot = await this.entitlementSnapshot(auth);
+    const missing = requirements.find(
+      (requirement) => requirement.enabled && snapshot.entitlements[requirement.key] !== true,
+    );
+    if (!missing) return;
+
+    throw new AppError({
+      code: 'ENTITLEMENT_REQUIRED',
+      status: 403,
+      message: missing.message,
+    });
   }
 
   async sessions(request: AuthenticatedRequest) {
@@ -149,7 +208,10 @@ export class HanaplyService {
   }
 
   async entitlements(request: AuthenticatedRequest) {
-    const auth = this.requireAuthentication(request);
+    return this.entitlementSnapshot(this.requireAuthentication(request));
+  }
+
+  private async entitlementSnapshot(auth: { accessToken: string; userId: string }) {
     const subscription = await this.repository.getSubscription(auth.accessToken, auth.userId);
     if (!subscription) return evaluateEntitlements({ subscription: null, plan: null });
     const planCode = subscription.summary.planCode;

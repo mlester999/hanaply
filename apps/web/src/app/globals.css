@@ -1406,6 +1406,46 @@ a:hover {
   opacity: 0.72;
 }
 
+.preference-row--hours {
+  margin-top: var(--hanaply-space-3);
+  cursor: default;
+}
+
+.preference-row > span.preference-hours {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: var(--hanaply-space-2);
+}
+
+.preference-hours label {
+  color: var(--hanaply-color-neutral-muted);
+  font-size: var(--hanaply-font-size-sm);
+}
+
+.preference-hours input {
+  width: 4.5rem;
+  height: 2.5rem;
+  padding: 0 var(--hanaply-space-2);
+  background: var(--hanaply-color-neutral-surface);
+  border: 1px solid var(--hanaply-color-neutral-border);
+  border-radius: var(--hanaply-radius-sm);
+  color: var(--hanaply-color-neutral-ink);
+  font: inherit;
+}
+
+.preference-note--upgrade {
+  color: var(--hanaply-color-semantic-warning);
+  font-weight: var(--hanaply-font-weight-bold);
+}
+
+@media (max-width: 640px) {
+  .preference-row--hours {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
 .security-summary-grid .settings-card {
   margin: 0;
 }
@@ -1690,7 +1730,7 @@ a:hover {
   min-height: var(--hanaply-target-minimum);
   color: var(--hanaply-color-neutral-ink);
   background: var(--hanaply-color-neutral-surface);
-  border: 1px solid var(--hanaply-color-neutral-border-strong);
+  border: 1px solid var(--hanaply-color-neutral-border);
   border-radius: var(--hanaply-radius-sm);
 }
 
@@ -1872,9 +1912,367 @@ a:hover {
   }
 }
 
+/* ---------------------------------------------------------------------------
+   Job operations: provider catalogue, ingestion health, job records, and the
+   deduplication queue. These reuse the admin-* conventions above.
+   --------------------------------------------------------------------------- */
+
+.admin-metric-grid--six {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+.admin-source-list,
+.admin-dedup-list {
+  display: grid;
+  gap: var(--hanaply-space-5);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.admin-source-card,
+.admin-dedup-card {
+  display: grid;
+  min-width: 0;
+  gap: var(--hanaply-space-5);
+  padding: clamp(1.25rem, 4vw, 2rem);
+}
+
+.admin-source-summary,
+.admin-dedup-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--hanaply-space-4);
+}
+
+.admin-source-summary h2,
+.admin-dedup-heading h2 {
+  margin: 0;
+  font-size: var(--hanaply-font-size-xl);
+}
+
+.admin-source-code {
+  margin: var(--hanaply-space-1) 0 0;
+  color: var(--hanaply-color-neutral-muted);
+  font-family: ui-monospace, sfmono-regular, menlo, monospace;
+  font-size: var(--hanaply-font-size-sm);
+  overflow-wrap: anywhere;
+}
+
+.admin-source-badges,
+.admin-heading-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--hanaply-space-2);
+}
+
+.admin-source-facts,
+.admin-run-item-facts,
+.admin-signal-list {
+  display: grid;
+  gap: var(--hanaply-space-3);
+  margin: 0;
+}
+
+.admin-source-facts {
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+}
+
+.admin-source-facts > div,
+.admin-run-item-facts > div,
+.admin-signal-list > div {
+  display: grid;
+  min-width: 0;
+  gap: var(--hanaply-space-1);
+}
+
+.admin-source-facts dt,
+.admin-run-item-facts dt,
+.admin-signal-list dt {
+  color: var(--hanaply-color-neutral-muted);
+  font-size: var(--hanaply-font-size-xs);
+  font-weight: var(--hanaply-font-weight-semibold);
+}
+
+.admin-source-facts dd,
+.admin-run-item-facts dd,
+.admin-signal-list dd {
+  min-width: 0;
+  margin: 0;
+  font-weight: var(--hanaply-font-weight-semibold);
+  overflow-wrap: anywhere;
+}
+
+.admin-source-mono {
+  font-family: ui-monospace, sfmono-regular, menlo, monospace;
+  font-size: var(--hanaply-font-size-sm);
+  overflow-wrap: anywhere;
+}
+
+.admin-source-terms {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--hanaply-space-1);
+  font-weight: var(--hanaply-font-weight-semibold);
+  text-decoration: underline;
+}
+
+.admin-source-actions {
+  display: grid;
+  gap: var(--hanaply-space-4);
+  padding: var(--hanaply-space-5);
+  background: var(--hanaply-color-neutral-surface);
+}
+
+.admin-source-actions-heading h3,
+.admin-section-subheading {
+  margin: 0;
+  font-size: var(--hanaply-font-size-lg);
+}
+
+.admin-source-actions-heading p,
+.admin-section-copy,
+.admin-source-credential-note,
+.admin-run-empty {
+  max-width: 62rem;
+  margin: var(--hanaply-space-1) 0 0;
+  color: var(--hanaply-color-neutral-muted);
+  font-size: var(--hanaply-font-size-sm);
+}
+
+.admin-source-actions-buttons {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--hanaply-space-3);
+}
+
+.admin-source-config-editor {
+  font-family: ui-monospace, sfmono-regular, menlo, monospace;
+  font-size: var(--hanaply-font-size-sm);
+}
+
+.admin-run-list {
+  display: grid;
+  gap: var(--hanaply-space-3);
+}
+
+.admin-run-item {
+  display: grid;
+  gap: var(--hanaply-space-3);
+  padding: var(--hanaply-space-4);
+  background: var(--hanaply-color-neutral-surface);
+  border: 1px solid var(--hanaply-color-neutral-border);
+  border-left: 4px solid var(--hanaply-color-neutral-border);
+  border-radius: var(--hanaply-radius-sm);
+}
+
+.admin-run-item--failed,
+.admin-run-row--failed {
+  background: var(--hanaply-color-semantic-danger-soft);
+  border-left-color: var(--hanaply-color-semantic-danger);
+}
+
+.admin-run-item--partial,
+.admin-run-row--partial {
+  background: var(--hanaply-color-semantic-warning-soft);
+  border-left-color: var(--hanaply-color-semantic-warning);
+}
+
+.admin-run-item-heading {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--hanaply-space-3);
+  color: var(--hanaply-color-neutral-muted);
+  font-size: var(--hanaply-font-size-sm);
+}
+
+.admin-run-item-facts {
+  grid-template-columns: repeat(auto-fit, minmax(7rem, 1fr));
+}
+
+.admin-run-error {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--hanaply-space-1);
+  color: var(--hanaply-color-semantic-danger);
+  font-weight: var(--hanaply-font-weight-semibold);
+  overflow-wrap: anywhere;
+}
+
+.admin-filter-panel--jobs {
+  grid-template-columns: minmax(14rem, 2fr) minmax(9rem, 1fr) auto;
+}
+
+.admin-filter-panel--dedup {
+  grid-template-columns: minmax(12rem, 1fr) auto;
+}
+
+.admin-clickable-row {
+  position: relative;
+  cursor: pointer;
+}
+
+.admin-clickable-row:focus-within,
+.admin-clickable-row:hover {
+  background: var(--hanaply-color-neutral-surface);
+}
+
+.admin-row-link {
+  font-weight: var(--hanaply-font-weight-semibold);
+  text-decoration: underline;
+}
+
+.admin-row-link::after {
+  position: absolute;
+  inset: 0;
+  content: '';
+}
+
+.admin-row-link:focus-visible {
+  outline: 3px solid rgb(49 87 232 / 0.2);
+  outline-offset: 2px;
+}
+
+.admin-job-description {
+  padding: var(--hanaply-space-5);
+  background: var(--hanaply-color-neutral-surface);
+  border: 1px solid var(--hanaply-color-neutral-border);
+  border-radius: var(--hanaply-radius-lg);
+  box-shadow: var(--hanaply-shadow-sm);
+}
+
+.admin-job-description > summary {
+  cursor: pointer;
+  font-weight: var(--hanaply-font-weight-bold);
+}
+
+.admin-job-description > summary:focus-visible {
+  outline: 3px solid rgb(49 87 232 / 0.2);
+  outline-offset: 2px;
+}
+
+.admin-job-description-body,
+.admin-prewrap {
+  max-width: 100%;
+  margin: var(--hanaply-space-4) 0 0;
+  color: var(--hanaply-color-neutral-ink);
+  font-family: ui-monospace, sfmono-regular, menlo, monospace;
+  font-size: var(--hanaply-font-size-sm);
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.admin-job-list {
+  display: grid;
+  gap: var(--hanaply-space-2);
+  margin: var(--hanaply-space-4) 0 0;
+  padding-left: var(--hanaply-space-5);
+}
+
+.admin-dedup-pair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--hanaply-space-4);
+}
+
+.admin-dedup-side {
+  display: grid;
+  min-width: 0;
+  gap: var(--hanaply-space-1);
+  padding: var(--hanaply-space-4);
+  background: var(--hanaply-color-neutral-surface);
+  border: 1px solid var(--hanaply-color-neutral-border);
+  border-left: 4px solid var(--hanaply-color-brand-cobalt);
+  border-radius: var(--hanaply-radius-sm);
+}
+
+.admin-dedup-side--duplicate {
+  border-left-color: var(--hanaply-color-semantic-warning);
+}
+
+.admin-dedup-side-label {
+  color: var(--hanaply-color-neutral-muted);
+  font-size: var(--hanaply-font-size-xs);
+  font-weight: var(--hanaply-font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.admin-dedup-signals {
+  display: grid;
+  gap: var(--hanaply-space-3);
+}
+
+.admin-signal-list {
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+}
+
+.admin-dedup-signals > ul.admin-dedup-list {
+  margin-top: var(--hanaply-space-3);
+}
+
+.admin-job-status-card .admin-confirmation-form {
+  margin-top: var(--hanaply-space-4);
+}
+
 @media (max-width: 1280px) {
   .admin-filter-panel {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .admin-metric-grid--six {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 1024px) {
+  .admin-metric-grid--six {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .admin-source-facts,
+  .admin-run-item-facts,
+  .admin-signal-list,
+  .admin-dedup-pair {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .admin-filter-panel--jobs,
+  .admin-filter-panel--dedup {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-source-summary,
+  .admin-dedup-heading {
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 640px) {
+  .admin-metric-grid--six {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-source-actions-buttons,
+  .admin-source-actions-buttons .h-button,
+  .admin-source-card > .admin-source-actions .h-button {
+    width: 100%;
+  }
+}
+
+@media (max-width: 390px) {
+  .admin-source-card,
+  .admin-dedup-card,
+  .admin-run-item {
+    padding: var(--hanaply-space-4);
   }
 }
 
@@ -2376,7 +2774,7 @@ a:hover {
   min-height: 3.5rem;
   color: var(--hanaply-color-neutral-ink);
   background: var(--hanaply-color-neutral-surface);
-  border: 1px solid var(--hanaply-color-neutral-border-strong);
+  border: 1px solid var(--hanaply-color-neutral-border);
   border-radius: var(--hanaply-radius-md);
   cursor: pointer;
   transition:
@@ -2521,7 +2919,7 @@ a:hover {
   padding: var(--hanaply-space-1) var(--hanaply-space-2);
   color: var(--hanaply-color-brand-cobalt-deep);
   background: transparent;
-  border: 1px solid var(--hanaply-color-neutral-border-strong);
+  border: 1px solid var(--hanaply-color-neutral-border);
   border-radius: var(--hanaply-radius-sm);
   cursor: pointer;
   font-size: var(--hanaply-font-size-xs);

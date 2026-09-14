@@ -19,6 +19,23 @@ type ProfileRow = Database['public']['Tables']['profiles']['Row'];
 type PlanRow = Database['public']['Tables']['plans']['Row'];
 type SubscriptionRow = Database['public']['Tables']['subscriptions']['Row'];
 type PreferenceRow = Database['public']['Tables']['user_notification_preferences']['Row'];
+// The consent columns are read explicitly. The pinned `future_*` columns that
+// Phase 1 added are deliberately not part of a preference response.
+type PreferenceColumns = Pick<
+  PreferenceRow,
+  | 'product_updates'
+  | 'marketing_emails'
+  | 'job_alerts'
+  | 'daily_digest'
+  | 'instant_alerts'
+  | 'weekly_strategy'
+  | 'quiet_hours_start'
+  | 'quiet_hours_end'
+  | 'updated_at'
+>;
+
+const preferenceColumns =
+  'product_updates, marketing_emails, job_alerts, daily_digest, instant_alerts, weekly_strategy, quiet_hours_start, quiet_hours_end, updated_at';
 
 interface AdminUsersInput {
   search?: string | undefined;
@@ -119,13 +136,17 @@ function mapSubscription(row: SubscriptionRow, planCode: string | null): Subscri
   };
 }
 
-function mapPreferences(row: PreferenceRow) {
+function mapPreferences(row: PreferenceColumns) {
   return {
     productUpdates: row.product_updates,
     marketingEmails: row.marketing_emails,
+    jobAlerts: row.job_alerts,
+    dailyDigest: row.daily_digest,
+    instantAlerts: row.instant_alerts,
+    weeklyStrategy: row.weekly_strategy,
+    quietHoursStart: row.quiet_hours_start,
+    quietHoursEnd: row.quiet_hours_end,
     securityEmails: true as const,
-    futureJobAlerts: false as const,
-    futureDailyDigest: false as const,
     updatedAt: row.updated_at,
   };
 }
@@ -339,7 +360,7 @@ export class HanaplyRepository {
     );
     const result = await client
       .from('user_notification_preferences')
-      .select('*')
+      .select(preferenceColumns)
       .eq('user_id', userId)
       .maybeSingle();
     if (result.error || !result.data)
@@ -357,9 +378,23 @@ export class HanaplyRepository {
       this.environment.SUPABASE_PUBLISHABLE_KEY,
       accessToken,
     );
+    // Argument order follows public.update_my_notification_preferences(
+    //   product_updates, marketing_emails, job_alerts, daily_digest,
+    //   instant_alerts, weekly_strategy, quiet_hours_start, quiet_hours_end,
+    //   request_id). Quiet hours are assigned directly by that function, so a
+    // null is sent as an omitted argument, which resolves to its SQL default of
+    // null and clears any previously stored window.
     const result = await client.rpc('update_my_notification_preferences', {
       requested_product_updates: input.productUpdates,
       requested_marketing_emails: input.marketingEmails,
+      requested_job_alerts: input.jobAlerts,
+      requested_daily_digest: input.dailyDigest,
+      requested_instant_alerts: input.instantAlerts,
+      requested_weekly_strategy: input.weeklyStrategy,
+      ...(input.quietHoursStart === null
+        ? {}
+        : { requested_quiet_hours_start: input.quietHoursStart }),
+      ...(input.quietHoursEnd === null ? {} : { requested_quiet_hours_end: input.quietHoursEnd }),
       requested_request_id: requestId,
     });
     if (result.error || !result.data)

@@ -3,9 +3,13 @@
 import type { Permission } from '@hanaply/auth';
 import { Button, Drawer, NavigationItem } from '@hanaply/ui';
 import {
+  Activity,
   BadgeCheck,
   Bookmark,
+  Briefcase,
+  Cable,
   Compass,
+  CopyCheck,
   CreditCard,
   FileStack,
   FileText,
@@ -51,6 +55,25 @@ const finishOnboardingItem = {
 const adminItems = [
   { href: '/admin', label: 'Overview', icon: Home, permissions: ['users.read'] },
   { href: '/admin/users', label: 'Users', icon: Users, permissions: ['users.read'] },
+  {
+    href: '/admin/job-sources',
+    label: 'Job sources',
+    icon: Cable,
+    permissions: ['job_sources.read'],
+  },
+  {
+    href: '/admin/ingestion',
+    label: 'Ingestion',
+    icon: Activity,
+    permissions: ['job_sources.read'],
+  },
+  { href: '/admin/jobs', label: 'Jobs', icon: Briefcase, permissions: ['jobs.read'] },
+  {
+    href: '/admin/deduplication',
+    label: 'Deduplication',
+    icon: CopyCheck,
+    permissions: ['jobs.moderate'],
+  },
   {
     href: '/admin/payments',
     label: 'Payment Reviews',

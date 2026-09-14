@@ -33,11 +33,38 @@ export const emailTemplateIds = Object.freeze([
   'subscription-expires-soon',
   'subscription-expired',
   'subscription-corrected',
+  'job-alert',
+  'daily-digest',
 ] as const);
 
 export type EmailTemplateId = (typeof emailTemplateIds)[number];
 
-const variableValueSchema = z.union([z.string(), z.number(), z.boolean(), z.null()]);
+/**
+ * Variables are bounded on purpose: an outbox row is written by a database
+ * function and a queue row must never be able to smuggle an unbounded payload
+ * into a rendered message.
+ *
+ * Exactly two levels of plain objects are accepted. The first level is the
+ * `variables` record itself; the second level is one entry inside an array such
+ * as `jobs`. An entry may hold scalars and flat scalar lists only, so a third
+ * level of nesting is rejected.
+ */
+const variableScalarSchema = z.union([z.string().max(4_096), z.number(), z.boolean(), z.null()]);
+const variableScalarListSchema = z.array(variableScalarSchema).max(20);
+const variableEntrySchema = z.record(
+  z.string(),
+  z.union([variableScalarSchema, variableScalarListSchema]),
+);
+const variableValueSchema = z.union([
+  variableScalarSchema,
+  variableScalarListSchema,
+  variableEntrySchema,
+  z.array(variableEntrySchema).max(20),
+]);
+
+export { variableValueSchema as emailVariableValueSchema };
+
+export type EmailVariableEntry = z.infer<typeof variableEntrySchema>;
 
 export const emailMessageSchema = z
   .object({
@@ -103,7 +130,15 @@ const expectedCategory: Readonly<Record<EmailTemplateId, EmailCategory>> = Objec
   'subscription-expires-soon': 'administrative',
   'subscription-expired': 'administrative',
   'subscription-corrected': 'administrative',
+  'job-alert': 'job_alert',
+  'daily-digest': 'daily_digest',
 });
+
+/** Resolves the category a template id must use, or null when it is unknown. */
+export function emailTemplateCategory(templateId: string): EmailCategory | null {
+  const known = emailTemplateIds.find((candidate) => candidate === templateId);
+  return known ? expectedCategory[known] : null;
+}
 
 function escapeHtml(value: string): string {
   return value
@@ -137,14 +172,26 @@ function safeLink(value: string): string {
   return url.toString();
 }
 
+interface TemplateItem {
+  readonly title: string;
+  readonly subtitle: string;
+  readonly emphasis: readonly string[];
+  readonly details: readonly string[];
+}
+
 interface TemplateContent {
   subject: string;
   preview: string;
   heading: string;
   paragraphs: readonly string[];
+  items?: readonly TemplateItem[];
   action?: { label: string; url: string };
   footer: string;
+  signature?: string;
 }
+
+const defaultSignature =
+  'Hanaply account and subscription services. Private payment proof is never attached to email.';
 
 function activationAction(message: EmailMessage, label = 'Open Activation Center') {
   return {
@@ -188,6 +235,173 @@ const paymentFooter =
   'Payment proof and private payment details are available only inside your protected Hanaply account.';
 const subscriptionFooter =
   'Hanaply manual subscriptions do not renew automatically. Pay only through approved instructions in your Activation Center.';
+
+// ---------------------------------------------------------------------------
+// Opportunity notifications
+// ---------------------------------------------------------------------------
+
+const jobAlertFooter =
+  'You can turn job alert emails off at any time in your Hanaply notification settings.';
+const dailyDigestFooter =
+  'You can turn the daily digest off at any time in your Hanaply notification settings.';
+const notificationSignature =
+  'Hanaply career intelligence. Confirm every detail on the employer posting before you apply.';
+
+const remoteStateLabels: Readonly<Record<string, string>> = {
+  remote: 'Remote',
+  hybrid: 'Hybrid',
+  onsite: 'On-site',
+};
+
+const verdictLabels: Readonly<Record<string, string>> = {
+  strong_match: 'Strong match',
+  good_match: 'Good match',
+  stretch: 'Stretch',
+  weak_match: 'Weak match',
+  not_recommended: 'Not recommended',
+};
+
+function isVariableEntry(value: unknown): value is EmailVariableEntry {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+/**
+ * Listing text arrives from third-party sources, so it is normalized before it
+ * is interpolated: whitespace collapses, and an em dash becomes a hyphen so a
+ * source title can never break the house rule that rendered mail contains none.
+ */
+function listingText(value: string): string {
+  return value.replaceAll('—', '-').replace(/\s+/gu, ' ').trim();
+}
+
+function entryText(entry: EmailVariableEntry, key: string): string {
+  const value = entry[key];
+  return typeof value === 'string' ? listingText(value) : '';
+}
+
+function entryNumber(entry: EmailVariableEntry, key: string): number | null {
+  const value = entry[key];
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
+function messageNumber(message: EmailMessage, key: string): number | null {
+  const value = message.variables[key];
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
+function jobEntries(message: EmailMessage): readonly EmailVariableEntry[] {
+  const value = message.variables.jobs;
+  if (!Array.isArray(value)) return [];
+  return value.filter((entry) => isVariableEntry(entry));
+}
+
+/**
+ * The rendered list is the truth of what the reader can see, so the count
+ * follows the array whenever it is present and only falls back to the recorded
+ * count when nothing could be rendered.
+ */
+function opportunityCount(message: EmailMessage, jobs: readonly EmailVariableEntry[]): number {
+  if (jobs.length > 0) return jobs.length;
+  const reported = messageNumber(message, 'jobCount');
+  return reported !== null && reported > 0 ? Math.floor(reported) : 0;
+}
+
+function countLabel(count: number, singular: string, plural: string): string {
+  return `${count.toLocaleString('en-PH')} ${count === 1 ? singular : plural}`;
+}
+
+function verdictLabel(verdict: string): string {
+  return verdictLabels[verdict] ?? verdict.replaceAll('_', ' ');
+}
+
+function matchLine(entry: EmailVariableEntry): string {
+  const parts: string[] = [];
+  const score = entryNumber(entry, 'score');
+  if (score !== null) parts.push(`${Math.round(score)}% match`);
+  const verdict = entryText(entry, 'verdict');
+  if (verdict !== '') parts.push(verdictLabel(verdict));
+  return parts.join(' · ');
+}
+
+function locationLine(entry: EmailVariableEntry): string {
+  const remote = remoteStateLabels[entryText(entry, 'remoteState').toLowerCase()] ?? '';
+  const location = entryText(entry, 'locationRaw');
+  if (remote !== '' && location !== '') return `${remote} · ${location}`;
+  if (remote !== '') return remote;
+  if (location !== '') return location;
+  return 'Location not stated';
+}
+
+function formatMinor(value: number, currency: string | null): string {
+  const amount = value / 100;
+  if (currency === null) return amount.toLocaleString('en-PH', { maximumFractionDigits: 2 });
+  try {
+    return new Intl.NumberFormat('en-PH', { style: 'currency', currency }).format(amount);
+  } catch {
+    return `${currency} ${amount.toLocaleString('en-PH', { maximumFractionDigits: 2 })}`;
+  }
+}
+
+function salaryLine(entry: EmailVariableEntry): string {
+  const minimum = entryNumber(entry, 'salaryMinMinor');
+  const maximum = entryNumber(entry, 'salaryMaxMinor');
+  if (minimum === null && maximum === null) return '';
+  const stated = entryText(entry, 'salaryCurrency');
+  const currency = /^[A-Z]{3}$/u.test(stated) ? stated : null;
+  const note = currency === null ? ' (currency not stated)' : '';
+  const formattedMinimum =
+    minimum !== null && Number.isSafeInteger(minimum) && minimum >= 0
+      ? formatMinor(minimum, currency)
+      : null;
+  const formattedMaximum =
+    maximum !== null && Number.isSafeInteger(maximum) && maximum >= 0
+      ? formatMinor(maximum, currency)
+      : null;
+  if (
+    formattedMinimum !== null &&
+    formattedMaximum !== null &&
+    formattedMinimum !== formattedMaximum
+  ) {
+    return `Salary: ${formattedMinimum} to ${formattedMaximum}${note}`;
+  }
+  if (formattedMinimum !== null) return `Salary: from ${formattedMinimum}${note}`;
+  if (formattedMaximum !== null) return `Salary: up to ${formattedMaximum}${note}`;
+  return '';
+}
+
+function opportunityItem(
+  entry: EmailVariableEntry,
+  options: { includeSalary: boolean },
+): TemplateItem {
+  const emphasis = [matchLine(entry)].filter((line) => line !== '');
+  const details = [locationLine(entry)];
+  if (options.includeSalary) {
+    const salary = salaryLine(entry);
+    if (salary !== '') details.push(salary);
+  }
+  return {
+    title: entryText(entry, 'title') || 'Untitled opportunity',
+    subtitle: entryText(entry, 'companyName') || 'Company not stated',
+    emphasis,
+    details,
+  };
+}
+
+/**
+ * The radar action is always the radar on our own origin. A listing URL is
+ * never a redirect target, so an opportunity email cannot move a reader to a
+ * third-party apply page. A message that arrives without a radar URL still
+ * renders; it simply carries no button.
+ */
+function radarAction(message: EmailMessage): { label: string; url: string } | undefined {
+  const candidate = variable(message, 'radarUrl');
+  if (candidate === '') return undefined;
+  const url = safeLink(candidate);
+  if (new URL(url).pathname !== '/dashboard/radar') {
+    throw new Error('The opportunity email action must link to the Hanaply radar.');
+  }
+  return { label: 'Open Job Radar', url };
+}
 
 function templateContent(message: EmailMessage): TemplateContent {
   const name = variable(message, 'displayName', { fallback: 'there' });
@@ -464,7 +678,81 @@ function templateContent(message: EmailMessage): TemplateContent {
         action: activationAction(message, 'View Subscription'),
         footer: subscriptionFooter,
       };
+    case 'job-alert': {
+      const jobs = jobEntries(message);
+      const count = opportunityCount(message, jobs);
+      const action = radarAction(message);
+      return {
+        subject:
+          count === 1
+            ? 'A new strong match on Hanaply'
+            : count > 1
+              ? `${count} new strong matches on Hanaply`
+              : 'New matches on your Hanaply radar',
+        preview:
+          count > 0
+            ? `${countLabel(count, 'opportunity', 'opportunities')} cleared your alert threshold.`
+            : 'Open your radar to review the latest opportunities.',
+        heading: 'New matches on your radar',
+        paragraphs: [
+          `Hello ${name},`,
+          count > 0
+            ? `${countLabel(count, 'opportunity', 'opportunities')} cleared your relevance threshold in the latest scan.`
+            : 'Your radar recorded new opportunities in the latest scan.',
+          'Open the radar to review why each match scored the way it did, then save the ones worth pursuing.',
+        ],
+        items: jobs.map((entry) => opportunityItem(entry, { includeSalary: true })),
+        ...(action ? { action } : {}),
+        footer: jobAlertFooter,
+        signature: notificationSignature,
+      };
+    }
+    case 'daily-digest': {
+      const jobs = jobEntries(message);
+      const count = opportunityCount(message, jobs);
+      const localDay = variable(message, 'localDay', { fallback: 'today' });
+      const savedCount = Math.max(0, Math.floor(messageNumber(message, 'savedCount') ?? 0));
+      const activeApplicationCount = Math.max(
+        0,
+        Math.floor(messageNumber(message, 'activeApplicationCount') ?? 0),
+      );
+      const action = radarAction(message);
+      return {
+        subject: `Your Hanaply digest for ${localDay}`,
+        preview: `${countLabel(count, 'match', 'matches')}, ${countLabel(savedCount, 'saved job', 'saved jobs')}, and ${countLabel(activeApplicationCount, 'active application', 'active applications')}.`,
+        heading: 'Your daily radar digest',
+        paragraphs: [
+          `Hello ${name},`,
+          `Here is your radar summary for ${localDay}.`,
+          `${countLabel(count, 'opportunity', 'opportunities')} cleared your digest threshold, and you are tracking ${countLabel(savedCount, 'saved job', 'saved jobs')} with ${countLabel(activeApplicationCount, 'active application', 'active applications')}.`,
+        ],
+        items: jobs.map((entry) => opportunityItem(entry, { includeSalary: false })),
+        ...(action ? { action } : {}),
+        footer: dailyDigestFooter,
+        signature: notificationSignature,
+      };
+    }
   }
+}
+
+function htmlItems(items: readonly TemplateItem[]): string {
+  return items
+    .map((item) => {
+      const emphasis = item.emphasis
+        .map(
+          (line) =>
+            `<div style="margin:4px 0 0;color:#1D2F8A;font:bold 14px/1.5 Arial,sans-serif">${escapeHtml(line)}</div>`,
+        )
+        .join('');
+      const details = item.details
+        .map(
+          (line) =>
+            `<div style="margin:2px 0 0;color:#667085;font:13px/1.5 Arial,sans-serif">${escapeHtml(line)}</div>`,
+        )
+        .join('');
+      return `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:0 0 12px"><tr><td style="padding:16px;background:#F9FAFB;border:1px solid #E4E7EC;border-radius:12px"><div style="color:#101828;font:bold 16px/1.4 Arial,sans-serif">${escapeHtml(item.title)}</div><div style="margin:2px 0 0;color:#475467;font:14px/1.5 Arial,sans-serif">${escapeHtml(item.subtitle)}</div>${emphasis}${details}</td></tr></table>`;
+    })
+    .join('');
 }
 
 function htmlDocument(content: TemplateContent): string {
@@ -474,10 +762,21 @@ function htmlDocument(content: TemplateContent): string {
         `<p style="margin:0 0 16px;color:#475467;font:16px/1.6 Arial,sans-serif">${escapeHtml(paragraph)}</p>`,
     )
     .join('');
+  const items = content.items?.length ? htmlItems(content.items) : '';
   const action = content.action
     ? `<table role="presentation" cellspacing="0" cellpadding="0" style="margin:24px 0"><tr><td style="border-radius:8px;background:#3157E8"><a href="${escapeHtml(content.action.url)}" style="display:inline-block;padding:13px 22px;color:#ffffff;font:bold 15px/1.2 Arial,sans-serif;text-decoration:none">${escapeHtml(content.action.label)}</a></td></tr></table><p style="margin:0 0 20px;color:#667085;font:13px/1.5 Arial,sans-serif;word-break:break-all">If the button does not work, copy this link:<br><a href="${escapeHtml(content.action.url)}" style="color:#1D2F8A">${escapeHtml(content.action.url)}</a></p>`
     : '';
-  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light"><title>${escapeHtml(content.subject)}</title><style>@media(max-width:600px){.email-card{padding:24px!important}.email-shell{padding:16px!important}}</style></head><body style="margin:0;background:#F6F8FC"><div style="display:none;max-height:0;overflow:hidden;opacity:0">${escapeHtml(content.preview)}</div><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#F6F8FC"><tr><td class="email-shell" align="center" style="padding:32px 16px"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:600px"><tr><td style="padding:0 0 20px;color:#101828;font:bold 24px/1.2 Arial,sans-serif">Hanaply</td></tr><tr><td class="email-card" style="padding:40px;background:#ffffff;border:1px solid #E4E7EC;border-radius:16px"><div style="width:44px;height:4px;margin-bottom:24px;background:#22C7A9;border-radius:999px"></div><h1 style="margin:0 0 20px;color:#101828;font:bold 28px/1.25 Arial,sans-serif">${escapeHtml(content.heading)}</h1>${paragraphs}${action}<p style="margin:24px 0 0;padding-top:20px;color:#667085;border-top:1px solid #E4E7EC;font:13px/1.5 Arial,sans-serif">${escapeHtml(content.footer)}</p></td></tr><tr><td style="padding:20px 0;color:#667085;font:12px/1.5 Arial,sans-serif">Hanaply account and subscription services. Private payment proof is never attached to email.</td></tr></table></td></tr></table></body></html>`;
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light"><title>${escapeHtml(content.subject)}</title><style>@media(max-width:600px){.email-card{padding:24px!important}.email-shell{padding:16px!important}}</style></head><body style="margin:0;background:#F6F8FC"><div style="display:none;max-height:0;overflow:hidden;opacity:0">${escapeHtml(content.preview)}</div><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#F6F8FC"><tr><td class="email-shell" align="center" style="padding:32px 16px"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:600px"><tr><td style="padding:0 0 20px;color:#101828;font:bold 24px/1.2 Arial,sans-serif">Hanaply</td></tr><tr><td class="email-card" style="padding:40px;background:#ffffff;border:1px solid #E4E7EC;border-radius:16px"><div style="width:44px;height:4px;margin-bottom:24px;background:#22C7A9;border-radius:999px"></div><h1 style="margin:0 0 20px;color:#101828;font:bold 28px/1.25 Arial,sans-serif">${escapeHtml(content.heading)}</h1>${paragraphs}${items}${action}<p style="margin:24px 0 0;padding-top:20px;color:#667085;border-top:1px solid #E4E7EC;font:13px/1.5 Arial,sans-serif">${escapeHtml(content.footer)}</p></td></tr><tr><td style="padding:20px 0;color:#667085;font:12px/1.5 Arial,sans-serif">${escapeHtml(content.signature ?? defaultSignature)}</td></tr></table></td></tr></table></body></html>`;
+}
+
+function textItems(items: readonly TemplateItem[]): string[] {
+  return items.flatMap((item) => [
+    '',
+    item.title,
+    item.subtitle,
+    ...item.emphasis.map((line) => `  ${line}`),
+    ...item.details.map((line) => `  ${line}`),
+  ]);
 }
 
 function textDocument(content: TemplateContent): string {
@@ -487,11 +786,12 @@ function textDocument(content: TemplateContent): string {
     content.heading,
     '',
     ...content.paragraphs,
+    ...(content.items?.length ? textItems(content.items) : []),
     ...(content.action ? ['', `${content.action.label}:`, content.action.url] : []),
     '',
     content.footer,
     '',
-    'Hanaply account and subscription services. Private payment proof is never attached to email.',
+    content.signature ?? defaultSignature,
   ].join('\n');
 }
 
@@ -533,6 +833,7 @@ export function emailTemplatePreviewMessage(templateId: EmailTemplateId): EmailM
     variables: {
       displayName: 'Mika Santos',
       actionUrl: 'http://localhost:3100/dashboard/activation',
+      radarUrl: 'http://localhost:3100/dashboard/radar',
       expiresIn: 'one hour',
       securityEvent: 'A security-sensitive setting changed',
       planCode: 'plus_monthly',
@@ -544,6 +845,36 @@ export function emailTemplatePreviewMessage(templateId: EmailTemplateId): EmailM
       startsAt: '2026-07-28T04:00:00.000Z',
       endsAt: '2026-08-28T04:00:00.000Z',
       subscriptionEndsAt: '2026-08-28T04:00:00.000Z',
+      localDay: 'September 19, 2026',
+      jobCount: 2,
+      savedCount: 4,
+      activeApplicationCount: 2,
+      jobs: [
+        {
+          jobId: '40000000-0000-4000-8000-000000000001',
+          title: 'Workflow Automation Engineer',
+          companyName: 'Northstar Systems',
+          score: 88,
+          verdict: 'strong_match',
+          locationRaw: 'Metro Manila, Philippines',
+          remoteState: 'hybrid',
+          salaryMinMinor: 9_000_000,
+          salaryMaxMinor: 12_000_000,
+          salaryCurrency: 'PHP',
+        },
+        {
+          jobId: '40000000-0000-4000-8000-000000000002',
+          title: 'Data Operations Specialist',
+          companyName: 'Harbor Analytics',
+          score: 76,
+          verdict: 'good_match',
+          locationRaw: null,
+          remoteState: 'remote',
+          salaryMinMinor: null,
+          salaryMaxMinor: null,
+          salaryCurrency: null,
+        },
+      ],
     },
   });
 }

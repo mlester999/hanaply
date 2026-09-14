@@ -463,6 +463,41 @@ describe('opportunity notification templates', () => {
     }
   });
 
+  it('rejects a raw listing URL as the opportunity action', () => {
+    expect(() =>
+      renderEmailTemplate(
+        message({
+          templateId: 'job-alert',
+          variables: {
+            jobCount: 1,
+            jobs: alertJobs,
+            radarUrl: 'https://jobs.example.test/apply/abc-123',
+          },
+        }),
+      ),
+    ).toThrow(/Hanaply radar/u);
+  });
+
+  it('still renders when no radar URL was supplied', () => {
+    const rendered = renderEmailTemplate(
+      emailMessageSchema.parse({
+        recipient: 'member@example.test',
+        templateId: 'job-alert',
+        templateVersion: 'v1',
+        category: 'job_alert',
+        idempotencyKey: alertIdempotencyKey,
+        variables: {
+          displayName: 'Mika Santos',
+          jobCount: alertJobs.length,
+          jobs: alertJobs,
+        },
+      }),
+    );
+    expect(rendered.text).toContain('Workflow Automation Engineer');
+    expect(rendered.html).not.toContain('jobs.example.test');
+    expect(rendered.text).not.toContain('Open Job Radar');
+  });
+
   it('rejects an array longer than twenty entries and objects nested deeper than two levels', () => {
     const tooManyJobs = Array.from({ length: 21 }, (_value, index) => ({
       jobId: `job-${index}`,

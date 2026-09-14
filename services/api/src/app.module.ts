@@ -5,6 +5,9 @@ import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 
 import { AdminAuthorizationGuard, SupabaseAuthGuard, SupabaseAuthService } from './auth.js';
 import { HanaplyService } from './app.service.js';
+import { AdminJobsController } from './admin-jobs.controllers.js';
+import { AdminJobsRepository } from './admin-jobs.repository.js';
+import { AdminJobsService } from './admin-jobs.service.js';
 import {
   AdminController,
   DocumentationController,
@@ -24,6 +27,7 @@ export interface ApiRuntimeOverrides {
   repository?: unknown;
   paymentRepository?: unknown;
   careerRepository?: unknown;
+  adminJobsRepository?: unknown;
   authService?: unknown;
 }
 
@@ -42,6 +46,7 @@ export class AppModule {
         CareerController,
         AdminController,
         AdminPaymentController,
+        AdminJobsController,
         DocumentationController,
       ],
       providers: [
@@ -55,9 +60,13 @@ export class AppModule {
         overrides.careerRepository
           ? { provide: CareerRepository, useValue: overrides.careerRepository }
           : CareerRepository,
+        overrides.adminJobsRepository
+          ? { provide: AdminJobsRepository, useValue: overrides.adminJobsRepository }
+          : AdminJobsRepository,
         HanaplyService,
         PaymentService,
         CareerService,
+        AdminJobsService,
         overrides.authService
           ? { provide: SupabaseAuthService, useValue: overrides.authService }
           : SupabaseAuthService,

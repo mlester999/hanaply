@@ -36,10 +36,14 @@ async function bootstrap(): Promise<void> {
             lastIngestionAt: null,
             lastMatchingAt: null,
             lastFreshnessAt: null,
+            lastNotificationAt: null,
             lastErrorCode: null,
             sourcesAttempted: 0,
             jobsCreated: 0,
             profilesScored: 0,
+            notificationsQueued: 0,
+            notificationsDelivered: 0,
+            notificationsFailed: 0,
           },
     };
   });

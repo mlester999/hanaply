@@ -3,6 +3,13 @@ import { randomUUID } from 'node:crypto';
 import type { WorkerEnvironment } from '@hanaply/config';
 import { createServiceDatabaseClient, type Database, type Json } from '@hanaply/database';
 import {
+  createEmailProvider,
+  emailMessageSchema,
+  emailTemplateCategory,
+  type EmailMessage,
+  type EmailProvider,
+} from '@hanaply/email';
+import {
   getJobSourceAdapter,
   runSourceIngestion,
   type JobSourceAdapter,
@@ -14,6 +21,18 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 type ScheduledSource = Database['public']['Functions']['job_ingestion_schedule']['Returns'][number];
 type MatchingSubject = Database['public']['Functions']['matching_subjects']['Returns'][number];
+type ClaimedOpportunityNotification =
+  Database['public']['Functions']['claim_notification_outbox']['Returns'][number];
+
+/**
+ * Retry pacing for a released notification claim. The delay uses full jitter
+ * drawn from [floor, ceiling]: rows that failed together must not retry
+ * together, and the ceiling stays far below the one-day bound the database
+ * enforces on a scheduled retry.
+ */
+const notificationRetryBaseMilliseconds = 60_000;
+const notificationRetryCeilingMilliseconds = 3_600_000;
+const notificationRetryFloorMilliseconds = 5_000;
 
 interface SourceRow {
   id: string;
@@ -32,23 +51,29 @@ export interface JobWorkerState {
   lastIngestionAt: string | null;
   lastMatchingAt: string | null;
   lastFreshnessAt: string | null;
+  lastNotificationAt: string | null;
   lastErrorCode: string | null;
   sourcesAttempted: number;
   jobsCreated: number;
   profilesScored: number;
+  notificationsQueued: number;
+  notificationsDelivered: number;
+  notificationsFailed: number;
 }
 
 export interface JobWorkerOptions {
   client?: SupabaseClient<Database>;
+  provider?: EmailProvider;
   adapters?: (code: string) => JobSourceAdapter | undefined;
   fetch?: typeof fetch;
   now?: () => Date;
+  random?: () => number;
 }
 
 /**
  * Background job intelligence worker.
  *
- * Three bounded, independent cycles run on one timer:
+ * Four bounded, independent cycles run on one timer:
  *
  *   1. Ingestion asks `job_ingestion_schedule()` which sources are due, takes a
  *      per-source lock, and runs the shared adapter once. One scan serves every
@@ -58,16 +83,23 @@ export interface JobWorkerOptions {
  *      engine, and stores explainable results including their evidence.
  *   3. Freshness ages unobserved postings to stale and then expired so the feed
  *      cannot be dominated by listings that are gone.
+ *   4. Notification delivery queues consented opportunity messages, then claims
+ *      a bounded batch from `notification_outbox`, renders it, and completes or
+ *      releases each row. Queueing happens inside the database, which requires
+ *      both the subscriber's consent and their plan entitlement, so this cycle
+ *      can only deliver what a subscriber already asked to receive.
  *
  * Every cycle is idempotent: a repeated run re-derives the same work from the
  * database, and a partially completed run is simply picked up again.
  */
 export class JobIntelligenceWorker {
   private readonly client: SupabaseClient<Database>;
+  private readonly provider: EmailProvider;
   private readonly logger;
   private readonly resolveAdapter: (code: string) => JobSourceAdapter | undefined;
   private readonly fetchImplementation: typeof fetch;
   private readonly clock: () => Date;
+  private readonly random: () => number;
   private readonly workerId = `worker-${randomUUID()}`;
   private readonly stateValue: JobWorkerState = {
     running: false,
@@ -76,14 +108,19 @@ export class JobIntelligenceWorker {
     lastIngestionAt: null,
     lastMatchingAt: null,
     lastFreshnessAt: null,
+    lastNotificationAt: null,
     lastErrorCode: null,
     sourcesAttempted: 0,
     jobsCreated: 0,
     profilesScored: 0,
+    notificationsQueued: 0,
+    notificationsDelivered: 0,
+    notificationsFailed: 0,
   };
   private timer: ReturnType<typeof setInterval> | undefined;
   private activeCycle: Promise<void> | null = null;
   private lastFreshnessValue = 0;
+  private lastDigestQueueValue = 0;
 
   constructor(
     private readonly environment: WorkerEnvironment,
@@ -92,9 +129,11 @@ export class JobIntelligenceWorker {
     this.client =
       options.client ??
       createServiceDatabaseClient(environment.SUPABASE_URL, environment.SUPABASE_SERVICE_ROLE_KEY);
+    this.provider = options.provider ?? createEmailProvider(environment);
     this.resolveAdapter = options.adapters ?? ((code) => getJobSourceAdapter(code) ?? undefined);
     this.fetchImplementation = options.fetch ?? globalThis.fetch;
     this.clock = options.now ?? (() => new Date());
+    this.random = options.random ?? Math.random;
     this.logger = createLogger({
       service: 'job-worker',
       environment: environment.HANAPLY_ENV,
@@ -124,7 +163,7 @@ export class JobIntelligenceWorker {
     await this.activeCycle;
   }
 
-  async runOnce(forceFreshness = false): Promise<void> {
+  async runOnce(forceMaintenance = false): Promise<void> {
     if (this.stateValue.cycleActive) return;
     this.stateValue.cycleActive = true;
     try {
@@ -133,13 +172,18 @@ export class JobIntelligenceWorker {
 
       const now = this.clock().getTime();
       if (
-        forceFreshness ||
+        forceMaintenance ||
         now - this.lastFreshnessValue >= this.environment.WORKER_MAINTENANCE_INTERVAL_MS
       ) {
         await this.runFreshnessCycle();
         this.lastFreshnessValue = now;
         this.stateValue.lastFreshnessAt = new Date(now).toISOString();
       }
+
+      // Runs after matching so an alert can include the matches this cycle just
+      // produced, and on every poll so a queued message is never left waiting
+      // for a maintenance interval.
+      await this.runNotificationCycle(forceMaintenance);
 
       this.stateValue.lastCycleAt = new Date().toISOString();
       this.stateValue.lastErrorCode = null;
@@ -419,6 +463,248 @@ export class JobIntelligenceWorker {
     }
     this.logger.info(data as Record<string, unknown>, 'Job freshness refreshed');
   }
+
+  // -------------------------------------------------------------------------
+  // Opportunity notification delivery
+  // -------------------------------------------------------------------------
+
+  /**
+   * Queues consented messages and then delivers a bounded batch of them.
+   *
+   * Queueing is delegated to the database so consent and entitlement are
+   * evaluated next to the data they depend on, and the unique idempotency key
+   * makes a repeated pass a no-op. A digest is queued at most once per
+   * maintenance interval because it is a once-a-day message whose own key
+   * already collapses repeats; polling it every few seconds would only add
+   * pointless work.
+   */
+  private async runNotificationCycle(forceMaintenance: boolean): Promise<void> {
+    const now = this.clock();
+    await this.queueOpportunityNotifications(now, forceMaintenance);
+    await this.deliverNotificationOutbox();
+    this.stateValue.lastNotificationAt = this.clock().toISOString();
+    this.logger.info(
+      {
+        notificationsQueued: this.stateValue.notificationsQueued,
+        notificationsDelivered: this.stateValue.notificationsDelivered,
+        notificationsFailed: this.stateValue.notificationsFailed,
+      },
+      'Opportunity notifications processed',
+    );
+  }
+
+  private async queueOpportunityNotifications(now: Date, forceDigest: boolean): Promise<void> {
+    const alerts = await this.client.rpc('queue_job_alert_notifications', {
+      evaluated_at: now.toISOString(),
+      window_minutes: this.environment.JOB_ALERT_WINDOW_MINUTES,
+      minimum_score: this.environment.JOB_ALERT_MINIMUM_SCORE,
+      batch_size: this.environment.NOTIFICATION_BATCH_SIZE,
+    });
+    if (alerts.error) throw new Error('job_alert_queue_failed');
+    this.stateValue.notificationsQueued += queuedNotificationCount(alerts.data);
+
+    const currentTime = now.getTime();
+    if (
+      !forceDigest &&
+      currentTime - this.lastDigestQueueValue < this.environment.WORKER_MAINTENANCE_INTERVAL_MS
+    ) {
+      return;
+    }
+
+    const digest = await this.client.rpc('queue_job_digest_notifications', {
+      evaluated_at: now.toISOString(),
+      minimum_score: this.environment.DIGEST_MINIMUM_SCORE,
+      batch_size: this.environment.NOTIFICATION_BATCH_SIZE,
+    });
+    if (digest.error) throw new Error('job_digest_queue_failed');
+    this.stateValue.notificationsQueued += queuedNotificationCount(digest.data);
+    this.lastDigestQueueValue = currentTime;
+  }
+
+  private async deliverNotificationOutbox(): Promise<void> {
+    const claimToken = randomUUID();
+    const claimed = await this.client.rpc('claim_notification_outbox', {
+      requested_claim_token: claimToken,
+      requested_batch_size: this.environment.NOTIFICATION_BATCH_SIZE,
+    });
+    if (claimed.error) throw new Error('notification_claim_failed');
+    for (const notification of claimed.data ?? []) {
+      await this.deliverNotification(notification, claimToken);
+    }
+  }
+
+  private async deliverNotification(
+    notification: ClaimedOpportunityNotification,
+    claimToken: string,
+  ): Promise<void> {
+    let recipient: string | null;
+    try {
+      recipient = await this.notificationRecipient(notification.user_id);
+    } catch {
+      // The address could not be resolved at all, which is a transient lookup
+      // problem rather than a decision about the subscriber.
+      await this.retryOrFailNotification(notification, claimToken);
+      return;
+    }
+
+    if (recipient === null) {
+      // Nobody can deliver mail to an unconfirmed address, so the row is closed
+      // as disabled instead of being retried until the attempt cap.
+      await this.completeNotification(notification, claimToken, {
+        status: 'disabled',
+        providerMessageId: null,
+        failureCode: null,
+        attempts: 0,
+      });
+      return;
+    }
+
+    let message: EmailMessage;
+    try {
+      message = this.notificationMessage(notification, recipient);
+    } catch {
+      // A message that cannot be built from the stored row will never become
+      // valid by waiting, so it fails immediately with a short code.
+      await this.completeNotification(notification, claimToken, {
+        status: 'failed',
+        providerMessageId: null,
+        failureCode: 'message_validation_failed',
+        attempts: 1,
+      });
+      this.stateValue.notificationsFailed += 1;
+      return;
+    }
+
+    try {
+      const receipt = await this.provider.send(message);
+      if (receipt.status === 'failed') {
+        await this.completeNotification(notification, claimToken, {
+          status: 'failed',
+          providerMessageId: receipt.providerMessageId,
+          failureCode: receipt.failureCode ?? 'provider_rejected',
+          attempts: receipt.attempts,
+        });
+        this.stateValue.notificationsFailed += 1;
+        return;
+      }
+      const delivered = receipt.status !== 'disabled';
+      await this.completeNotification(notification, claimToken, {
+        status: delivered ? 'delivered' : 'disabled',
+        providerMessageId: receipt.providerMessageId,
+        failureCode: receipt.failureCode,
+        attempts: receipt.attempts,
+      });
+      if (delivered) this.stateValue.notificationsDelivered += 1;
+    } catch {
+      await this.retryOrFailNotification(notification, claimToken);
+    }
+  }
+
+  private async notificationRecipient(userId: string): Promise<string | null> {
+    const result = await this.client.auth.admin.getUserById(userId);
+    if (result.error) throw new Error('notification_recipient_unavailable');
+    const user = result.data.user;
+    const confirmedAt = user?.email_confirmed_at ?? user?.confirmed_at ?? null;
+    const email = user?.email;
+    if (!email || !confirmedAt) return null;
+    return email;
+  }
+
+  private notificationMessage(
+    notification: ClaimedOpportunityNotification,
+    recipient: string,
+  ): EmailMessage {
+    const category = emailTemplateCategory(notification.template_id);
+    if (!category) throw new Error('notification_template_unsupported');
+    return emailMessageSchema.parse({
+      recipient,
+      templateId: notification.template_id,
+      templateVersion: notification.template_version,
+      category,
+      // The outbox key travels with the message, so a retry after a crash sends
+      // the provider the same idempotency key and cannot double-send.
+      idempotencyKey: notification.idempotency_key,
+      variables: {
+        ...notificationOutboxVariables(notification.variables),
+        // The action always points at the radar on our own origin. A raw job or
+        // apply URL is never a redirect target, so a listing cannot move a
+        // reader off Hanaply from inside an email.
+        radarUrl: new URL('/dashboard/radar', this.environment.APP_BASE_URL).toString(),
+      },
+    });
+  }
+
+  private async completeNotification(
+    notification: ClaimedOpportunityNotification,
+    claimToken: string,
+    result: {
+      status: 'delivered' | 'failed' | 'disabled';
+      providerMessageId: string | null;
+      failureCode: string | null;
+      attempts: number;
+    },
+  ): Promise<void> {
+    const completed = await this.client.rpc('complete_notification_outbox', {
+      target_notification_id: notification.id,
+      requested_claim_token: claimToken,
+      requested_status: result.status,
+      requested_provider_message_id: result.providerMessageId ?? '',
+      requested_failure_code: result.failureCode ?? '',
+      requested_attempts: notification.attempts + result.attempts,
+    });
+    if (completed.error || !completed.data) throw new Error('notification_completion_failed');
+  }
+
+  private async retryOrFailNotification(
+    notification: ClaimedOpportunityNotification,
+    claimToken: string,
+  ): Promise<void> {
+    if (notification.attempts + 1 >= this.environment.WORKER_NOTIFICATION_MAX_ATTEMPTS) {
+      await this.completeNotification(notification, claimToken, {
+        status: 'failed',
+        providerMessageId: null,
+        failureCode: 'transport_error',
+        attempts: 1,
+      });
+      this.stateValue.notificationsFailed += 1;
+      return;
+    }
+    await this.releaseNotification(notification, claimToken);
+  }
+
+  private async releaseNotification(
+    notification: ClaimedOpportunityNotification,
+    claimToken: string,
+  ): Promise<void> {
+    const ceiling = Math.min(
+      notificationRetryBaseMilliseconds * 2 ** Math.min(notification.attempts, 8),
+      notificationRetryCeilingMilliseconds,
+    );
+    const delay = Math.max(Math.floor(this.random() * ceiling), notificationRetryFloorMilliseconds);
+    const released = await this.client.rpc('release_notification_outbox', {
+      target_notification_id: notification.id,
+      requested_claim_token: claimToken,
+      retry_at: new Date(this.clock().getTime() + delay).toISOString(),
+    });
+    if (released.error || !released.data) throw new Error('notification_release_failed');
+  }
+}
+
+/**
+ * The outbox stores variables as JSON so the queueing function can build a
+ * message without a schema migration. The email schema validates every value
+ * before a template reads it; this only rejects a row that is not an object.
+ */
+function notificationOutboxVariables(value: Json): Record<string, unknown> {
+  if (value === null || Array.isArray(value) || typeof value !== 'object') {
+    throw new Error('notification_variables_invalid');
+  }
+  return { ...value };
+}
+
+/** The queueing functions return the number of rows they inserted. */
+function queuedNotificationCount(value: number | null): number {
+  return typeof value === 'number' && Number.isFinite(value) && value > 0 ? Math.floor(value) : 0;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

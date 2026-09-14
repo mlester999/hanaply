@@ -155,6 +155,15 @@ const workerEnvironmentSchema = sharedServerEnvironmentSchema.extend({
   MATCHING_BATCH_SIZE: z.coerce.number().int().min(1).max(200).default(25),
   MATCHING_CANDIDATE_LIMIT: z.coerce.number().int().min(1).max(200).default(60),
   MATCHING_STALE_AFTER_HOURS: z.coerce.number().int().min(1).max(720).default(12),
+
+  // Opportunity notification delivery. Queueing is decided entirely inside the
+  // database: a row is only created when the subscriber's own preference is on
+  // *and* their plan includes the feature, so these settings can only narrow
+  // what an already-consented subscriber receives.
+  JOB_ALERT_WINDOW_MINUTES: z.coerce.number().int().min(5).max(1_440).default(30),
+  JOB_ALERT_MINIMUM_SCORE: z.coerce.number().int().min(0).max(100).default(75),
+  DIGEST_MINIMUM_SCORE: z.coerce.number().int().min(0).max(100).default(55),
+  NOTIFICATION_BATCH_SIZE: z.coerce.number().int().min(1).max(200).default(25),
 });
 
 const emailEnvironmentSchema = z
