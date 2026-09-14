@@ -83,19 +83,22 @@ export function RadarSavedNote({ savedCount }: { savedCount: number }) {
   return (
     <Card className="radar-note-card">
       <h2>
-        <Save aria-hidden="true" size={18} /> Application tracking is a separate feature
+        <Save aria-hidden="true" size={18} /> Saving is not applying
       </h2>
       <p>
         {savedCount === 0
           ? 'Nothing is saved in this view yet.'
           : `${savedCount} saved ${savedCount === 1 ? 'opportunity' : 'opportunities'} in this view.`}{' '}
-        Saving keeps an opportunity here and records the interest signal the ranking learns from.
-        Application tracking stages — applied, interviewing, offer, and the history behind them — do
-        not exist yet and will arrive with the tracker feature, so this page deliberately shows no
-        stage you cannot actually set.
+        Saving keeps an opportunity here and records the interest signal the ranking learns from; it
+        does not create an application. Tracking is separate: open an opportunity and use Add to the
+        tracker to start a pipeline record, and every stage change from there is appended to that
+        record&apos;s history. This page deliberately shows no stage you cannot actually set.
       </p>
       <div className="radar-note-actions">
-        <LinkButton href="/dashboard/radar" variant="secondary">
+        <LinkButton href="/dashboard/applications" variant="secondary">
+          Open the application tracker
+        </LinkButton>
+        <LinkButton href="/dashboard/radar" variant="quiet">
           Back to the full radar
         </LinkButton>
       </div>

@@ -4,6 +4,14 @@ import { ArrowLeft, SearchX } from 'lucide-react';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 
+import {
+  CreatePackPanel,
+  type ExistingPackSummary,
+} from '@/components/application/create-pack-panel';
+import {
+  TrackApplicationPanel,
+  type TrackedApplicationSummary,
+} from '@/components/application/track-application-panel';
 import { JobIntelligence, JobOriginalPosting } from '@/components/radar/job-intelligence';
 import { OpportunityHeader } from '@/components/radar/opportunity-header';
 import { radarErrorMessage } from '@/lib/radar-action';
@@ -11,6 +19,52 @@ import { isUuid } from '@/lib/radar';
 import { createAuthenticatedApiClient, requireUser } from '@/lib/session';
 
 export const metadata: Metadata = { title: 'Opportunity' };
+
+interface OpportunityAdditions {
+  /** The pack the API already reports for this opportunity, if there is one. */
+  existingPack: ExistingPackSummary | null;
+  /** The tracker row the API already reports for this opportunity, if any. */
+  tracked: TrackedApplicationSummary | null;
+}
+
+/**
+ * The pack and tracker panels are enhancements on this page: reading either
+ * directory can fail without taking the opportunity down. A failed read leaves
+ * the panel in its "nothing found yet" state, and both write paths are
+ * idempotent per opportunity, so a wrong guess can never duplicate a pack or a
+ * tracker row.
+ */
+async function readOpportunityAdditions(
+  client: ReturnType<typeof createAuthenticatedApiClient>,
+  detail: JobDetail,
+): Promise<OpportunityAdditions> {
+  const [packsResult, trackerResult] = await Promise.allSettled([
+    client.applicationPacks(),
+    client.applicationTracker(),
+  ]);
+
+  let existingPack: ExistingPackSummary | null = null;
+  if (packsResult.status === 'fulfilled') {
+    const forJob = packsResult.value.data.items.filter((item) => item.jobId === detail.id);
+    const match =
+      forJob.find((item) => item.careerProfileId === detail.careerProfileId) ?? forJob[0] ?? null;
+    if (match !== null) {
+      existingPack = {
+        id: match.id,
+        status: match.status,
+        artifactCount: match.artifactCount,
+      };
+    }
+  }
+
+  let tracked: TrackedApplicationSummary | null = null;
+  if (trackerResult.status === 'fulfilled') {
+    const row = trackerResult.value.data.items.find((item) => item.jobId === detail.id) ?? null;
+    if (row !== null) tracked = { id: row.id, stage: row.stage };
+  }
+
+  return { existingPack, tracked };
+}
 
 export default async function OpportunityDetailPage({
   params,
@@ -24,6 +78,7 @@ export default async function OpportunityDetailPage({
   if (!isUuid(jobId)) notFound();
 
   const { session } = await requireUser();
+  const client = createAuthenticatedApiClient(session);
   const requestedProfileId =
     values.careerProfileId !== undefined && isUuid(values.careerProfileId)
       ? values.careerProfileId
@@ -33,7 +88,7 @@ export default async function OpportunityDetailPage({
   let unavailable: string | null = null;
   try {
     detail = (
-      await createAuthenticatedApiClient(session).jobDetail(
+      await client.jobDetail(
         jobId,
         requestedProfileId === undefined ? undefined : { careerProfileId: requestedProfileId },
       )
@@ -62,6 +117,8 @@ export default async function OpportunityDetailPage({
     );
   }
 
+  const additions = await readOpportunityAdditions(client, detail);
+
   return (
     <div className="workspace-page radar-page">
       <div className="radar-detail-nav">
@@ -76,7 +133,23 @@ export default async function OpportunityDetailPage({
         now={new Date()}
       />
 
-      <JobIntelligence careerProfileId={detail.careerProfileId} detail={detail} />
+      <JobIntelligence
+        careerProfileId={detail.careerProfileId}
+        detail={detail}
+        packAction={
+          <CreatePackPanel
+            careerProfileId={detail.careerProfileId}
+            existingPack={additions.existingPack}
+            jobId={detail.id}
+          />
+        }
+      />
+
+      <TrackApplicationPanel
+        careerProfileId={detail.careerProfileId}
+        jobId={detail.id}
+        tracked={additions.tracked}
+      />
 
       <JobOriginalPosting detail={detail} />
     </div>

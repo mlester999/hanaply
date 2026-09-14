@@ -3,11 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useState, useTransition, type SubmitEvent } from 'react';
 
-import {
-  applicationConflictMessage,
-  idleApplicationActionState,
-  type ApplicationActionState,
-} from '@/lib/application-action';
+import { idleApplicationActionState, type ApplicationActionState } from '@/lib/application-action';
 
 export type ApplicationServerAction = (
   previous: ApplicationActionState,
@@ -56,6 +52,7 @@ export function useApplicationAction(
           message: 'The request could not be completed. Reload the page and try again.',
           fieldErrors: {},
           conflict: false,
+          refused: false,
           packId: null,
         });
       }
@@ -67,5 +64,5 @@ export function useApplicationAction(
     submit(new FormData(event.currentTarget));
   }
 
-  return { state, submit, onSubmit, pending, conflictMessage: applicationConflictMessage };
+  return { state, submit, onSubmit, pending };
 }

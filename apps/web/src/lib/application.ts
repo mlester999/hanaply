@@ -106,6 +106,17 @@ export const closedApplicationStages: readonly TrackerStage[] = [
   'archived',
 ];
 
+const remoteStateLabels: Readonly<Record<string, string>> = {
+  remote: 'Remote',
+  hybrid: 'Hybrid',
+  onsite: 'Onsite',
+  unspecified: 'Work setup not stated',
+};
+
+export function remoteStateLabel(remoteState: string): string {
+  return remoteStateLabels[remoteState] ?? humanise(remoteState);
+}
+
 // ---------------------------------------------------------------------------
 // Application Packs
 // ---------------------------------------------------------------------------

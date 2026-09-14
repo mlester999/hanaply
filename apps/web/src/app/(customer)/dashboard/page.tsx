@@ -1,4 +1,8 @@
-import { type CareerProfileDetail, type CareerProfileDirectory } from '@hanaply/contracts';
+import {
+  type CareerProfileDetail,
+  type CareerProfileDirectory,
+  type UsageSummary,
+} from '@hanaply/contracts';
 import { Alert, Badge, Card, LinkButton, PageHeader } from '@hanaply/ui';
 import {
   Activity,
@@ -15,6 +19,7 @@ import {
 } from 'lucide-react';
 import type { Metadata } from 'next';
 
+import { ApplicationUsageCard } from '@/components/application/pack-usage';
 import { CareerCompletenessMeter } from '@/components/career/career-completeness';
 import { humanise } from '@/lib/career';
 import { createAuthenticatedApiClient, requireUser } from '@/lib/session';
@@ -25,6 +30,30 @@ interface RadarSnapshot {
   total: number;
   strongMatches: number;
   unanalysed: number;
+}
+
+interface PackUsageSnapshot {
+  item: UsageSummary['items'][number];
+  periodStart: string;
+  periodEnd: string;
+}
+
+/**
+ * The Application Pack usage row, read separately from everything else on this
+ * page. An unreachable usage endpoint returns null, and the card is then left
+ * out entirely rather than drawing a zero the member might act on.
+ */
+async function readPackUsage(
+  client: ReturnType<typeof createAuthenticatedApiClient>,
+): Promise<PackUsageSnapshot | null> {
+  try {
+    const usage = (await client.usageSummary()).data;
+    const item = usage.items.find((entry) => entry.feature === 'application_pack');
+    if (!item) return null;
+    return { item, periodStart: usage.periodStart, periodEnd: usage.periodEnd };
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -75,6 +104,7 @@ export default async function DashboardPage() {
   }
 
   const radar = await readRadarSnapshot(client);
+  const packUsage = await readPackUsage(client);
 
   return (
     <div className="workspace-page">
@@ -221,6 +251,14 @@ export default async function DashboardPage() {
           </LinkButton>
         </div>
       </Card>
+
+      {packUsage === null ? null : (
+        <ApplicationUsageCard
+          item={packUsage.item}
+          periodEnd={packUsage.periodEnd}
+          periodStart={packUsage.periodStart}
+        />
+      )}
 
       <Card className="dashboard-career-card">
         <div className="dashboard-card-heading">

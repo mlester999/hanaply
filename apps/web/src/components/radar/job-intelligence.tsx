@@ -12,6 +12,7 @@ import {
   Sparkles,
   ThumbsUp,
 } from 'lucide-react';
+import type { ReactNode } from 'react';
 
 import { humanise } from '@/lib/career';
 
@@ -89,15 +90,28 @@ function UnanalysedPanel() {
 export interface JobIntelligenceProps {
   detail: JobDetail;
   careerProfileId: string | null;
+  /**
+   * The Application Pack action for this opportunity. It is rendered by the page
+   * and placed here so the pack sits with the recommended next step, and it is
+   * still rendered when the opportunity has no stored match yet.
+   */
+  packAction?: ReactNode;
 }
 
 /**
  * The intelligence-first body of an opportunity: why it fits, where it falls
  * short, how the score was built, and what the member should do next.
  */
-export function JobIntelligence({ detail, careerProfileId }: JobIntelligenceProps) {
+export function JobIntelligence({ detail, careerProfileId, packAction }: JobIntelligenceProps) {
   const match = detail.match;
-  if (!match) return <UnanalysedPanel />;
+  if (!match) {
+    return (
+      <>
+        <UnanalysedPanel />
+        {packAction}
+      </>
+    );
+  }
 
   const quality = readDataQuality(match.dataQuality);
   const profileHref = careerProfileId
@@ -373,14 +387,9 @@ export function JobIntelligence({ detail, careerProfileId }: JobIntelligenceProp
           </div>
         </div>
         <p className="radar-next-step-action">{match.recommendedAction}</p>
-        <p className="radar-explainer">
-          <strong>Application Pack — coming next.</strong> A pack that drafts a tailored resume,
-          cover letter, and screening answers from your confirmed evidence is not available yet. It
-          is described here so you know what is planned; there is no button because there is nothing
-          to open. Until it ships, apply on the original source and keep your truth ledger up to
-          date.
-        </p>
       </Card>
+
+      {packAction}
     </>
   );
 }

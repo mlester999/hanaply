@@ -2,6 +2,7 @@
 
 import { Alert, Button } from '@hanaply/ui';
 import { useRouter } from 'next/navigation';
+import type { ReactNode } from 'react';
 
 import type { ApplicationActionState } from '@/lib/application-action';
 
@@ -9,6 +10,11 @@ export interface ApplicationFeedbackProps {
   state: ApplicationActionState;
   successTitle: string;
   errorTitle: string;
+  /**
+   * Shown under a plan or entitlement refusal, so the API's sentence reads as a
+   * decision the member can act on rather than as a fault in the page.
+   */
+  refusedNote?: ReactNode;
   className?: string;
 }
 
@@ -16,14 +22,16 @@ export interface ApplicationFeedbackProps {
  * The single polite live region every pack and tracker form renders its result
  * into.
  *
- * A stale-version conflict gets its own non-destructive treatment: the message
- * says the change was not saved and a refresh control is offered, rather than
- * any attempt to replay the write on top of newer data.
+ * Two outcomes get special treatment. A stale-version conflict says the change
+ * was not saved and offers a refresh rather than replaying the write on top of
+ * newer data. A plan refusal keeps the API's own sentence verbatim and is styled
+ * as a limit, not a crash.
  */
 export function ApplicationFeedback({
   state,
   successTitle,
   errorTitle,
+  refusedNote,
   className,
 }: ApplicationFeedbackProps) {
   const router = useRouter();
@@ -34,7 +42,7 @@ export function ApplicationFeedback({
     : success
       ? successTitle
       : errorTitle;
-  const tone = success ? 'success' : state.conflict ? 'warning' : 'danger';
+  const tone = success ? 'success' : state.conflict || state.refused ? 'warning' : 'danger';
   return (
     <Alert aria-live="polite" className={className} title={title} tone={tone}>
       {state.message}
@@ -50,6 +58,9 @@ export function ApplicationFeedback({
             Refresh the latest
           </Button>
         </div>
+      ) : null}
+      {state.refused && refusedNote ? (
+        <div className="application-refusal">{refusedNote}</div>
       ) : null}
     </Alert>
   );

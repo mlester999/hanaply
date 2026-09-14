@@ -15,7 +15,12 @@ import {
   applicationSuccess,
   type ApplicationActionState,
 } from '@/lib/application-action';
-import { careerLeafFieldErrors, formEntry, formInteger, formOptionalText } from '@/lib/career-action';
+import {
+  careerLeafFieldErrors,
+  formEntry,
+  formInteger,
+  formOptionalText,
+} from '@/lib/career-action';
 import { assertTrustedMutationOrigin } from '@/lib/request-integrity';
 import { createAuthenticatedApiClient, requireUser } from '@/lib/session';
 

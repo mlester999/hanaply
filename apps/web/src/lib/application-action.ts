@@ -11,6 +11,9 @@ import { HanaplyApiError } from '@hanaply/contracts';
  * - `conflict` marks the optimistic-concurrency refusal. A stale write must be
  *   reported as "reload and look again", never as a silent overwrite and never
  *   as a crash, so the client needs to tell it apart from every other failure.
+ * - `refused` marks a plan or entitlement refusal. The API's sentence is shown
+ *   verbatim and is styled as a decision rather than a fault, because that is
+ *   what it is: the monthly allowance is spent, nothing broke.
  * - `packId` carries the pack a create request resolved to, so the client can
  *   open it. The API is idempotent by pack identity, so this is either a newly
  *   created pack or the one that already existed.
@@ -20,6 +23,7 @@ export interface ApplicationActionState {
   message: string | null;
   fieldErrors: Readonly<Record<string, readonly string[]>>;
   conflict: boolean;
+  refused: boolean;
   packId: string | null;
 }
 
@@ -28,6 +32,7 @@ export const idleApplicationActionState: ApplicationActionState = {
   message: null,
   fieldErrors: {},
   conflict: false,
+  refused: false,
   packId: null,
 };
 
@@ -35,14 +40,14 @@ export function applicationSuccess(
   message: string,
   packId: string | null = null,
 ): ApplicationActionState {
-  return { status: 'success', message, fieldErrors: {}, conflict: false, packId };
+  return { status: 'success', message, fieldErrors: {}, conflict: false, refused: false, packId };
 }
 
 export function applicationFailure(
   message: string,
   fieldErrors: Readonly<Record<string, readonly string[]>> = {},
 ): ApplicationActionState {
-  return { status: 'error', message, fieldErrors, conflict: false, packId: null };
+  return { status: 'error', message, fieldErrors, conflict: false, refused: false, packId: null };
 }
 
 /** The non-destructive copy a stale write gets, on every surface. */
@@ -88,12 +93,22 @@ export function isApplicationConflict(error: unknown): boolean {
   return error instanceof HanaplyApiError && error.envelope.error.code === 'CONFLICT';
 }
 
+/** A plan, entitlement, or subscription decision rather than a failure. */
+export function isApplicationRefusal(error: unknown): boolean {
+  if (!(error instanceof HanaplyApiError)) return false;
+  const code = error.envelope.error.code;
+  return (
+    code === 'FORBIDDEN' || code === 'ENTITLEMENT_REQUIRED' || code === 'SUBSCRIPTION_INACTIVE'
+  );
+}
+
 export function applicationErrorState(error: unknown, fallback: string): ApplicationActionState {
   return {
     status: 'error',
     message: applicationErrorMessage(error, fallback),
     fieldErrors: {},
     conflict: isApplicationConflict(error),
+    refused: isApplicationRefusal(error),
     packId: null,
   };
 }
