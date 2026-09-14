@@ -170,6 +170,47 @@ export const createApplicationPackSchema = z
 export const applicationPackParamsSchema = z.object({ packId: z.uuid() });
 export const applicationParamsSchema = z.object({ applicationId: z.uuid() });
 
+/**
+ * Artifact styles. Style changes the structure and the order of a draft and
+ * never the facts in it: the same confirmed evidence is cited whichever style
+ * the subscriber picks. `standard` is the default when none is requested.
+ */
+export const packArtifactStyleSchema = z.enum(['concise', 'standard', 'achievement_led']);
+export const packArtifactStyles = ['concise', 'standard', 'achievement_led'] as const;
+export const defaultPackArtifactStyle = 'standard';
+
+/**
+ * The posting as the generator receives it: the canonical job card plus the
+ * fields only the detail read model carries, because a resume, a cover letter,
+ * and a requirement map are all written against the posting's own requirements.
+ */
+export const packGenerationJobSchema = jobCardSchema.extend({
+  description: z.string().max(40_000),
+  requirements: z.array(z.string().max(500)),
+  preferredQualifications: z.array(z.string().max(500)),
+  experienceYearsMin: z.number().min(0).max(60).nullable(),
+  experienceYearsMax: z.number().min(0).max(60).nullable(),
+  applyUrl: z.string().max(1_000),
+});
+
+export const generateApplicationPackSchema = z
+  .object({
+    /** Defaults to every kind when omitted. */
+    kinds: z.array(applicationArtifactKindSchema).min(1).max(6).optional(),
+    style: packArtifactStyleSchema.optional(),
+  })
+  .strict();
+
+/**
+ * The pack after generation, in the same shape as the pack detail read model so
+ * one viewer renders both, plus what this call actually did.
+ */
+export const applicationPackGenerationSchema = applicationPackDetailSchema.extend({
+  /** True when every requested artifact existed and the pack was marked ready. */
+  finalized: z.boolean(),
+  generatedKinds: z.array(applicationArtifactKindSchema),
+});
+
 export const trackApplicationSchema = z
   .object({
     jobId: z.uuid(),
@@ -197,6 +238,10 @@ export type ApplicationPackListItem = z.infer<typeof applicationPackListItemSche
 export type ApplicationPackDetail = z.infer<typeof applicationPackDetailSchema>;
 export type ApplicationPackDirectory = z.infer<typeof applicationPackDirectorySchema>;
 export type ApplicationArtifact = z.infer<typeof applicationArtifactSchema>;
+export type ApplicationArtifactKind = z.infer<typeof applicationArtifactKindSchema>;
+export type PackArtifactStyle = z.infer<typeof packArtifactStyleSchema>;
+export type PackGenerationJob = z.infer<typeof packGenerationJobSchema>;
+export type ApplicationPackGeneration = z.infer<typeof applicationPackGenerationSchema>;
 export type ApplicationStage = z.infer<typeof applicationStageSchema>;
 export type ApplicationSnapshot = z.infer<typeof applicationSnapshotSchema>;
 export type ApplicationTrackerItem = z.infer<typeof applicationTrackerItemSchema>;

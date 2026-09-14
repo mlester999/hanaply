@@ -323,6 +323,10 @@ export function createApiClient(options: ApiClientOptions) {
       request(apiContract.createApplicationPack, { body }),
     applicationPack: (packId: string) =>
       request(apiContract.applicationPack, { params: { packId } }),
+    generateApplicationPack: (
+      packId: string,
+      body: z.input<typeof apiContract.generateApplicationPack.body>,
+    ) => request(apiContract.generateApplicationPack, { params: { packId }, body }),
     usageSummary: () => request(apiContract.usageSummary),
     applicationTracker: () => request(apiContract.applicationTracker),
     trackApplication: (body: z.input<typeof apiContract.trackApplication.body>) =>

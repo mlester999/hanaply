@@ -51,7 +51,6 @@ import {
   packGenerationJobSchema,
   type ApplicationArtifactKind,
   type CareerFact,
-  type CareerFactCategory,
   type CareerProfileDetail,
   type PackArtifactStyle,
   type PackGenerationJob,
@@ -277,9 +276,10 @@ function formatMonth(value: string): string {
   const match = /^(\d{4})-(\d{2})-\d{2}$/u.exec(value);
   if (match === null) return value;
   const year = match[1];
-  const monthIndex = Number(match[2]) - 1;
-  const month = monthNames[monthIndex];
-  if (year === undefined || month === undefined) return value;
+  const monthNumber = match[2];
+  if (year === undefined || monthNumber === undefined) return value;
+  const month = monthNames[Number(monthNumber) - 1];
+  if (month === undefined) return value;
   return `${month} ${year}`;
 }
 
@@ -328,7 +328,7 @@ function parts(values: readonly (string | null | undefined)[]): string {
 // ---------------------------------------------------------------------------
 
 /** Order confirmed facts by the strength of the claim they make, best first. */
-const categoryRank: Readonly<Record<CareerFactCategory, number>> = Object.freeze({
+const categoryRank: Readonly<Record<CareerFact['category'], number>> = Object.freeze({
   achievement: 0,
   metric: 1,
   responsibility: 2,
@@ -341,7 +341,7 @@ const categoryRank: Readonly<Record<CareerFactCategory, number>> = Object.freeze
 });
 
 /** The categories that read as deliverable work on a resume. */
-const achievementCategories: readonly CareerFactCategory[] = [
+const achievementCategories: readonly CareerFact['category'][] = [
   'achievement',
   'metric',
   'responsibility',
@@ -661,7 +661,7 @@ function requirementEvidenceParagraph(requirement: RequirementEntry): string | n
   const { fact } = requirement;
   if (fact === null) {
     if (requirement.status === 'met' || requirement.status === 'partially_met') {
-      return 'Your profile covers this requirement, but no confirmed career fact evidences it yet. Confirm the fact on your profile so this entry can quote it instead of paraphrasing it.';
+      return 'This requirement is not evidenced by a confirmed career fact yet, even though your profile mentions it. Confirm the fact on your profile so this entry can quote it instead of paraphrasing it.';
     }
     return null;
   }
@@ -687,22 +687,32 @@ function requirementSources(requirement: RequirementEntry): readonly SourceRef[]
   return sources;
 }
 
-/** Paragraphs for one requirement, ordered by style. */
+/**
+ * Paragraphs for one requirement, ordered by style.
+ *
+ * `standard` puts the requirement in the section heading, so the entry itself
+ * only has to state the status. The grouped styles have generic headings, so
+ * they name the requirement in the status paragraph instead: a requirement must
+ * never become invisible merely because a style regroups the document.
+ */
 function requirementParagraphs(
   requirement: RequirementEntry,
   style: PackArtifactStyle,
 ): readonly string[] {
   const status = requirementStatusParagraph(requirement.status);
+  const namedStatus = `Requirement: "${requirement.requirement}". ${status}`;
   const evidence = requirementEvidenceParagraph(requirement);
   const profile = requirement.profileEvidence;
   const met = requirement.status === 'met' || requirement.status === 'partially_met';
   const gap = met ? null : requirementGapParagraph(requirement.requirement);
 
   if (style === 'achievement_led') {
-    return [evidence, profile, status, gap].filter((value): value is string => value !== null);
+    return [evidence, profile, namedStatus, gap].filter(
+      (value): value is string => value !== null,
+    );
   }
   if (style === 'concise') {
-    const pieces = [status, profile, evidence, gap].filter(
+    const pieces = [namedStatus, profile, evidence, gap].filter(
       (value): value is string => value !== null,
     );
     return [pieces.join(' ')];
@@ -829,7 +839,11 @@ function buildStrategyDraft(context: GeneratorContext): PackArtifactDraft {
         ]
       : [
           'The strongest confirmed facts for this posting, quoted from your own ledger:',
-          ...evidenceFacts.map((ranked) => `- "${factSentence(ranked.fact)}"`),
+          // The statement is quoted as it stands. The structured metric is not
+          // appended here: a strategy reports the frozen score and its
+          // dimensions, and a confirmed statement is the only other thing it may
+          // repeat, so no number in this artifact originates with the generator.
+          ...evidenceFacts.map((ranked) => `- "${ranked.fact.statement}"`),
           ...(match.strengths.length === 0
             ? []
             : [

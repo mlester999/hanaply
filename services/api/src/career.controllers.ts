@@ -29,6 +29,7 @@ const jobDetailPath = routePath(apiContract.jobDetail.path);
 const jobSavePath = routePath(apiContract.saveJob.path);
 const jobFeedbackPath = routePath(apiContract.recordJobFeedback.path);
 const applicationPackPath = routePath(apiContract.applicationPack.path);
+const applicationPackGeneratePath = routePath(apiContract.generateApplicationPack.path);
 const applicationTimelinePath = routePath(apiContract.applicationTimeline.path);
 const applicationStagePath = routePath(apiContract.setApplicationStage.path);
 const careerRecordPath = routePath(apiContract.deleteCareerRecord.path);
@@ -445,10 +446,32 @@ export class CareerController {
     );
   }
 
+  // Generation is the most expensive synchronous operation on the pack surface:
+  // it reads the whole profile, the confirmed ledger, the posting, and the
+  // frozen match snapshot, then writes one artifact per requested kind.
+  @Post(applicationPackGeneratePath)
+  @HttpCode(200)
+  @Throttle({ default: { limit: 12, ttl: 3_600_000 } })
+  async generateApplicationPack(
+    @Req() request: AuthenticatedRequest,
+    @Param() params: Record<string, unknown>,
+    @Body() body: unknown,
+  ) {
+    return apiContract.generateApplicationPack.response.parse(
+      successEnvelope(
+        request,
+        await this.service.generateApplicationPack(
+          request,
+          uuidOnly(params.packId, 'packId'),
+          body,
+        ),
+      ),
+    );
+  }
+
   @Get(apiContract.usageSummary.path)
   @Throttle({ default: { limit: 120, ttl: 60_000 } })
-  async usageSummary(@Req() request: AuthenticatedRequest) {
-    return apiContract.usageSummary.response.parse(
+  async usageSummary(@Req() request: AuthenticatedRequest) {    return apiContract.usageSummary.response.parse(
       successEnvelope(request, await this.service.usageSummary(request)),
     );
   }

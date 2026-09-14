@@ -3822,6 +3822,16 @@ export type Database = {
         }
         Returns: number
       }
+      generate_application_pack_artifacts: {
+        Args: {
+          actor_user_id: string
+          target_pack_id: string
+          requested_kinds: Database["public"]["Enums"]["application_artifact_kind"][]
+          requested_style: string
+          action_request_id: string
+        }
+        Returns: Json
+      }
       get_my_admin_access: {
         Args: Record<PropertyKey, never>
         Returns: {

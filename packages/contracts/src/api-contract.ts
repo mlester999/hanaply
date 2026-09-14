@@ -57,6 +57,7 @@ import { careerInsightsQuerySchema, careerInsightsSchema } from './insights.js';
 import {
   applicationPackDetailSchema,
   applicationPackDirectorySchema,
+  applicationPackGenerationSchema,
   applicationPackParamsSchema,
   applicationPackSchema,
   applicationParamsSchema,
@@ -64,6 +65,7 @@ import {
   applicationTimelineSchema,
   applicationTrackerSchema,
   createApplicationPackSchema,
+  generateApplicationPackSchema,
   setApplicationStageSchema,
   trackApplicationSchema,
   usageSummarySchema,
@@ -1284,6 +1286,17 @@ export const apiContract = Object.freeze({
     successStatus: 200,
     params: applicationPackParamsSchema,
     response: successEnvelopeSchema(applicationPackDetailSchema),
+  }),
+  generateApplicationPack: defineRoute({
+    method: 'POST',
+    path: '/v1/me/application-packs/{packId}/generate',
+    operationId: 'generateApplicationPack',
+    summary: 'Generate the pack artifacts from confirmed career facts only',
+    auth: 'user',
+    successStatus: 200,
+    params: applicationPackParamsSchema,
+    body: generateApplicationPackSchema,
+    response: successEnvelopeSchema(applicationPackGenerationSchema),
   }),
   usageSummary: defineRoute({
     method: 'GET',

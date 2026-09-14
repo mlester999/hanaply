@@ -56339,6 +56339,909 @@
         }
       }
     },
+    "/v1/me/application-packs/{packId}/generate": {
+      "post": {
+        "operationId": "generateApplicationPack",
+        "summary": "Generate the pack artifacts from confirmed career facts only",
+        "tags": [
+          "User"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": true,
+            "name": "packId",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "kinds": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "enum": [
+                        "resume",
+                        "cover_letter",
+                        "strategy",
+                        "requirement_map",
+                        "recruiter_message",
+                        "interview_prep"
+                      ]
+                    },
+                    "minItems": 1,
+                    "maxItems": 6
+                  },
+                  "style": {
+                    "type": "string",
+                    "enum": [
+                      "concise",
+                      "standard",
+                      "achievement_led"
+                    ]
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "careerProfileId": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "jobId": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "queued",
+                            "generating",
+                            "ready",
+                            "failed",
+                            "archived"
+                          ]
+                        },
+                        "matchSnapshot": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "modelVersion": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "maxLength": 60
+                        },
+                        "promptVersion": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "maxLength": 60
+                        },
+                        "evidenceFactIds": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "format": "uuid"
+                          }
+                        },
+                        "errorCode": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "maxLength": 80
+                        },
+                        "generatedAt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "format": "date-time"
+                        },
+                        "version": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "createdAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "updatedAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "job": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "title": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 300
+                            },
+                            "companyName": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 200
+                            },
+                            "employmentType": {
+                              "type": "string",
+                              "enum": [
+                                "full_time",
+                                "part_time",
+                                "contract",
+                                "freelance",
+                                "internship",
+                                "temporary",
+                                "volunteer"
+                              ]
+                            },
+                            "seniority": {
+                              "type": "string",
+                              "enum": [
+                                "internship",
+                                "entry",
+                                "junior",
+                                "mid",
+                                "senior",
+                                "lead",
+                                "principal",
+                                "manager",
+                                "director",
+                                "executive",
+                                "unspecified"
+                              ]
+                            },
+                            "remoteState": {
+                              "type": "string",
+                              "enum": [
+                                "remote",
+                                "hybrid",
+                                "onsite",
+                                "unspecified"
+                              ]
+                            },
+                            "locationRaw": {
+                              "type": [
+                                "string",
+                                "null"
+                              ],
+                              "maxLength": 300
+                            },
+                            "city": {
+                              "type": [
+                                "string",
+                                "null"
+                              ],
+                              "maxLength": 120
+                            },
+                            "region": {
+                              "type": [
+                                "string",
+                                "null"
+                              ],
+                              "maxLength": 120
+                            },
+                            "countryCode": {
+                              "type": [
+                                "string",
+                                "null"
+                              ],
+                              "minLength": 2,
+                              "maxLength": 2
+                            },
+                            "isPhilippines": {
+                              "type": "boolean"
+                            },
+                            "isInternational": {
+                              "type": "boolean"
+                            },
+                            "salaryMinMinor": {
+                              "type": [
+                                "integer",
+                                "null"
+                              ],
+                              "exclusiveMinimum": 0
+                            },
+                            "salaryMaxMinor": {
+                              "type": [
+                                "integer",
+                                "null"
+                              ],
+                              "exclusiveMinimum": 0
+                            },
+                            "salaryCurrency": {
+                              "type": [
+                                "string",
+                                "null"
+                              ],
+                              "minLength": 3,
+                              "maxLength": 3
+                            },
+                            "salaryPeriod": {
+                              "type": [
+                                "string",
+                                "null"
+                              ],
+                              "enum": [
+                                "hourly",
+                                "daily",
+                                "monthly",
+                                "annual",
+                                null
+                              ]
+                            },
+                            "salaryIsEstimate": {
+                              "type": "boolean"
+                            },
+                            "skills": {
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "maxLength": 100
+                              }
+                            },
+                            "postedAt": {
+                              "type": [
+                                "string",
+                                "null"
+                              ],
+                              "format": "date-time"
+                            },
+                            "firstSeenAt": {
+                              "type": "string",
+                              "format": "date-time"
+                            },
+                            "lastSeenAt": {
+                              "type": "string",
+                              "format": "date-time"
+                            },
+                            "lastVerifiedAt": {
+                              "type": [
+                                "string",
+                                "null"
+                              ],
+                              "format": "date-time"
+                            },
+                            "sourceCount": {
+                              "type": "integer",
+                              "exclusiveMinimum": 0
+                            },
+                            "status": {
+                              "type": "string",
+                              "enum": [
+                                "active",
+                                "stale",
+                                "expired",
+                                "closed",
+                                "duplicate",
+                                "rejected"
+                              ]
+                            },
+                            "excerpt": {
+                              "type": "string",
+                              "maxLength": 600
+                            },
+                            "expiresAt": {
+                              "type": [
+                                "string",
+                                "null"
+                              ],
+                              "format": "date-time"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "title",
+                            "companyName",
+                            "employmentType",
+                            "seniority",
+                            "remoteState",
+                            "locationRaw",
+                            "city",
+                            "region",
+                            "countryCode",
+                            "isPhilippines",
+                            "isInternational",
+                            "salaryMinMinor",
+                            "salaryMaxMinor",
+                            "salaryCurrency",
+                            "salaryPeriod",
+                            "salaryIsEstimate",
+                            "skills",
+                            "postedAt",
+                            "firstSeenAt",
+                            "lastSeenAt",
+                            "lastVerifiedAt",
+                            "sourceCount",
+                            "status",
+                            "excerpt",
+                            "expiresAt"
+                          ]
+                        },
+                        "applyUrl": {
+                          "type": "string",
+                          "maxLength": 1000
+                        },
+                        "artifacts": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "format": "uuid"
+                              },
+                              "packId": {
+                                "type": "string",
+                                "format": "uuid"
+                              },
+                              "kind": {
+                                "type": "string",
+                                "enum": [
+                                  "resume",
+                                  "cover_letter",
+                                  "strategy",
+                                  "requirement_map",
+                                  "recruiter_message",
+                                  "interview_prep"
+                                ]
+                              },
+                              "style": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "maxLength": 60
+                              },
+                              "title": {
+                                "type": "string",
+                                "maxLength": 200
+                              },
+                              "content": {
+                                "type": "object",
+                                "additionalProperties": {}
+                              },
+                              "plainText": {
+                                "type": "string",
+                                "maxLength": 60000
+                              },
+                              "truthGateStatus": {
+                                "type": "string",
+                                "enum": [
+                                  "passed",
+                                  "needs_review",
+                                  "rejected"
+                                ]
+                              },
+                              "evidenceFactIds": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string",
+                                  "format": "uuid"
+                                }
+                              },
+                              "version": {
+                                "type": "integer",
+                                "exclusiveMinimum": 0
+                              },
+                              "createdAt": {
+                                "type": "string",
+                                "format": "date-time"
+                              },
+                              "updatedAt": {
+                                "type": "string",
+                                "format": "date-time"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "packId",
+                              "kind",
+                              "style",
+                              "title",
+                              "content",
+                              "plainText",
+                              "truthGateStatus",
+                              "evidenceFactIds",
+                              "version",
+                              "createdAt",
+                              "updatedAt"
+                            ]
+                          }
+                        },
+                        "finalized": {
+                          "type": "boolean"
+                        },
+                        "generatedKinds": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "enum": [
+                              "resume",
+                              "cover_letter",
+                              "strategy",
+                              "requirement_map",
+                              "recruiter_message",
+                              "interview_prep"
+                            ]
+                          }
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "careerProfileId",
+                        "jobId",
+                        "status",
+                        "matchSnapshot",
+                        "modelVersion",
+                        "promptVersion",
+                        "evidenceFactIds",
+                        "errorCode",
+                        "generatedAt",
+                        "version",
+                        "createdAt",
+                        "updatedAt",
+                        "job",
+                        "applyUrl",
+                        "artifacts",
+                        "finalized",
+                        "generatedKinds"
+                      ]
+                    },
+                    "meta": {
+                      "type": "object",
+                      "properties": {
+                        "apiVersion": {
+                          "type": "string",
+                          "enum": [
+                            "v1"
+                          ]
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "format": "uuid"
+                        }
+                      },
+                      "required": [
+                        "apiVersion",
+                        "requestId"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "meta"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "VALIDATION_ERROR",
+                            "AUTHENTICATION_REQUIRED",
+                            "FORBIDDEN",
+                            "NOT_FOUND",
+                            "CONFLICT",
+                            "RATE_LIMITED",
+                            "ENTITLEMENT_REQUIRED",
+                            "SUBSCRIPTION_INACTIVE",
+                            "ACCOUNT_SUSPENDED",
+                            "INTERNAL_ERROR",
+                            "SERVICE_UNAVAILABLE"
+                          ]
+                        },
+                        "message": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "details": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "path": {
+                                "type": "array",
+                                "items": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "number"
+                                    }
+                                  ]
+                                }
+                              },
+                              "code": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "message": {
+                                "type": "string",
+                                "minLength": 1
+                              }
+                            },
+                            "required": [
+                              "path",
+                              "code",
+                              "message"
+                            ]
+                          }
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "meta": {
+                      "type": "object",
+                      "properties": {
+                        "apiVersion": {
+                          "type": "string",
+                          "enum": [
+                            "v1"
+                          ]
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "format": "uuid"
+                        }
+                      },
+                      "required": [
+                        "apiVersion",
+                        "requestId"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error",
+                    "meta"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "VALIDATION_ERROR",
+                            "AUTHENTICATION_REQUIRED",
+                            "FORBIDDEN",
+                            "NOT_FOUND",
+                            "CONFLICT",
+                            "RATE_LIMITED",
+                            "ENTITLEMENT_REQUIRED",
+                            "SUBSCRIPTION_INACTIVE",
+                            "ACCOUNT_SUSPENDED",
+                            "INTERNAL_ERROR",
+                            "SERVICE_UNAVAILABLE"
+                          ]
+                        },
+                        "message": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "details": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "path": {
+                                "type": "array",
+                                "items": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "number"
+                                    }
+                                  ]
+                                }
+                              },
+                              "code": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "message": {
+                                "type": "string",
+                                "minLength": 1
+                              }
+                            },
+                            "required": [
+                              "path",
+                              "code",
+                              "message"
+                            ]
+                          }
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "meta": {
+                      "type": "object",
+                      "properties": {
+                        "apiVersion": {
+                          "type": "string",
+                          "enum": [
+                            "v1"
+                          ]
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "format": "uuid"
+                        }
+                      },
+                      "required": [
+                        "apiVersion",
+                        "requestId"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error",
+                    "meta"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "VALIDATION_ERROR",
+                            "AUTHENTICATION_REQUIRED",
+                            "FORBIDDEN",
+                            "NOT_FOUND",
+                            "CONFLICT",
+                            "RATE_LIMITED",
+                            "ENTITLEMENT_REQUIRED",
+                            "SUBSCRIPTION_INACTIVE",
+                            "ACCOUNT_SUSPENDED",
+                            "INTERNAL_ERROR",
+                            "SERVICE_UNAVAILABLE"
+                          ]
+                        },
+                        "message": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "details": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "path": {
+                                "type": "array",
+                                "items": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "number"
+                                    }
+                                  ]
+                                }
+                              },
+                              "code": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "message": {
+                                "type": "string",
+                                "minLength": 1
+                              }
+                            },
+                            "required": [
+                              "path",
+                              "code",
+                              "message"
+                            ]
+                          }
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "meta": {
+                      "type": "object",
+                      "properties": {
+                        "apiVersion": {
+                          "type": "string",
+                          "enum": [
+                            "v1"
+                          ]
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "format": "uuid"
+                        }
+                      },
+                      "required": [
+                        "apiVersion",
+                        "requestId"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error",
+                    "meta"
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "VALIDATION_ERROR",
+                            "AUTHENTICATION_REQUIRED",
+                            "FORBIDDEN",
+                            "NOT_FOUND",
+                            "CONFLICT",
+                            "RATE_LIMITED",
+                            "ENTITLEMENT_REQUIRED",
+                            "SUBSCRIPTION_INACTIVE",
+                            "ACCOUNT_SUSPENDED",
+                            "INTERNAL_ERROR",
+                            "SERVICE_UNAVAILABLE"
+                          ]
+                        },
+                        "message": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "details": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "path": {
+                                "type": "array",
+                                "items": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "number"
+                                    }
+                                  ]
+                                }
+                              },
+                              "code": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "message": {
+                                "type": "string",
+                                "minLength": 1
+                              }
+                            },
+                            "required": [
+                              "path",
+                              "code",
+                              "message"
+                            ]
+                          }
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "meta": {
+                      "type": "object",
+                      "properties": {
+                        "apiVersion": {
+                          "type": "string",
+                          "enum": [
+                            "v1"
+                          ]
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "format": "uuid"
+                        }
+                      },
+                      "required": [
+                        "apiVersion",
+                        "requestId"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error",
+                    "meta"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/me/usage": {
       "get": {
         "operationId": "getUsageSummary",
@@ -64624,6 +65527,831 @@
                       },
                       "required": [
                         "resolved"
+                      ]
+                    },
+                    "meta": {
+                      "type": "object",
+                      "properties": {
+                        "apiVersion": {
+                          "type": "string",
+                          "enum": [
+                            "v1"
+                          ]
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "format": "uuid"
+                        }
+                      },
+                      "required": [
+                        "apiVersion",
+                        "requestId"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "meta"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "VALIDATION_ERROR",
+                            "AUTHENTICATION_REQUIRED",
+                            "FORBIDDEN",
+                            "NOT_FOUND",
+                            "CONFLICT",
+                            "RATE_LIMITED",
+                            "ENTITLEMENT_REQUIRED",
+                            "SUBSCRIPTION_INACTIVE",
+                            "ACCOUNT_SUSPENDED",
+                            "INTERNAL_ERROR",
+                            "SERVICE_UNAVAILABLE"
+                          ]
+                        },
+                        "message": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "details": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "path": {
+                                "type": "array",
+                                "items": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "number"
+                                    }
+                                  ]
+                                }
+                              },
+                              "code": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "message": {
+                                "type": "string",
+                                "minLength": 1
+                              }
+                            },
+                            "required": [
+                              "path",
+                              "code",
+                              "message"
+                            ]
+                          }
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "meta": {
+                      "type": "object",
+                      "properties": {
+                        "apiVersion": {
+                          "type": "string",
+                          "enum": [
+                            "v1"
+                          ]
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "format": "uuid"
+                        }
+                      },
+                      "required": [
+                        "apiVersion",
+                        "requestId"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error",
+                    "meta"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "VALIDATION_ERROR",
+                            "AUTHENTICATION_REQUIRED",
+                            "FORBIDDEN",
+                            "NOT_FOUND",
+                            "CONFLICT",
+                            "RATE_LIMITED",
+                            "ENTITLEMENT_REQUIRED",
+                            "SUBSCRIPTION_INACTIVE",
+                            "ACCOUNT_SUSPENDED",
+                            "INTERNAL_ERROR",
+                            "SERVICE_UNAVAILABLE"
+                          ]
+                        },
+                        "message": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "details": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "path": {
+                                "type": "array",
+                                "items": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "number"
+                                    }
+                                  ]
+                                }
+                              },
+                              "code": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "message": {
+                                "type": "string",
+                                "minLength": 1
+                              }
+                            },
+                            "required": [
+                              "path",
+                              "code",
+                              "message"
+                            ]
+                          }
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "meta": {
+                      "type": "object",
+                      "properties": {
+                        "apiVersion": {
+                          "type": "string",
+                          "enum": [
+                            "v1"
+                          ]
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "format": "uuid"
+                        }
+                      },
+                      "required": [
+                        "apiVersion",
+                        "requestId"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error",
+                    "meta"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "VALIDATION_ERROR",
+                            "AUTHENTICATION_REQUIRED",
+                            "FORBIDDEN",
+                            "NOT_FOUND",
+                            "CONFLICT",
+                            "RATE_LIMITED",
+                            "ENTITLEMENT_REQUIRED",
+                            "SUBSCRIPTION_INACTIVE",
+                            "ACCOUNT_SUSPENDED",
+                            "INTERNAL_ERROR",
+                            "SERVICE_UNAVAILABLE"
+                          ]
+                        },
+                        "message": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "details": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "path": {
+                                "type": "array",
+                                "items": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "number"
+                                    }
+                                  ]
+                                }
+                              },
+                              "code": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "message": {
+                                "type": "string",
+                                "minLength": 1
+                              }
+                            },
+                            "required": [
+                              "path",
+                              "code",
+                              "message"
+                            ]
+                          }
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "meta": {
+                      "type": "object",
+                      "properties": {
+                        "apiVersion": {
+                          "type": "string",
+                          "enum": [
+                            "v1"
+                          ]
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "format": "uuid"
+                        }
+                      },
+                      "required": [
+                        "apiVersion",
+                        "requestId"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error",
+                    "meta"
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "VALIDATION_ERROR",
+                            "AUTHENTICATION_REQUIRED",
+                            "FORBIDDEN",
+                            "NOT_FOUND",
+                            "CONFLICT",
+                            "RATE_LIMITED",
+                            "ENTITLEMENT_REQUIRED",
+                            "SUBSCRIPTION_INACTIVE",
+                            "ACCOUNT_SUSPENDED",
+                            "INTERNAL_ERROR",
+                            "SERVICE_UNAVAILABLE"
+                          ]
+                        },
+                        "message": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "details": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "path": {
+                                "type": "array",
+                                "items": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "number"
+                                    }
+                                  ]
+                                }
+                              },
+                              "code": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "message": {
+                                "type": "string",
+                                "minLength": 1
+                              }
+                            },
+                            "required": [
+                              "path",
+                              "code",
+                              "message"
+                            ]
+                          }
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "meta": {
+                      "type": "object",
+                      "properties": {
+                        "apiVersion": {
+                          "type": "string",
+                          "enum": [
+                            "v1"
+                          ]
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "format": "uuid"
+                        }
+                      },
+                      "required": [
+                        "apiVersion",
+                        "requestId"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error",
+                    "meta"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/me/career/insights": {
+      "get": {
+        "operationId": "getCareerInsights",
+        "summary": "Deterministic coaching and analytics for the active career profile",
+        "tags": [
+          "User"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": false,
+            "name": "careerProfileId",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 52,
+              "default": 8
+            },
+            "required": false,
+            "name": "windowWeeks",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "hasProfile": {
+                          "type": "boolean"
+                        },
+                        "careerProfileId": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "profileName": {
+                          "type": "string",
+                          "maxLength": 120
+                        },
+                        "windowWeeks": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 52
+                        },
+                        "confirmedFactCount": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "profileStrength": {
+                          "type": [
+                            "object",
+                            "null"
+                          ],
+                          "properties": {
+                            "completenessPercent": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 100
+                            },
+                            "fields": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "field": {
+                                    "type": "string",
+                                    "maxLength": 60
+                                  },
+                                  "label": {
+                                    "type": "string",
+                                    "maxLength": 120
+                                  },
+                                  "present": {
+                                    "type": "boolean"
+                                  },
+                                  "impact": {
+                                    "type": "string",
+                                    "maxLength": 500
+                                  }
+                                },
+                                "required": [
+                                  "field",
+                                  "label",
+                                  "present",
+                                  "impact"
+                                ]
+                              }
+                            }
+                          },
+                          "required": [
+                            "completenessPercent",
+                            "fields"
+                          ]
+                        },
+                        "matching": {
+                          "type": [
+                            "object",
+                            "null"
+                          ],
+                          "properties": {
+                            "opportunitiesMatched": {
+                              "type": "integer",
+                              "minimum": 0
+                            },
+                            "strongMatches": {
+                              "type": "integer",
+                              "minimum": 0
+                            },
+                            "strongMatchRate": {
+                              "type": [
+                                "number",
+                                "null"
+                              ],
+                              "minimum": 0,
+                              "maximum": 100
+                            }
+                          },
+                          "required": [
+                            "opportunitiesMatched",
+                            "strongMatches",
+                            "strongMatchRate"
+                          ]
+                        },
+                        "pipeline": {
+                          "type": [
+                            "object",
+                            "null"
+                          ],
+                          "properties": {
+                            "saved": {
+                              "type": "integer",
+                              "minimum": 0
+                            },
+                            "applied": {
+                              "type": "integer",
+                              "minimum": 0
+                            },
+                            "interviewing": {
+                              "type": "integer",
+                              "minimum": 0
+                            },
+                            "offers": {
+                              "type": "integer",
+                              "minimum": 0
+                            },
+                            "rejected": {
+                              "type": "integer",
+                              "minimum": 0
+                            },
+                            "interviewRate": {
+                              "type": [
+                                "number",
+                                "null"
+                              ],
+                              "minimum": 0,
+                              "maximum": 100
+                            },
+                            "offerRate": {
+                              "type": [
+                                "number",
+                                "null"
+                              ],
+                              "minimum": 0,
+                              "maximum": 100
+                            },
+                            "rejectionRate": {
+                              "type": [
+                                "number",
+                                "null"
+                              ],
+                              "minimum": 0,
+                              "maximum": 100
+                            }
+                          },
+                          "required": [
+                            "saved",
+                            "applied",
+                            "interviewing",
+                            "offers",
+                            "rejected",
+                            "interviewRate",
+                            "offerRate",
+                            "rejectionRate"
+                          ]
+                        },
+                        "gaps": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "skill": {
+                                "type": "string",
+                                "maxLength": 120
+                              },
+                              "opportunityCount": {
+                                "type": "integer",
+                                "exclusiveMinimum": 0
+                              }
+                            },
+                            "required": [
+                              "skill",
+                              "opportunityCount"
+                            ]
+                          }
+                        },
+                        "salary": {
+                          "type": [
+                            "object",
+                            "null"
+                          ],
+                          "properties": {
+                            "observedMinMinor": {
+                              "type": [
+                                "integer",
+                                "null"
+                              ],
+                              "exclusiveMinimum": 0
+                            },
+                            "observedMaxMinor": {
+                              "type": [
+                                "integer",
+                                "null"
+                              ],
+                              "exclusiveMinimum": 0
+                            },
+                            "observedCurrency": {
+                              "type": [
+                                "string",
+                                "null"
+                              ],
+                              "minLength": 3,
+                              "maxLength": 3
+                            },
+                            "observedSampleSize": {
+                              "type": "integer",
+                              "minimum": 0
+                            },
+                            "expectationMinMinor": {
+                              "type": [
+                                "integer",
+                                "null"
+                              ],
+                              "exclusiveMinimum": 0
+                            },
+                            "expectationMaxMinor": {
+                              "type": [
+                                "integer",
+                                "null"
+                              ],
+                              "exclusiveMinimum": 0
+                            },
+                            "expectationCurrency": {
+                              "type": [
+                                "string",
+                                "null"
+                              ],
+                              "minLength": 3,
+                              "maxLength": 3
+                            },
+                            "belowExpectationCount": {
+                              "type": [
+                                "integer",
+                                "null"
+                              ],
+                              "minimum": 0
+                            }
+                          },
+                          "required": [
+                            "observedMinMinor",
+                            "observedMaxMinor",
+                            "observedCurrency",
+                            "observedSampleSize",
+                            "expectationMinMinor",
+                            "expectationMaxMinor",
+                            "expectationCurrency",
+                            "belowExpectationCount"
+                          ]
+                        },
+                        "directions": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "title": {
+                                "type": "string",
+                                "maxLength": 300
+                              },
+                              "opportunityCount": {
+                                "type": "integer",
+                                "exclusiveMinimum": 0
+                              },
+                              "averageScore": {
+                                "type": [
+                                  "number",
+                                  "null"
+                                ],
+                                "minimum": 0,
+                                "maximum": 100
+                              }
+                            },
+                            "required": [
+                              "title",
+                              "opportunityCount",
+                              "averageScore"
+                            ]
+                          }
+                        },
+                        "activity": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "weekStart": {
+                                "type": "string",
+                                "format": "date"
+                              },
+                              "opportunitiesMatched": {
+                                "type": "integer",
+                                "minimum": 0
+                              },
+                              "applicationsStarted": {
+                                "type": "integer",
+                                "minimum": 0
+                              }
+                            },
+                            "required": [
+                              "weekStart",
+                              "opportunitiesMatched",
+                              "applicationsStarted"
+                            ]
+                          }
+                        },
+                        "coaching": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "key": {
+                                "type": "string",
+                                "maxLength": 60
+                              },
+                              "title": {
+                                "type": "string",
+                                "maxLength": 200
+                              },
+                              "detail": {
+                                "type": "string",
+                                "maxLength": 1000
+                              },
+                              "action": {
+                                "type": "string",
+                                "maxLength": 300
+                              },
+                              "priority": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 10
+                              },
+                              "evidence": {
+                                "type": "object",
+                                "additionalProperties": {}
+                              }
+                            },
+                            "required": [
+                              "key",
+                              "title",
+                              "detail",
+                              "action",
+                              "priority",
+                              "evidence"
+                            ]
+                          }
+                        },
+                        "evaluatedAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        }
+                      },
+                      "required": [
+                        "hasProfile",
+                        "profileStrength",
+                        "matching",
+                        "pipeline",
+                        "gaps",
+                        "salary",
+                        "directions",
+                        "activity",
+                        "coaching"
                       ]
                     },
                     "meta": {

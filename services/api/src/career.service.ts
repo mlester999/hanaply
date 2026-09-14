@@ -11,7 +11,6 @@ import {
   generateApplicationPackSchema,
   jobFeedbackSchema,
   jobRadarQuerySchema,
-  packArtifactStyles,
   saveJobSchema,
   setApplicationStageSchema,
   trackApplicationSchema,
