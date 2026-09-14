@@ -928,10 +928,16 @@ function citationListsFrom(value: unknown, path: string): CitationList[] {
   for (const [key, entry] of Object.entries(value)) {
     if (key === 'evidenceFactIds' || key === 'factId') {
       // `factId` is the single-citation form used by `strongestEvidence`; it is
-      // held to exactly the same rule as the plural list.
-      const raw = key === 'factId' ? [entry] : Array.isArray(entry) ? entry : [];
-      const ids = raw.filter((id): id is string => typeof id === 'string');
-      results.push({ path: `${path}.${key}`, ids, malformed: ids.length !== raw.length });
+      // held to exactly the same rule as the plural list. A plural list must be
+      // an array, and every element of it a string: a value of the wrong shape
+      // is an ambiguous citation, and an ambiguous citation is refused rather
+      // than read as an empty list. Treating a number, an object, or a bare
+      // string as "no citations" would let a response omit the form the rule is
+      // written about and be accepted for it.
+      const raw = key === 'factId' ? [entry] : entry;
+      const wellFormed = Array.isArray(raw) && raw.every((id) => typeof id === 'string');
+      const ids = wellFormed ? raw.filter((id): id is string => typeof id === 'string') : [];
+      results.push({ path: `${path}.${key}`, ids, malformed: !wellFormed });
       continue;
     }
     results.push(...citationListsFrom(entry, `${path}.${key}`));

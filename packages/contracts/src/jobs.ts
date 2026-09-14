@@ -175,6 +175,16 @@ export const jobSourceProvenanceSchema = z.object({
 
 export const jobDetailSchema = z.object({
   ...jobCoreShape,
+  /**
+   * When the posting is expected to lapse.
+   *
+   * Part of the canonical job card — `app_private.job_card_snapshot` has always
+   * emitted it, and `jobCardSchema` has always declared it — but it was missing
+   * here, and this schema is not strict, so the value the read model returns was
+   * silently dropped on the way to the client. A subscriber reading an
+   * opportunity could not see that it was about to expire.
+   */
+  expiresAt: isoTimestamp.nullable(),
   description: z.string().min(20).max(40_000),
   requirements: z.array(z.string().max(500)),
   preferredQualifications: z.array(z.string().max(500)),
