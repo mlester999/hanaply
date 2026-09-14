@@ -1,11 +1,7 @@
 import 'reflect-metadata';
 
 import { parseApiEnvironment } from '@hanaply/config';
-import {
-  apiContract,
-  type CareerProfileDetail,
-  type PackGenerationJob,
-} from '@hanaply/contracts';
+import { apiContract, type CareerProfileDetail, type PackGenerationJob } from '@hanaply/contracts';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { AppError } from '../../services/api/src/app-error.js';
@@ -123,7 +119,8 @@ const job: PackGenerationJob = {
   applyUrl: 'https://example.test/jobs/workflow-automation-engineer',
 };
 
-const context = {
+/** The pack row as the RPC returns it, in the shape `applicationPackSchema` describes. */
+const pack = {
   id: packId,
   careerProfileId: profileId,
   jobId,
@@ -137,6 +134,11 @@ const context = {
   version: 1,
   createdAt: now,
   updatedAt: now,
+};
+
+/** Exactly what `CareerRepository.generatePackArtifacts` resolves to. */
+const context = {
+  pack,
   job,
   applyUrl: job.applyUrl,
   artifacts: [],
@@ -267,7 +269,7 @@ describe('Application Pack generation route', () => {
     expect(contextReads).toHaveLength(2);
   });
 
-  it('persists one draft per requested kind with the shape the truth gate checks', async () => {
+  it('persists one draft per requested kind with the shape the truth gate checks', () => {
     expect(recorded).toHaveLength(2);
     expect(recorded.map((draft) => draft.kind)).toEqual(['resume', 'requirement_map']);
     for (const draft of recorded) {
@@ -279,10 +281,12 @@ describe('Application Pack generation route', () => {
     }
   });
 
-  it('cites only the confirmed evidence the RPC offered, and says so when there is none', async () => {
+  it('cites only the confirmed evidence the RPC offered, and says so when there is none', () => {
     const resume = recorded[0];
     expect(resume?.evidenceFactIds).toEqual([factId]);
-    expect(resume?.plainText).toContain('Rebuilt onboarding automation for a 40-person operations team');
+    expect(resume?.plainText).toContain(
+      'Rebuilt onboarding automation for a 40-person operations team',
+    );
     const map = recorded[1];
     expect(map?.evidenceFactIds).toEqual([]);
     expect(map?.plainText).toContain('not evidenced');

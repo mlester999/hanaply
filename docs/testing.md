@@ -10,7 +10,7 @@ This document describes every validation command, what it proves, and which gate
 | `pnpm validate:dockerless` | `validate`, plus the database is rebuilt from migrations and all pgTAP suites pass against the Dockerless cluster                        | No                            |
 | `pnpm validate:local`      | `validate`, plus local Supabase reset, schema lint, pgTAP through the Supabase CLI, generated-type drift, and the browser suite          | Yes                           |
 | `pnpm db:harness:reset`    | A throwaway PostgreSQL cluster is rebuilt from the Supabase baseline, every migration, and the seed                                      | No                            |
-| `pnpm db:harness:test`     | All 14 pgTAP suites pass against the Dockerless cluster                                                                                  | No                            |
+| `pnpm db:harness:test`     | All 18 pgTAP suites pass against the Dockerless cluster                                                                                  | No                            |
 | `pnpm test`                | Unit, component, email, and API integration suites pass                                                                                  | No                            |
 | `pnpm e2e`                 | Real browser acceptance, responsive, reduced-motion, keyboard, and Axe checks pass against a live web app, API, Supabase, and local mail | Yes                           |
 | `pnpm db:types:check`      | `packages/database/src/generated.types.ts` matches the live schema                                                                       | No, if the harness is running |
@@ -39,9 +39,9 @@ Verified in this repository: yes.
 pnpm validate && pnpm db:verify
 ```
 
-`db:verify` is `db:harness:reset && db:harness:test`. The pair proves everything `validate` proves **and** that the migration chain applies cleanly to an empty database and that all 582 pgTAP assertions pass. This is the complete gate set available without a container runtime.
+`db:verify` is `db:harness:reset && db:harness:test`. The pair proves everything `validate` proves **and** that the migration chain applies cleanly to an empty database and that all 725 pgTAP assertions pass. This is the complete gate set available without a container runtime.
 
-Verified in this repository: `pnpm validate` components were each run individually and passed; `pnpm db:harness:test` passed with 14 files and 582 assertions.
+Verified in this repository: `pnpm validate` components were each run individually and passed; `pnpm db:harness:test` passed with 18 files and 725 assertions.
 
 ### `pnpm validate:local`
 
@@ -57,7 +57,7 @@ Not run here: needs Docker Desktop and local Supabase.
 
 `node tooling/db/local-cluster.mjs reset`. In order, it resolves a port, initializes the cluster if `.localdb/pgdata` has no `PG_VERSION`, starts it, ensures pgTAP is available, drops and recreates the database, applies `tooling/db/supabase-base.sql`, installs the `pgtap` extension, applies every file in `supabase/migrations` in filename order inside a single transaction with `ON_ERROR_STOP=1`, records each in `supabase_migrations.schema_migrations`, and applies `supabase/seed.sql` when it is non-empty.
 
-Verified in this repository: the harness reported `All 14 pgTAP files passed (582 assertions)` after applying the chain, and `db:types:check` passed against it.
+Verified in this repository: the harness reported `All 18 pgTAP files passed (725 assertions)` after applying the chain, and `db:types:check` passed against it.
 
 ### `pnpm db:harness:test`
 
@@ -225,10 +225,14 @@ The net effect is that `create extension pgtap` resolves to a locally generated 
 | `110_career_radar.test.sql`               |         49 | Saved jobs, feedback, match persistence, the evidence trigger, and the radar and detail read models                     |
 | `120_application_packs.test.sql`          |         54 | Usage metering and idempotency, pack creation, artifact truth gating, the tracker, and the timeline                     |
 | `130_notifications.test.sql`              |         40 | Notification consent and entitlement gating, quiet hours, the outbox, idempotent queueing, and claim/complete/release   |
+| `140_admin_job_operations.test.sql`       |         42 | Provider governance, ingestion health, the job directory, and deduplication diagnostics                                 |
+| `150_career_insights.test.sql`            |         32 | Insight rates that are null rather than zero, and coaching that carries the count behind it                             |
+| `160_cross_user_isolation.test.sql`       |         50 | Adversarial cross-user reads and writes across every customer table                                                     |
+| `170_pack_generation.test.sql`            |         19 | Generation ownership, the frozen evidence set, and refusing to mark a pack ready with no artifact                       |
 
-**Total: 582 assertions across 14 files.**
+**Total: 725 assertions across 18 files.**
 
-Verified in this repository: all 14 files passed, 582 of 582 assertions.
+Verified in this repository: all 18 files passed, 725 of 725 assertions.
 
 ## What needs Docker
 

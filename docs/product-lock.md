@@ -44,12 +44,11 @@ The tables, SQL functions, API routes, server actions, and pages exist for appli
 - `/dashboard/packs` shows the period allowance and the member's packs. `/dashboard/packs/[packId]` shows the pack status, how many confirmed career facts back it, and any stored artifacts with their own truth-gate result.
 - `/dashboard/applications` is the tracker board, grouped by stage, with notes, next actions, and a per-application timeline.
 
-What does **not** exist is artifact content generation. Nothing in the repository calls `record_application_artifact` or `complete_application_pack`, so a created pack has no artifacts, and its detail page shows an empty state rather than a placeholder. Hanaply does not write resumes, cover letters, or screening answers today.
+Artifact content is generated deterministically. `POST /v1/me/application-packs/{packId}/generate` reads the pack's frozen match snapshot, the confirmed career facts the pack froze, the career profile, and the posting from `public.generate_application_pack_artifacts`, assembles one draft per requested kind in `services/api/src/pack-generation.ts`, and records each draft through `public.record_application_artifact`. The truth gate therefore still decides what may be persisted, and a pack cannot be marked ready before it has an artifact.
 
 ## What is not implemented
 
-- **Live AI generation.** `packages/ai/src/index.ts` exports only `DisabledAiProvider`, whose `generate` rejects. No service imports it or any provider SDK.
-- **Application artifact generation.** Pack creation, viewing, usage display, and the tracker ship; the generator that would populate `application_artifacts` does not.
+- **Live AI generation.** `packages/ai/src/index.ts` exports only `DisabledAiProvider`, whose `generate` rejects. No service imports it or any provider SDK. Artifact content is written by deterministic code instead, so nothing in the product is model-generated today.
 - **Account export and deletion.** No route, no worker.
 - **Opportunity notification delivery in operation.** Consent toggles, quiet hours, the `notification_outbox`, consent-and-entitlement gating, `job-alert` and `daily-digest` templates, and the queue/claim/deliver/complete cycle in `services/worker/src/jobs.ts` all exist, but the shipped `EMAIL_PROVIDER` is `disabled`, so nothing leaves the process until an owner configures and approves Resend and sender DNS. `instant_alerts` and `weekly_strategy` are stored preferences with no queue function or template, and browser push is not implemented at all.
 - **A production task queue.** `services/worker/src/queue.ts` is test-only.

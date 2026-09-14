@@ -5,7 +5,7 @@ No hosted project, external provider, DNS record, production infrastructure, dep
 ## Hosted Supabase
 
 1. Create or select an owner-controlled project and approve its region, data residency, plan, backups, PITR, and access ownership.
-2. Review all 27 forward migrations and 14 pgTAP suites from the release commit.
+2. Review all 30 forward migrations and 18 pgTAP suites from the release commit.
 3. Link the Supabase CLI only from an owner-controlled shell. Preview migration changes, back up staging, apply them intentionally, regenerate types, and confirm no drift.
 4. Configure exact staging and production Site URLs and redirect allowlists for signup and recovery. Remove localhost entries from production-only configuration.
 5. Set Auth confirmation on, secure password change on, one-hour OTP expiry, and the reviewed confirmation, recovery, and password-change templates.

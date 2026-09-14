@@ -45,21 +45,22 @@ Runtime-neutral packages avoid DOM and Node-only dependencies where mobile reuse
 
 ## The product loop and its owners
 
-| Step                          | Owner                                                                                                | Notes                                                                                     |
-| ----------------------------- | ---------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| Career profile and records    | `/v1/me/career/*` in `services/api` → `career_profiles` and related tables                           | Limits enforced inside `public.create_career_profile` and `public.upsert_career_record`   |
-| Resume upload and extraction  | `services/api/src/career-files.ts` validates bytes; `career-extraction.ts` parses                    | Deterministic; produces a `needs_review` draft, never a trusted record                    |
-| Truth ledger                  | `public.record_career_facts` and `public.decide_career_fact`                                         | Only `user_entered` facts are auto-confirmed; extraction results start as `candidate`     |
-| Job ingestion                 | `services/worker/src/jobs.ts` + `@hanaply/jobs` → `public.upsert_ingested_job`                       | One shared scan per source; see [Job ingestion](job-ingestion.md)                         |
-| Deduplication                 | `public.upsert_ingested_job` proposes merges; `packages/jobs/src/dedupe.ts` scores review candidates | Provenance is retained per source posting                                                 |
-| Freshness                     | `public.refresh_job_freshness`, driven by the worker's freshness cycle                               | Active → stale → expired                                                                  |
-| Match computation             | `@hanaply/matching` scored in the worker, persisted by `public.record_job_matches`                   | Scores are cached in `job_matches`; see [AI and truth gating](ai-and-truth-gating.md)     |
-| Radar feed and job detail     | `public.job_radar` and `public.job_detail`, exposed as `/v1/me/jobs*`                                | Ranking reads cached matches, so an unscored job sorts after scored ones                  |
-| Save, unsave, feedback        | `public.save_job`, `public.unsave_job`, `public.record_job_feedback`                                 | Negative feedback removes a posting from `matching_job_candidates`                        |
-| Application packs and usage   | `public.create_application_pack`, `app_private.consume_usage`, artifact truth gate                   | Creation, listing, detail, and allowance display ship; nothing generates artifact content |
-| Application tracker           | `public.upsert_job_application`, `public.set_application_stage`, `public.application_timeline`       | Board, per-stage grouping, notes, next actions, and timeline ship                         |
-| Manual payment and activation | `services/api/src/payment.*` → `public.approve_payment_submission` and friends                       | No payment-provider integration; approval is an authorized manual decision                |
-| Entitlement resolution        | `packages/entitlements` in the API and `app_private.career_entitlements` in SQL                      | Both fail closed; see [Entitlements](entitlements.md)                                     |
+| Step                          | Owner                                                                                                | Notes                                                                                        |
+| ----------------------------- | ---------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| Career profile and records    | `/v1/me/career/*` in `services/api` → `career_profiles` and related tables                           | Limits enforced inside `public.create_career_profile` and `public.upsert_career_record`      |
+| Resume upload and extraction  | `services/api/src/career-files.ts` validates bytes; `career-extraction.ts` parses                    | Deterministic; produces a `needs_review` draft, never a trusted record                       |
+| Truth ledger                  | `public.record_career_facts` and `public.decide_career_fact`                                         | Only `user_entered` facts are auto-confirmed; extraction results start as `candidate`        |
+| Job ingestion                 | `services/worker/src/jobs.ts` + `@hanaply/jobs` → `public.upsert_ingested_job`                       | One shared scan per source; see [Job ingestion](job-ingestion.md)                            |
+| Deduplication                 | `public.upsert_ingested_job` proposes merges; `packages/jobs/src/dedupe.ts` scores review candidates | Provenance is retained per source posting                                                    |
+| Freshness                     | `public.refresh_job_freshness`, driven by the worker's freshness cycle                               | Active → stale → expired                                                                     |
+| Match computation             | `@hanaply/matching` scored in the worker, persisted by `public.record_job_matches`                   | Scores are cached in `job_matches`; see [AI and truth gating](ai-and-truth-gating.md)        |
+| Radar feed and job detail     | `public.job_radar` and `public.job_detail`, exposed as `/v1/me/jobs*`                                | Ranking reads cached matches, so an unscored job sorts after scored ones                     |
+| Save, unsave, feedback        | `public.save_job`, `public.unsave_job`, `public.record_job_feedback`                                 | Negative feedback removes a posting from `matching_job_candidates`                           |
+| Application packs and usage   | `public.create_application_pack`, `app_private.consume_usage`, artifact truth gate                   | Creation, listing, detail, allowance display, and deterministic artifact generation ship     |
+| Pack artifact generation      | `public.generate_application_pack_artifacts` + `services/api/src/pack-generation.ts`                 | The database supplies context and refuses foreign packs; a ready pack always has an artifact |
+| Application tracker           | `public.upsert_job_application`, `public.set_application_stage`, `public.application_timeline`       | Board, per-stage grouping, notes, next actions, and timeline ship                            |
+| Manual payment and activation | `services/api/src/payment.*` → `public.approve_payment_submission` and friends                       | No payment-provider integration; approval is an authorized manual decision                   |
+| Entitlement resolution        | `packages/entitlements` in the API and `app_private.career_entitlements` in SQL                      | Both fail closed; see [Entitlements](entitlements.md)                                        |
 
 ## Contract flow
 
@@ -78,7 +79,7 @@ Successful responses contain `data` and `meta.apiVersion` / `meta.requestId`. Er
 
 ## API route families
 
-Counted from `apiContract`: 87 routes total — 5 public, 53 authenticated-user, and 29 admin. Grouping below is by path prefix, because the registry has no explicit group field.
+Counted from `apiContract`: 99 operations — 5 public, 55 authenticated-user, and 39 admin. Grouping below is by path prefix, because the registry has no explicit group field. The family counts cover the career, radar, application-pack, and payment surfaces; the notification, admin job-operations, and career-insights routes were added after this table was written, which is why the rows below sum to less than the total above.
 
 | Family                            | Routes | Contract key examples                                                                                                                                                                               |
 | --------------------------------- | -----: | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -88,17 +89,17 @@ Counted from `apiContract`: 87 routes total — 5 public, 53 authenticated-user,
 | Caller subscription and payments  |     10 | `mySubscription`, `myPaymentSubmissions`, `createPaymentSubmission`, `uploadPaymentProof`, `submitPaymentSubmission`, `cancelPaymentSubmission`, `resubmitPaymentSubmission`                        |
 | Career intelligence profile       |     21 | `careerProfiles`, `careerProfile`, `upsertCareerRecord`, `recordCareerFacts`, `decideCareerFact`, `careerDocuments`, `uploadCareerDocument`, `applyCareerDocumentExtraction`, `setOnboardingStatus` |
 | Career Radar                      |      5 | `jobRadar`, `jobDetail`, `saveJob`, `unsaveJob`, `recordJobFeedback`                                                                                                                                |
-| Application packs, usage, tracker |      8 | `applicationPacks`, `createApplicationPack`, `applicationPack`, `usageSummary`, `applicationTracker`, `trackApplication`, `applicationTimeline`, `setApplicationStage`                              |
+| Application packs, usage, tracker |      9 | `applicationPacks`, `createApplicationPack`, `applicationPack`, `generateApplicationPack`, `usageSummary`, `applicationTracker`, `trackApplication`, `applicationTimeline`, `setApplicationStage`   |
 | Admin core                        |      9 | `adminMe`, `adminOverview`, `adminUsers`, `adminUser`, `adminSuspendUser`, `adminRestoreUser`, `adminRevokeUserSessions`, `adminAudit`, `adminSecurity`                                             |
 | Admin payment methods             |      8 | `adminPaymentMethods`, `createAdminPaymentMethod`, `enableAdminPaymentMethod`, `uploadAdminPaymentMethodQr`                                                                                         |
 | Admin payment review              |      9 | `adminPaymentSubmissions`, `startPaymentReview`, `requestPaymentInformation`, `approvePaymentSubmission`, `rejectPaymentSubmission`, `recordPaymentRefund`, `reversePaymentApproval`                |
 | Admin subscriptions               |      3 | `adminSubscriptions`, `adminSubscription`, `correctAdminSubscription`                                                                                                                               |
 
-Those families sum to 87. The three comment banners inside `api-contract.ts` group the career, radar, and application-pack sections explicitly; every other family above is inferred from the path prefix.
+Those families sum to 88 as listed. The three comment banners inside `api-contract.ts` group the career, radar, and application-pack sections explicitly; every other family above is inferred from the path prefix.
 
 `DocumentationController` additionally serves `GET /openapi.json` and `GET /docs`, which are not contract entries. Both are available only when `OPENAPI_ENABLED` is true and `HANAPLY_ENV` is not `production`.
 
-Controllers: `PublicController` (5 handlers), `UserController` (7), `CustomerPaymentController` (12), `CareerController` (34), `AdminController` (9), `AdminPaymentController` (20), and `DocumentationController` (2). The first six sum to 87, matching the registry exactly.
+Controllers: `PublicController` (5 handlers), `UserController` (7), `CustomerPaymentController` (12), `CareerController` (35), `AdminController` (9), `AdminPaymentController` (20), and `DocumentationController` (2). Those sum to 88. The registry is the source of truth: this list describes the controllers above and not any route family added after it was written.
 
 ## Trust boundary
 

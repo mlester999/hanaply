@@ -23,7 +23,7 @@ Implementation status by area. "Implemented" means the code, schema, and tests e
 | Career Radar feed, job detail, save, feedback                                  | Implemented                           | `20260916095000`, `/v1/me/jobs*`, `apps/web/src/app/(customer)/dashboard/radar/**`                                                                                    |
 | Application packs, usage metering, tracker data and API                        | Implemented                           | `20260918090000`, `/v1/me/application-packs`, `/v1/me/usage`, `/v1/me/applications`                                                                                   |
 | Application pack and tracker web surfaces                                      | Implemented                           | `apps/web/src/app/(customer)/dashboard/packs/**` and `applications/**`, `components/application/**`                                                                   |
-| Application artifact generation                                                | **Not implemented**                   | Nothing in the repository calls `record_application_artifact` or `complete_application_pack`; a new pack stays without artifacts                                      |
+| Application artifact generation                                                | Implemented deterministically         | `20260922090000`, `services/api/src/pack-generation.ts`, `POST /v1/me/application-packs/{packId}/generate`; no model is involved                                      |
 | Live AI generation                                                             | **Not implemented**                   | `packages/ai/src/index.ts` exports only `DisabledAiProvider`; nothing imports it                                                                                      |
 | Account export and deletion                                                    | Not implemented                       | No export route, no deletion route, no deletion worker                                                                                                                |
 | Job alerts and digest notifications                                            | Implemented, undeliverable by default | `20260919090000` plus the notification cycle in `services/worker/src/jobs.ts`; delivery needs an email provider, so with the default `EMAIL_PROVIDER` nothing is sent |
@@ -53,7 +53,9 @@ The career-foundation half of the Phase 2 entry is also now implemented, minus t
 
 ### 1. Generate application artifact content
 
-Pack creation, listing, pack detail, allowance display, and the tracker are shipped and API-backed. The declared SQL entry points for content — `record_application_artifact` and `complete_application_pack` — are never called by any code in this repository, so a created pack has no artifacts and its detail page shows an empty state. Until a generator exists, Hanaply does not write resumes or cover letters, and the interface says so rather than presenting a placeholder.
+Implemented deterministically. `services/api/src/pack-generation.ts` assembles all six artifact kinds from the career profile, the confirmed career facts, the posting, and the match snapshot the pack froze at creation; `public.generate_application_pack_artifacts` supplies that context and refuses a pack the caller does not own, and every draft is recorded through `public.record_application_artifact` so the truth gate still decides what may be persisted. A pack cannot be marked ready before it has an artifact.
+
+What is deliberately not done is model-written prose. The generator quotes confirmed facts verbatim and never computes, rounds, or scales a figure, so the same inputs always produce identical drafts. A language model may later paraphrase what this module selects; admissibility stays `career_facts.status = 'confirmed'` either way.
 
 ### 2. Approve and enable job providers
 
