@@ -155,25 +155,48 @@ revoke all on function app_private.job_source_snapshot(public.job_sources)
 
 create or replace function app_private.normalize_company_name(requested_name text)
 returns text
-language sql
+language plpgsql
 immutable
 security invoker
 set search_path = ''
 as $$
-  select nullif(
-    pg_catalog.regexp_replace(
-      pg_catalog.regexp_replace(
-        pg_catalog.lower(pg_catalog.btrim(coalesce(requested_name, ''))),
-        '\s*[,.]?\s*\y(inc|incorporated|corp|corporation|company|co|llc|ltd|limited|plc|gmbh|bv|nv|pte|pvt|sdn bhd|bhd)\y\.?\s*$',
-        '',
-        'g'
-      ),
-      '[^a-z0-9]+',
-      ' ',
-      'g'
-    ),
-    ''
+declare
+  normalized text;
+  stripped text;
+  previous text;
+  guard integer := 0;
+begin
+  normalized := pg_catalog.regexp_replace(
+    pg_catalog.lower(pg_catalog.btrim(coalesce(requested_name, ''))),
+    '[^a-z0-9]+',
+    ' ',
+    'g'
   );
+  previous := normalized;
+
+  -- Legal forms stack ("Meridian Support Philippines Inc"), so the suffix is
+  -- stripped repeatedly until the name stops changing. PostgreSQL ARE spells the
+  -- word boundary \y, and a single regexp_replace cannot loop on its own.
+  loop
+    stripped := pg_catalog.regexp_replace(
+      normalized,
+      '\s*[,.]?\s*\y(inc|incorporated|corp|corporation|company|co|llc|ltd|limited|plc|gmbh|bv|nv|pte|pvt|sdn bhd|bhd|philippines|ph)\y\.?\s*$',
+      '',
+      'g'
+    );
+    exit when stripped = normalized or guard >= 5;
+    normalized := stripped;
+    guard := guard + 1;
+  end loop;
+
+  normalized := pg_catalog.btrim(normalized);
+  -- A name made entirely of legal forms keeps its original wording rather than
+  -- collapsing to nothing and failing the ingestion of a real posting.
+  if normalized = '' then
+    normalized := pg_catalog.btrim(previous);
+  end if;
+  return nullif(normalized, '');
+end;
 $$;
 
 create table public.companies (

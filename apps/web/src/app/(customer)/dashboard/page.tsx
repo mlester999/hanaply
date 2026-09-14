@@ -1,15 +1,43 @@
+import { type CareerProfileDetail, type CareerProfileDirectory } from '@hanaply/contracts';
 import { Alert, Badge, Card, LinkButton, PageHeader } from '@hanaply/ui';
-import { CheckCircle2, Circle, CreditCard, LockKeyhole, Radar, UserRound } from 'lucide-react';
+import {
+  CheckCircle2,
+  Circle,
+  Compass,
+  CreditCard,
+  FileText,
+  ListChecks,
+  LockKeyhole,
+  UserRound,
+} from 'lucide-react';
 import type { Metadata } from 'next';
 
-import { requireUser } from '@/lib/session';
+import { CareerCompletenessMeter } from '@/components/career/career-completeness';
+import { humanise } from '@/lib/career';
+import { createAuthenticatedApiClient, requireUser } from '@/lib/session';
 
 export const metadata: Metadata = { title: 'Career Radar' };
 
 export default async function DashboardPage() {
-  const { me } = await requireUser();
+  const { session, me } = await requireUser();
   const preferredName = me.profile.firstName ?? me.profile.displayName ?? 'there';
   const subscriptionActive = me.subscription.status === 'active';
+  const emailVerified = me.profile.emailVerifiedAt !== null;
+  const profileDetailsComplete = Boolean(me.profile.firstName && me.profile.lastName);
+  const onboardingComplete = me.profile.onboardingStatus === 'complete';
+
+  const client = createAuthenticatedApiClient(session);
+  let directory: CareerProfileDirectory | null = null;
+  let careerProfile: CareerProfileDetail | null = null;
+  let careerUnavailable = false;
+  try {
+    directory = (await client.careerProfiles()).data;
+    const target = directory.items.find((item) => item.isPrimary) ?? directory.items[0];
+    if (target) careerProfile = (await client.careerProfile(target.id)).data;
+  } catch {
+    careerUnavailable = true;
+  }
+
   return (
     <div className="workspace-page">
       <PageHeader
@@ -35,27 +63,51 @@ export default async function DashboardPage() {
             </div>
           </div>
           <ul className="account-checklist">
-            <li>
-              <CheckCircle2 aria-hidden="true" size={19} />
-              <span>Email verified</span>
+            <li className={emailVerified ? undefined : 'account-checklist--pending'}>
+              {emailVerified ? (
+                <CheckCircle2 aria-hidden="true" size={19} />
+              ) : (
+                <Circle aria-hidden="true" size={19} />
+              )}
+              <span>{emailVerified ? 'Email verified' : 'Email verification pending'}</span>
             </li>
-            <li>
-              <CheckCircle2 aria-hidden="true" size={19} />
-              <span>Basic profile created</span>
+            <li className={profileDetailsComplete ? undefined : 'account-checklist--pending'}>
+              {profileDetailsComplete ? (
+                <CheckCircle2 aria-hidden="true" size={19} />
+              ) : (
+                <Circle aria-hidden="true" size={19} />
+              )}
+              <span>
+                {profileDetailsComplete
+                  ? 'Profile details recorded'
+                  : 'Profile details incomplete (first and last name)'}
+              </span>
             </li>
             <li>
               <CheckCircle2 aria-hidden="true" size={19} />
               <span>Protected session active</span>
             </li>
-            <li className="account-checklist--pending">
-              <Circle aria-hidden="true" size={19} />
+            <li className={subscriptionActive ? undefined : 'account-checklist--pending'}>
+              {subscriptionActive ? (
+                <CheckCircle2 aria-hidden="true" size={19} />
+              ) : (
+                <Circle aria-hidden="true" size={19} />
+              )}
               <span>
                 {subscriptionActive ? 'Subscription active' : 'Subscription activation pending'}
               </span>
             </li>
-            <li className="account-checklist--future">
-              <Circle aria-hidden="true" size={19} />
-              <span>Career profile coming in a future phase</span>
+            <li className={onboardingComplete ? undefined : 'account-checklist--pending'}>
+              {onboardingComplete ? (
+                <CheckCircle2 aria-hidden="true" size={19} />
+              ) : (
+                <Circle aria-hidden="true" size={19} />
+              )}
+              <span>
+                {onboardingComplete
+                  ? 'Career profile onboarding complete'
+                  : `Career profile onboarding ${humanise(me.profile.onboardingStatus).toLowerCase()}`}
+              </span>
             </li>
           </ul>
         </Card>
@@ -86,6 +138,79 @@ export default async function DashboardPage() {
           ) : null}
         </Card>
       </div>
+
+      <Card className="dashboard-career-card">
+        <div className="dashboard-card-heading">
+          <Compass aria-hidden="true" size={22} />
+          <div>
+            <span className="h-eyebrow">Career intelligence</span>
+            <h2>{careerProfile ? careerProfile.name : 'No career profile yet'}</h2>
+          </div>
+        </div>
+        {careerUnavailable ? (
+          <Alert title="Career profile unavailable" tone="warning">
+            Hanaply could not read your career profile just now. No completeness percentage or fact
+            count is shown rather than a number that may be stale.
+          </Alert>
+        ) : careerProfile ? (
+          <>
+            <CareerCompletenessMeter
+              label={`${careerProfile.name} completeness`}
+              percent={careerProfile.completeness.percent}
+            />
+            <dl className="dashboard-facts">
+              <div>
+                <dt>Confirmed facts</dt>
+                <dd>{careerProfile.factCounts.confirmed}</dd>
+              </div>
+              <div>
+                <dt>Claims awaiting review</dt>
+                <dd>{careerProfile.factCounts.candidate}</dd>
+              </div>
+              <div>
+                <dt>Status</dt>
+                <dd>{humanise(careerProfile.status)}</dd>
+              </div>
+              <div>
+                <dt>Missing completeness items</dt>
+                <dd>{careerProfile.completeness.missing.length}</dd>
+              </div>
+            </dl>
+            <div className="career-card-actions">
+              <LinkButton href="/dashboard/career">Open career profile</LinkButton>
+              <LinkButton href={`/dashboard/career/${careerProfile.id}/facts`} variant="secondary">
+                <ListChecks aria-hidden="true" size={18} /> Truth ledger
+              </LinkButton>
+              {!onboardingComplete ? (
+                <LinkButton href="/dashboard/onboarding" variant="secondary">
+                  Continue onboarding
+                </LinkButton>
+              ) : null}
+            </div>
+          </>
+        ) : (
+          <>
+            <p className="career-hint">
+              No career profile exists yet. Onboarding records your current situation, target roles,
+              skills, experience, education, links, and summary, then shows exactly what is still
+              missing. Nothing is invented on your behalf.
+            </p>
+            <div className="career-card-actions">
+              <LinkButton href="/dashboard/onboarding">Start onboarding</LinkButton>
+              <LinkButton href="/dashboard/career" variant="secondary">
+                Career profile hub
+              </LinkButton>
+            </div>
+          </>
+        )}
+        {directory && directory.items.length > 1 ? (
+          <p className="career-hint">
+            {directory.items.length} of {directory.limits.careerProfileLimit} allowed career
+            profiles are in use.
+          </p>
+        ) : null}
+      </Card>
+
       <section className="dashboard-shortcuts" aria-labelledby="account-shortcuts-title">
         <div className="settings-section-heading">
           <span className="h-eyebrow">Account shortcuts</span>
@@ -98,19 +223,11 @@ export default async function DashboardPage() {
           <LinkButton href="/dashboard/settings/security" variant="secondary">
             <LockKeyhole aria-hidden="true" size={18} /> Review Security
           </LinkButton>
+          <LinkButton href="/dashboard/career/documents" variant="secondary">
+            <FileText aria-hidden="true" size={18} /> Documents
+          </LinkButton>
         </div>
       </section>
-      <Card className="future-capabilities-card">
-        <Radar aria-hidden="true" size={24} />
-        <div>
-          <span className="h-eyebrow">Coming in future phases</span>
-          <h2>Career intelligence is not active yet.</h2>
-          <p>
-            Career profiles, job discovery, match analysis, and Application Packs remain deferred.
-            No jobs, matches, documents, or activity metrics are invented here.
-          </p>
-        </div>
-      </Card>
     </div>
   );
 }

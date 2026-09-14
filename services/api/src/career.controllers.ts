@@ -25,6 +25,9 @@ const careerProfilePath = routePath(apiContract.careerProfile.path);
 const careerProfileStatusPath = routePath(apiContract.setCareerProfileStatus.path);
 const careerProfilePrimaryPath = routePath(apiContract.setPrimaryCareerProfile.path);
 const careerRecordsPath = routePath(apiContract.upsertCareerRecord.path);
+const jobDetailPath = routePath(apiContract.jobDetail.path);
+const jobSavePath = routePath(apiContract.saveJob.path);
+const jobFeedbackPath = routePath(apiContract.recordJobFeedback.path);
 const careerRecordPath = routePath(apiContract.deleteCareerRecord.path);
 const careerFactsPath = routePath(apiContract.careerFacts.path);
 const careerDecisionPath = routePath(apiContract.decideCareerFact.path);
@@ -326,6 +329,81 @@ export class CareerController {
   async setOnboarding(@Req() request: AuthenticatedRequest, @Body() body: unknown) {
     return apiContract.setOnboardingStatus.response.parse(
       successEnvelope(request, await this.service.setOnboardingStatus(request, body)),
+    );
+  }
+
+  // -------------------------------------------------------------------------
+  // Career Radar
+  // -------------------------------------------------------------------------
+
+  @Get(apiContract.jobRadar.path)
+  @Throttle({ default: { limit: 240, ttl: 60_000 } })
+  async jobRadar(@Req() request: AuthenticatedRequest, @Query() query: Record<string, unknown>) {
+    return apiContract.jobRadar.response.parse(
+      successEnvelope(request, await this.service.jobRadar(request, query)),
+    );
+  }
+
+  @Get(jobDetailPath)
+  @Throttle({ default: { limit: 240, ttl: 60_000 } })
+  async jobDetail(
+    @Req() request: AuthenticatedRequest,
+    @Param() params: Record<string, unknown>,
+    @Query() query: Record<string, unknown>,
+  ) {
+    const parsed = apiContract.jobDetail.query.parse(query);
+    return apiContract.jobDetail.response.parse(
+      successEnvelope(
+        request,
+        await this.service.jobDetail(
+          request,
+          uuidOnly(params.jobId, 'jobId'),
+          parsed.careerProfileId,
+        ),
+      ),
+    );
+  }
+
+  @Post(jobSavePath)
+  @HttpCode(200)
+  @Throttle({ default: { limit: 240, ttl: 3_600_000 } })
+  async saveJob(
+    @Req() request: AuthenticatedRequest,
+    @Param() params: Record<string, unknown>,
+    @Body() body: unknown,
+  ) {
+    return apiContract.saveJob.response.parse(
+      successEnvelope(
+        request,
+        await this.service.saveJob(request, uuidOnly(params.jobId, 'jobId'), body),
+      ),
+    );
+  }
+
+  @Delete(jobSavePath)
+  @Throttle({ default: { limit: 240, ttl: 3_600_000 } })
+  async unsaveJob(@Req() request: AuthenticatedRequest, @Param() params: Record<string, unknown>) {
+    return apiContract.unsaveJob.response.parse(
+      successEnvelope(
+        request,
+        await this.service.unsaveJob(request, uuidOnly(params.jobId, 'jobId')),
+      ),
+    );
+  }
+
+  @Post(jobFeedbackPath)
+  @HttpCode(200)
+  @Throttle({ default: { limit: 240, ttl: 3_600_000 } })
+  async recordJobFeedback(
+    @Req() request: AuthenticatedRequest,
+    @Param() params: Record<string, unknown>,
+    @Body() body: unknown,
+  ) {
+    return apiContract.recordJobFeedback.response.parse(
+      successEnvelope(
+        request,
+        await this.service.recordJobFeedback(request, uuidOnly(params.jobId, 'jobId'), body),
+      ),
     );
   }
 }

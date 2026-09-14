@@ -6,6 +6,9 @@ import {
   careerProfileInputSchema,
   careerRecordInputSchema,
   careerSkillKindSchema,
+  jobFeedbackSchema,
+  jobRadarQuerySchema,
+  saveJobSchema,
   type CareerDocument,
   type CareerDocumentExtraction,
   type CareerProfileDetail,
@@ -666,6 +669,115 @@ export class CareerService {
   private storageClient() {
     return this.repository.storageClient();
   }
+
+  // -------------------------------------------------------------------------
+  // Career Radar
+  // -------------------------------------------------------------------------
+
+  async jobRadar(request: AuthenticatedRequest, query: Record<string, unknown>) {
+    const { userId } = this.actor(request);
+    const parsed = jobRadarQuerySchema.safeParse(normalizeRadarQuery(query));
+    if (!parsed.success) {
+      throw new AppError({
+        code: 'VALIDATION_ERROR',
+        status: 400,
+        message: 'The feed filters are invalid',
+        details: toValidationDetails(parsed.error.issues),
+      });
+    }
+    const { careerProfileId, ...filters } = parsed.data;
+    return this.repository.jobRadar(userId, {
+      ...filters,
+      ...(careerProfileId ? { careerProfileId } : {}),
+    });
+  }
+
+  async jobDetail(
+    request: AuthenticatedRequest,
+    jobId: string,
+    careerProfileId: string | undefined,
+  ) {
+    const { userId } = this.actor(request);
+    return this.repository.jobDetail(userId, jobId, careerProfileId ?? null);
+  }
+
+  async saveJob(
+    request: AuthenticatedRequest,
+    jobId: string,
+    body: unknown,
+  ): Promise<{ saved: true }> {
+    const { userId, requestId } = this.actor(request);
+    const parsed = saveJobSchema.safeParse(body ?? {});
+    if (!parsed.success) {
+      throw new AppError({
+        code: 'VALIDATION_ERROR',
+        status: 400,
+        message: 'The save request is invalid',
+        details: toValidationDetails(parsed.error.issues),
+      });
+    }
+    await this.repository.saveJob(
+      userId,
+      jobId,
+      parsed.data.careerProfileId ?? null,
+      parsed.data.note ?? null,
+      requestId,
+    );
+    return { saved: true };
+  }
+
+  async unsaveJob(request: AuthenticatedRequest, jobId: string): Promise<{ removed: boolean }> {
+    const { userId, requestId } = this.actor(request);
+    return { removed: await this.repository.unsaveJob(userId, jobId, requestId) };
+  }
+
+  async recordJobFeedback(
+    request: AuthenticatedRequest,
+    jobId: string,
+    body: unknown,
+  ): Promise<{ recorded: true }> {
+    const { userId, requestId } = this.actor(request);
+    const parsed = jobFeedbackSchema.safeParse(body);
+    if (!parsed.success) {
+      throw new AppError({
+        code: 'VALIDATION_ERROR',
+        status: 400,
+        message: 'Choose the feedback that describes this opportunity',
+        details: toValidationDetails(parsed.error.issues),
+      });
+    }
+    await this.repository.recordJobFeedback(
+      userId,
+      jobId,
+      parsed.data.feedback,
+      parsed.data.reason ?? null,
+      parsed.data.careerProfileId ?? null,
+      requestId,
+    );
+    return { recorded: true };
+  }
+}
+
+/**
+ * Query strings arrive flat. Array filters are accepted either as repeated keys
+ * or as a single comma-separated value, and numeric filters are coerced by the
+ * shared schema.
+ */
+function normalizeRadarQuery(query: Record<string, unknown>): Record<string, unknown> {
+  const arrayKeys = ['verdicts', 'remoteStates', 'employmentTypes', 'seniorities'];
+  const result: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(query)) {
+    if (arrayKeys.includes(key)) {
+      if (Array.isArray(value)) {
+        result[key] = value.flatMap((entry) => String(entry).split(',')).filter(Boolean);
+      } else if (typeof value === 'string' && value.length > 0) {
+        result[key] = value.split(',').filter(Boolean);
+      }
+      continue;
+    }
+    if (value !== undefined && value !== '') result[key] = value;
+  }
+  return result;
 }
 
 function toSqlProfileInput(input: Record<string, unknown>): Record<string, unknown> {

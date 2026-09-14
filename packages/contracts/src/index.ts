@@ -3,5 +3,6 @@ export * from './career.js';
 export * from './client.js';
 export * from './domain.js';
 export * from './errors.js';
+export * from './jobs.js';
 export * from './payments.js';
 export * from './tasks.js';

@@ -15,7 +15,7 @@ exception when others then
 end;
 $$;
 
-select plan(71);
+select plan(78);
 
 -- ---------------------------------------------------------------------------
 -- Fixtures
@@ -115,6 +115,44 @@ select ok(
    from public.job_sources),
   'providers store only the credential variable name, never a value'
 );
+-- These values are also asserted by the TypeScript mirrors in
+-- tests/unit/jobs-adapters.test.ts, so the two implementations cannot drift.
+select is(
+  app_private.normalize_company_name('Meridian Support Philippines Inc'),
+  'meridian support',
+  'stacked legal forms are stripped repeatedly'
+);
+select is(
+  app_private.normalize_company_name('  ACME  Corporation '),
+  'acme',
+  'company normalization is case and whitespace insensitive'
+);
+select is(
+  app_private.normalize_company_name('Acme Co Ltd'),
+  'acme',
+  'a two-suffix employer converges with its single-suffix form'
+);
+select is(
+  app_private.normalize_company_name('Inc'),
+  'inc',
+  'a name made only of legal forms keeps its wording instead of collapsing'
+);
+select is(
+  app_private.normalize_job_title('Senior Automation Engineer (Remote)'),
+  'senior automation engineer',
+  'the title normalizer removes qualifiers and trims'
+);
+select is(
+  app_private.normalize_job_title('C# / .NET Developer'),
+  'c# .net developer',
+  'the title normalizer preserves technology punctuation'
+);
+select is(
+  app_private.normalize_job_title('  Data   Analyst II [Hybrid] '),
+  'data analyst ii',
+  'the title normalizer collapses whitespace and removes bracketed qualifiers'
+);
+
 
 -- ---------------------------------------------------------------------------
 -- Authorization

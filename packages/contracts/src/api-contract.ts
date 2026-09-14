@@ -38,6 +38,14 @@ import {
 } from './domain.js';
 import { successEnvelopeSchema } from './errors.js';
 import {
+  jobDetailSchema,
+  jobFeedbackSchema,
+  jobParamsSchema,
+  jobRadarQuerySchema,
+  jobRadarSchema,
+  saveJobSchema,
+} from './jobs.js';
+import {
   adminPaymentMethodSchema,
   adminPaymentSubmissionListItemSchema,
   adminPaymentSubmissionSchema,
@@ -1149,6 +1157,64 @@ export const apiContract = Object.freeze({
     successStatus: 200,
     body: z.object({ status: onboardingStatusRequestSchema }).strict(),
     response: successEnvelopeSchema(z.object({ changed: z.boolean() })),
+  }),
+
+  // -------------------------------------------------------------------------
+  // Career Radar
+  // -------------------------------------------------------------------------
+
+  jobRadar: defineRoute({
+    method: 'GET',
+    path: '/v1/me/jobs',
+    operationId: 'getJobRadar',
+    summary: 'Ranked, filtered, paginated opportunity feed for the caller',
+    auth: 'user',
+    successStatus: 200,
+    query: jobRadarQuerySchema,
+    response: successEnvelopeSchema(jobRadarSchema),
+  }),
+  jobDetail: defineRoute({
+    method: 'GET',
+    path: '/v1/me/jobs/{jobId}',
+    operationId: 'getJobDetail',
+    summary: 'Opportunity detail with provenance and the explainable match result',
+    auth: 'user',
+    successStatus: 200,
+    params: jobParamsSchema,
+    query: z.object({ careerProfileId: z.uuid().optional() }).strict(),
+    response: successEnvelopeSchema(jobDetailSchema),
+  }),
+  saveJob: defineRoute({
+    method: 'POST',
+    path: '/v1/me/jobs/{jobId}/save',
+    operationId: 'saveJob',
+    summary: 'Save an opportunity to the caller tracker',
+    auth: 'user',
+    successStatus: 200,
+    params: jobParamsSchema,
+    body: saveJobSchema,
+    response: successEnvelopeSchema(z.object({ saved: z.literal(true) })),
+  }),
+  unsaveJob: defineRoute({
+    method: 'DELETE',
+    path: '/v1/me/jobs/{jobId}/save',
+    operationId: 'unsaveJob',
+    summary: 'Remove an opportunity from the caller saved list',
+    auth: 'user',
+    successStatus: 200,
+    params: jobParamsSchema,
+    response: successEnvelopeSchema(z.object({ removed: z.boolean() })),
+  }),
+  recordJobFeedback: defineRoute({
+    method: 'POST',
+    path: '/v1/me/jobs/{jobId}/feedback',
+    operationId: 'recordJobFeedback',
+    summary: 'Record ranking feedback so future results improve',
+    auth: 'user',
+    successStatus: 200,
+    params: jobParamsSchema,
+    body: jobFeedbackSchema,
+    response: successEnvelopeSchema(z.object({ recorded: z.literal(true) })),
   }),
 });
 

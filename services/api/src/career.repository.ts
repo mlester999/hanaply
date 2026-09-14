@@ -9,6 +9,8 @@ import {
   careerProfileDetailSchema,
   careerProfileDirectorySchema,
   confirmedCareerEvidenceSchema,
+  jobDetailSchema,
+  jobRadarSchema,
   type CareerDocument,
   type CareerDocumentDetail,
   type CareerFact,
@@ -16,6 +18,8 @@ import {
   type CareerProfileDirectory,
   type CareerRecordInput,
   type ConfirmedCareerEvidence,
+  type JobDetail,
+  type JobRadar,
 } from '@hanaply/contracts';
 import { createServiceDatabaseClient, type Database } from '@hanaply/database';
 import { Inject, Injectable } from '@nestjs/common';
@@ -568,6 +572,92 @@ export class CareerRepository {
 
   storageClient(): StorageBucketClient {
     return this.client.storage;
+  }
+
+  // -------------------------------------------------------------------------
+  // Career Radar
+  // -------------------------------------------------------------------------
+
+  async jobRadar(actorUserId: string, filters: Record<string, unknown>): Promise<JobRadar> {
+    return this.rpc(
+      () => this.callRpc('job_radar', { actor_user_id: actorUserId, filters }),
+      (value) => jobRadarSchema.safeParse(value).data ?? null,
+      'The opportunity feed could not be read',
+    );
+  }
+
+  async jobDetail(
+    actorUserId: string,
+    jobId: string,
+    careerProfileId: string | null,
+  ): Promise<JobDetail> {
+    return this.rpc(
+      () =>
+        this.callRpc('job_detail', {
+          actor_user_id: actorUserId,
+          target_job_id: jobId,
+          target_career_profile_id: careerProfileId,
+        }),
+      (value) => jobDetailSchema.safeParse(value).data ?? null,
+      'The opportunity could not be read',
+    );
+  }
+
+  async saveJob(
+    actorUserId: string,
+    jobId: string,
+    careerProfileId: string | null,
+    note: string | null,
+    requestId: string,
+  ): Promise<boolean> {
+    return this.rpc(
+      () =>
+        this.callRpc('save_job', {
+          actor_user_id: actorUserId,
+          target_job_id: jobId,
+          target_career_profile_id: careerProfileId,
+          requested_note: note,
+          action_request_id: requestId,
+        }),
+      (value) => (typeof value === 'boolean' ? value : null),
+      'The opportunity could not be saved',
+    );
+  }
+
+  async unsaveJob(actorUserId: string, jobId: string, requestId: string): Promise<boolean> {
+    return this.rpc(
+      () =>
+        this.callRpc('unsave_job', {
+          actor_user_id: actorUserId,
+          target_job_id: jobId,
+          action_request_id: requestId,
+        }),
+      (value) => (typeof value === 'boolean' ? value : null),
+      'The saved opportunity could not be removed',
+    );
+  }
+
+  async recordJobFeedback(
+    actorUserId: string,
+    jobId: string,
+    feedback: string,
+    reason: string | null,
+    careerProfileId: string | null,
+    requestId: string,
+  ): Promise<string> {
+    return this.rpc(
+      () =>
+        this.callRpc('record_job_feedback', {
+          actor_user_id: actorUserId,
+          target_job_id: jobId,
+          requested_feedback: feedback,
+          requested_reason: reason,
+          target_career_profile_id: careerProfileId,
+          action_request_id: requestId,
+        }),
+      (value) => (typeof value === 'string' ? value : null),
+      'Your feedback could not be recorded',
+    );
   }
 }
 

@@ -305,6 +305,19 @@ export function createApiClient(options: ApiClientOptions) {
     ) => request(apiContract.applyCareerDocumentExtraction, { params: { documentId }, body }),
     setOnboardingStatus: (body: z.input<typeof apiContract.setOnboardingStatus.body>) =>
       request(apiContract.setOnboardingStatus, { body }),
+    jobRadar: (query?: z.input<typeof apiContract.jobRadar.query>) =>
+      query
+        ? request(apiContract.jobRadar, { query: { ...query } })
+        : request(apiContract.jobRadar),
+    jobDetail: (jobId: string, query?: z.input<typeof apiContract.jobDetail.query>) =>
+      query
+        ? request(apiContract.jobDetail, { params: { jobId }, query: { ...query } })
+        : request(apiContract.jobDetail, { params: { jobId } }),
+    saveJob: (jobId: string, body: z.input<typeof apiContract.saveJob.body>) =>
+      request(apiContract.saveJob, { params: { jobId }, body }),
+    unsaveJob: (jobId: string) => request(apiContract.unsaveJob, { params: { jobId } }),
+    recordJobFeedback: (jobId: string, body: z.input<typeof apiContract.recordJobFeedback.body>) =>
+      request(apiContract.recordJobFeedback, { params: { jobId }, body }),
   });
 }
 

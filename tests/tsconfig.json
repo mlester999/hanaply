@@ -17,6 +17,7 @@
       "@hanaply/database": ["packages/database/src/index.ts"],
       "@hanaply/email": ["packages/email/src/index.ts"],
       "@hanaply/entitlements": ["packages/entitlements/src/index.ts"],
+      "@hanaply/jobs": ["packages/jobs/src/index.ts"],
       "@hanaply/observability": ["packages/observability/src/index.ts"],
       "@hanaply/platform": ["packages/platform/src/index.ts"],
       "@hanaply/testing": ["packages/testing/src/index.ts"],

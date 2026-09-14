@@ -4,7 +4,9 @@ import type { Permission } from '@hanaply/auth';
 import { Button, Drawer, NavigationItem } from '@hanaply/ui';
 import {
   BadgeCheck,
+  Compass,
   CreditCard,
+  FileText,
   Flag,
   Gauge,
   Home,
@@ -26,9 +28,17 @@ import { BrandLogo } from '@/components/brand-logo';
 
 const customerItems = [
   { href: '/dashboard', label: 'Career Radar', icon: Gauge },
+  { href: '/dashboard/career', label: 'Career profile', icon: Compass },
+  { href: '/dashboard/career/documents', label: 'Documents', icon: FileText },
   { href: '/dashboard/activation', label: 'Activation Center', icon: CreditCard },
   { href: '/dashboard/settings', label: 'Settings', icon: Settings },
 ] as const;
+
+const finishOnboardingItem = {
+  href: '/dashboard/onboarding',
+  label: 'Finish onboarding',
+  icon: Flag,
+} as const;
 
 const adminItems = [
   { href: '/admin', label: 'Overview', icon: Home, permissions: ['users.read'] },
@@ -80,16 +90,33 @@ const adminItems = [
 function ShellNavigation({
   admin,
   adminPermissions = [],
+  onboardingIncomplete = false,
 }: {
   admin: boolean;
   adminPermissions?: readonly string[];
+  onboardingIncomplete?: boolean;
 }) {
   const pathname = usePathname();
-  const items = admin
+  const items: readonly { href: string; label: string; icon: typeof Home }[] = admin
     ? adminItems.filter((item) =>
         item.permissions.some((permission) => adminPermissions.includes(permission)),
       )
-    : customerItems;
+    : onboardingIncomplete
+      ? [...customerItems, finishOnboardingItem]
+      : customerItems;
+  // Only the longest matching path is marked current, so /dashboard/career does
+  // not stay highlighted while the document library is open.
+  const activeHref = items.reduce<string | null>((best, item) => {
+    const matches =
+      item.href === pathname ||
+      (item.href !== '/dashboard' &&
+        item.href !== '/admin' &&
+        pathname.startsWith(`${item.href}/`));
+    if (!matches) return best;
+    if (best === null || item.href.length > best.length) return item.href;
+    return best;
+  }, null);
+
   return (
     <nav
       aria-label={admin ? 'Admin navigation' : 'Dashboard navigation'}
@@ -97,13 +124,9 @@ function ShellNavigation({
     >
       {items.map((item) => {
         const Icon = item.icon;
-        const active = item.href.includes('#')
-          ? false
-          : item.href === pathname ||
-            (item.href !== '/admin' && pathname.startsWith(`${item.href}/`));
         return (
           <NavigationItem
-            active={active}
+            active={item.href === activeHref}
             href={item.href}
             icon={<Icon size={18} />}
             key={item.href}
@@ -120,6 +143,7 @@ export interface AppShellProps {
   admin?: boolean;
   adminPermissions?: readonly string[];
   displayName: string;
+  onboardingIncomplete?: boolean;
   children: ReactNode;
 }
 
@@ -127,6 +151,7 @@ export function AppShell({
   admin = false,
   adminPermissions = [],
   displayName,
+  onboardingIncomplete = false,
   children,
 }: AppShellProps) {
   return (
@@ -137,7 +162,11 @@ export function AppShell({
           <BadgeCheck aria-hidden="true" size={16} />
           <span>{admin ? 'Administration' : 'Customer workspace'}</span>
         </div>
-        <ShellNavigation admin={admin} adminPermissions={adminPermissions} />
+        <ShellNavigation
+          admin={admin}
+          adminPermissions={adminPermissions}
+          onboardingIncomplete={onboardingIncomplete}
+        />
         <form action={logout} className="sidebar-signout">
           <Button block type="submit" variant="quiet">
             Sign Out
@@ -157,7 +186,11 @@ export function AppShell({
                 </Button>
               }
             >
-              <ShellNavigation admin={admin} adminPermissions={adminPermissions} />
+              <ShellNavigation
+                admin={admin}
+                adminPermissions={adminPermissions}
+                onboardingIncomplete={onboardingIncomplete}
+              />
               <form action={logout} className="drawer-signout">
                 <Button block type="submit" variant="secondary">
                   Sign Out
