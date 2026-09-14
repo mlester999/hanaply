@@ -19,6 +19,7 @@ export default defineConfig({
       { find: '@hanaply/database', replacement: source('packages/database/src/index.ts') },
       { find: '@hanaply/email', replacement: source('packages/email/src/index.ts') },
       { find: '@hanaply/entitlements', replacement: source('packages/entitlements/src/index.ts') },
+      { find: '@hanaply/matching', replacement: source('packages/matching/src/index.ts') },
       {
         find: '@hanaply/observability',
         replacement: source('packages/observability/src/index.ts'),
