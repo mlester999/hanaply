@@ -395,6 +395,8 @@ export const careerExtractionSkillSchema = z.object({
 export const careerExtractionEmploymentSchema = z.object({
   companyName: careerExtractionFieldSchema,
   roleTitle: careerExtractionFieldSchema,
+  employmentType: employmentTypeSchema.nullable(),
+  workArrangement: workArrangementSchema.nullable(),
   startDate: isoDate.nullable(),
   endDate: isoDate.nullable(),
   isCurrent: z.boolean(),
@@ -435,29 +437,33 @@ export const careerDocumentExtractionSchema = z.object({
   warnings: z.array(z.string().max(200)),
 });
 
+export const careerDocumentDetailSchema = careerDocumentSchema.extend({
+  extraction: careerDocumentExtractionSchema.nullable(),
+});
+
+export type CareerDocumentDetail = z.infer<typeof careerDocumentDetailSchema>;
+
 export const careerDocumentApplySchema = z
   .object({
     careerProfileId: z.uuid(),
     applyContact: z.boolean().optional(),
+    confirmSelected: z.boolean().optional(),
     employmentIndexes: z.array(z.number().int().nonnegative()).max(30).optional(),
     educationIndexes: z.array(z.number().int().nonnegative()).max(20).optional(),
     certificationIndexes: z.array(z.number().int().nonnegative()).max(40).optional(),
     skillNames: z.array(z.string().trim().min(1).max(100)).max(200).optional(),
     linkKinds: z.array(careerLinkKindSchema).max(10).optional(),
     factIndexes: z.array(z.number().int().nonnegative()).max(200).optional(),
-    confirmSelected: z.boolean().optional(),
   })
   .strict();
 
 export const careerDocumentParamsSchema = z.object({ documentId: z.uuid() });
 
 export const careerDocumentUploadSchema = z.object({
-  file: z
-    .string()
-    .meta({
-      format: 'binary',
-      description: 'PDF, DOCX, RTF, plain-text, or Markdown resume bytes',
-    }),
+  file: z.string().meta({
+    format: 'binary',
+    description: 'PDF, DOCX, RTF, plain-text, or Markdown resume bytes',
+  }),
 });
 
 export const careerDocumentUploadQuerySchema = z
@@ -486,6 +492,11 @@ export const confirmedCareerEvidenceSchema = z.object({
 
 export type CareerDocumentExtraction = z.infer<typeof careerDocumentExtractionSchema>;
 export type ConfirmedCareerEvidence = z.infer<typeof confirmedCareerEvidenceSchema>;
+export type CareerLinkKind = z.infer<typeof careerLinkKindSchema>;
+export type CareerExtractionField = z.infer<typeof careerExtractionFieldSchema>;
+export type CareerExtractionEmployment = z.infer<typeof careerExtractionEmploymentSchema>;
+export type CareerExtractionSkill = z.infer<typeof careerExtractionSkillSchema>;
+export type CareerExtractionEducation = z.infer<typeof careerExtractionEducationSchema>;
 
 // ---------------------------------------------------------------------------
 // Input schemas

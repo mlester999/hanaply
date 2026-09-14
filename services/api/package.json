@@ -28,6 +28,7 @@
     "reflect-metadata": "catalog:",
     "rxjs": "catalog:",
     "sharp": "catalog:",
+    "unpdf": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {

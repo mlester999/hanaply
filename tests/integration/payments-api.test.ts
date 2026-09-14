@@ -141,7 +141,10 @@ const subscriptionRecord = {
     billingPeriod: 'monthly' as const,
     status: 'active' as const,
     startsAt: now,
-    endsAt: '2026-08-28T03:00:00.000Z',
+    // The subscription window must straddle the real clock: the entitlement
+    // evaluator deliberately uses the current time, so a hardcoded end date
+    // would silently turn this fixture into a time bomb once it passes.
+    endsAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
     source: 'manual_payment' as const,
     version: 0,
     createdAt: now,

@@ -1,5 +1,6 @@
 import type { ApiEnvironment } from '@hanaply/config';
 import {
+  careerDocumentDetailSchema,
   careerDocumentDirectorySchema,
   careerDocumentSchema,
   careerFactCreationResultSchema,
@@ -9,6 +10,7 @@ import {
   careerProfileDirectorySchema,
   confirmedCareerEvidenceSchema,
   type CareerDocument,
+  type CareerDocumentDetail,
   type CareerFact,
   type CareerProfileDetail,
   type CareerProfileDirectory,
@@ -17,6 +19,7 @@ import {
 } from '@hanaply/contracts';
 import { createServiceDatabaseClient, type Database } from '@hanaply/database';
 import { Inject, Injectable } from '@nestjs/common';
+import { z } from 'zod';
 
 import { AppError } from './app-error.js';
 import { API_ENVIRONMENT } from './tokens.js';
@@ -436,4 +439,155 @@ export class CareerRepository {
     }
     return mapCareerDocument(data);
   }
+
+  async registerDocument(
+    actorUserId: string,
+    input: {
+      careerProfileId: string | null;
+      documentKind: CareerDocument['documentKind'];
+      originalFilename: string;
+      mimeType: CareerDocument['mimeType'];
+      sizeBytes: number;
+      checksumSha256: string;
+      objectPath: string;
+    },
+    requestId: string,
+  ): Promise<string> {
+    return this.rpc(
+      () =>
+        this.callRpc('register_career_document', {
+          actor_user_id: actorUserId,
+          document_input: input,
+          action_request_id: requestId,
+        }),
+      (value) => (typeof value === 'string' ? value : null),
+      'The career document could not be registered',
+    );
+  }
+
+  async recordExtraction(
+    actorUserId: string,
+    documentId: string,
+    extraction: Record<string, unknown>,
+    requestId: string,
+  ): Promise<string> {
+    return this.rpc(
+      () =>
+        this.callRpc('record_career_document_extraction', {
+          actor_user_id: actorUserId,
+          target_document_id: documentId,
+          extraction_input: extraction,
+          action_request_id: requestId,
+        }),
+      (value) => (typeof value === 'string' ? value : null),
+      'The extraction could not be recorded',
+    );
+  }
+
+  async completeDocumentProcessing(
+    actorUserId: string,
+    documentId: string,
+    outcome: 'failed' | 'rejected' | 'processing',
+    errorCode: string | null,
+  ): Promise<boolean> {
+    return this.rpc(
+      () =>
+        this.callRpc('complete_career_document_processing', {
+          actor_user_id: actorUserId,
+          target_document_id: documentId,
+          outcome,
+          error_code: errorCode,
+        }),
+      (value) => (typeof value === 'boolean' ? value : null),
+      'The document processing outcome could not be recorded',
+    );
+  }
+
+  async documentDetail(actorUserId: string, documentId: string): Promise<CareerDocumentDetail> {
+    return this.rpc(
+      () =>
+        this.callRpc('career_document_detail', {
+          actor_user_id: actorUserId,
+          target_document_id: documentId,
+        }),
+      (value) => careerDocumentDetailSchema.safeParse(value).data ?? null,
+      'The career document could not be read',
+    );
+  }
+
+  async documentObject(
+    actorUserId: string,
+    documentId: string,
+  ): Promise<{ bucketId: string; objectPath: string; mimeType: string; originalFilename: string }> {
+    return this.rpc(
+      () =>
+        this.callRpc('resolve_career_document_object', {
+          actor_user_id: actorUserId,
+          target_document_id: documentId,
+        }),
+      (value) => {
+        const parsed = z
+          .array(
+            z.object({
+              bucket_id: z.string(),
+              object_path: z.string(),
+              mime_type: z.string(),
+              original_filename: z.string(),
+            }),
+          )
+          .safeParse(value);
+        const row = parsed.success ? parsed.data[0] : undefined;
+        if (!row) return null;
+        return {
+          bucketId: row.bucket_id,
+          objectPath: row.object_path,
+          mimeType: row.mime_type,
+          originalFilename: row.original_filename,
+        };
+      },
+      'The document object could not be resolved',
+    );
+  }
+
+  async archiveDocument(
+    actorUserId: string,
+    documentId: string,
+    requestId: string,
+  ): Promise<string> {
+    return this.rpc(
+      () =>
+        this.callRpc('archive_career_document', {
+          actor_user_id: actorUserId,
+          target_document_id: documentId,
+          action_request_id: requestId,
+        }),
+      (value) => (typeof value === 'string' ? value : null),
+      'The career document could not be removed',
+    );
+  }
+
+  storageClient(): StorageBucketClient {
+    return this.client.storage;
+  }
+}
+
+/**
+ * Only the storage surface the career document pipeline uses. Keeping the
+ * annotation local avoids leaking the Supabase SDK's nested type names through
+ * this module's public boundary.
+ */
+export interface StorageBucketClient {
+  from(bucket: string): {
+    upload(
+      path: string,
+      body: Buffer,
+      options: { contentType: string; upsert: boolean },
+    ): PromiseLike<{ error: { message: string } | null }>;
+    remove(paths: string[]): PromiseLike<{ error: { message: string } | null }>;
+    createSignedUrl(
+      path: string,
+      expiresIn: number,
+      options?: { download?: string },
+    ): PromiseLike<{ data: { signedUrl: string } | null; error: { message: string } | null }>;
+  };
 }

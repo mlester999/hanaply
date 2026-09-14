@@ -58,6 +58,7 @@ catalog:
   sharp: 0.35.3
   rxjs: 7.8.2
   semver: 7.8.5
+  unpdf: 1.8.1
   zod: 4.4.3
 
 minimumReleaseAgeExclude:

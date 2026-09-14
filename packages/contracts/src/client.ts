@@ -82,11 +82,17 @@ export function createApiClient(options: ApiClientOptions) {
   async function upload<TRoute extends ApiContractRoute>(
     route: TRoute,
     file: Blob,
-    uploadOptions: { params: Record<string, string>; filename: string; signal?: AbortSignal },
+    uploadOptions: {
+      params: Record<string, string>;
+      filename: string;
+      query?: Record<string, unknown>;
+      signal?: AbortSignal;
+    },
   ): Promise<ParsedRouteResponse<TRoute>> {
     const path = addParams(route.path, uploadOptions.params);
     if (path.includes('{')) throw new TypeError(`Missing path parameter for ${route.path}`);
     const url = new URL(path.replace(/^\//u, ''), baseUrl);
+    addQuery(url, uploadOptions.query);
     const token = await options.getAccessToken?.();
     const headers = new Headers({ Accept: 'application/json' });
     if (token) headers.set('Authorization', `Bearer ${token}`);
@@ -244,6 +250,61 @@ export function createApiClient(options: ApiClientOptions) {
       body: z.input<typeof apiContract.correctAdminSubscription.body>,
     ) => request(apiContract.correctAdminSubscription, { params: { subscriptionId }, body }),
     adminSecurity: () => request(apiContract.adminSecurity),
+    careerProfiles: () => request(apiContract.careerProfiles),
+    createCareerProfile: (body: z.input<typeof apiContract.createCareerProfile.body>) =>
+      request(apiContract.createCareerProfile, { body }),
+    careerProfile: (profileId: string) =>
+      request(apiContract.careerProfile, { params: { profileId } }),
+    updateCareerProfile: (
+      profileId: string,
+      body: z.input<typeof apiContract.updateCareerProfile.body>,
+    ) => request(apiContract.updateCareerProfile, { params: { profileId }, body }),
+    deleteCareerProfile: (profileId: string) =>
+      request(apiContract.deleteCareerProfile, { params: { profileId } }),
+    setPrimaryCareerProfile: (profileId: string) =>
+      request(apiContract.setPrimaryCareerProfile, { params: { profileId } }),
+    setCareerProfileStatus: (
+      profileId: string,
+      body: z.input<typeof apiContract.setCareerProfileStatus.body>,
+    ) => request(apiContract.setCareerProfileStatus, { params: { profileId }, body }),
+    upsertCareerRecord: (
+      profileId: string,
+      body: z.input<typeof apiContract.upsertCareerRecord.body>,
+    ) => request(apiContract.upsertCareerRecord, { params: { profileId }, body }),
+    deleteCareerRecord: (profileId: string, recordKind: string, recordId: string) =>
+      request(apiContract.deleteCareerRecord, { params: { profileId, recordKind, recordId } }),
+    careerFacts: (profileId: string, query?: z.input<typeof apiContract.careerFacts.query>) =>
+      query
+        ? request(apiContract.careerFacts, { params: { profileId }, query: { ...query } })
+        : request(apiContract.careerFacts, { params: { profileId } }),
+    recordCareerFacts: (
+      profileId: string,
+      body: z.input<typeof apiContract.recordCareerFacts.body>,
+    ) => request(apiContract.recordCareerFacts, { params: { profileId }, body }),
+    decideCareerFact: (factId: string, body: z.input<typeof apiContract.decideCareerFact.body>) =>
+      request(apiContract.decideCareerFact, { params: { factId }, body }),
+    confirmedCareerEvidence: (profileId: string) =>
+      request(apiContract.confirmedCareerEvidence, { params: { profileId } }),
+    careerDocuments: () => request(apiContract.careerDocuments),
+    uploadCareerDocument: (
+      file: Blob,
+      filename: string,
+      query: z.input<typeof apiContract.uploadCareerDocument.query>,
+    ) => upload(apiContract.uploadCareerDocument, file, { params: {}, filename, query }),
+    careerDocument: (documentId: string) =>
+      request(apiContract.careerDocument, { params: { documentId } }),
+    deleteCareerDocument: (documentId: string) =>
+      request(apiContract.deleteCareerDocument, { params: { documentId } }),
+    careerDocumentAccess: (documentId: string) =>
+      request(apiContract.careerDocumentPreview, { params: { documentId } }),
+    careerDocumentExtraction: (documentId: string) =>
+      request(apiContract.careerDocumentExtraction, { params: { documentId } }),
+    applyCareerDocumentExtraction: (
+      documentId: string,
+      body: z.input<typeof apiContract.applyCareerDocumentExtraction.body>,
+    ) => request(apiContract.applyCareerDocumentExtraction, { params: { documentId }, body }),
+    setOnboardingStatus: (body: z.input<typeof apiContract.setOnboardingStatus.body>) =>
+      request(apiContract.setOnboardingStatus, { body }),
   });
 }
 

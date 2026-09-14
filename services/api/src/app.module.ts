@@ -12,6 +12,9 @@ import {
   UserController,
 } from './controllers.js';
 import { AdminPaymentController, CustomerPaymentController } from './payment.controllers.js';
+import { CareerController } from './career.controllers.js';
+import { CareerRepository } from './career.repository.js';
+import { CareerService } from './career.service.js';
 import { PaymentRepository } from './payment.repository.js';
 import { PaymentService } from './payment.service.js';
 import { HanaplyRepository } from './repository.js';
@@ -20,6 +23,7 @@ import { API_ENVIRONMENT } from './tokens.js';
 export interface ApiRuntimeOverrides {
   repository?: unknown;
   paymentRepository?: unknown;
+  careerRepository?: unknown;
   authService?: unknown;
 }
 
@@ -35,6 +39,7 @@ export class AppModule {
         PublicController,
         UserController,
         CustomerPaymentController,
+        CareerController,
         AdminController,
         AdminPaymentController,
         DocumentationController,
@@ -47,8 +52,12 @@ export class AppModule {
         overrides.paymentRepository
           ? { provide: PaymentRepository, useValue: overrides.paymentRepository }
           : PaymentRepository,
+        overrides.careerRepository
+          ? { provide: CareerRepository, useValue: overrides.careerRepository }
+          : CareerRepository,
         HanaplyService,
         PaymentService,
+        CareerService,
         overrides.authService
           ? { provide: SupabaseAuthService, useValue: overrides.authService }
           : SupabaseAuthService,
