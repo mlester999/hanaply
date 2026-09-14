@@ -7,17 +7,22 @@ import {
   careerRecordInputSchema,
   careerSkillKindSchema,
   createApplicationPackSchema,
+  defaultPackArtifactStyle,
+  generateApplicationPackSchema,
   jobFeedbackSchema,
   jobRadarQuerySchema,
+  packArtifactStyles,
   saveJobSchema,
   setApplicationStageSchema,
   trackApplicationSchema,
+  type ApplicationArtifactKind,
   type CareerDocument,
   type CareerDocumentExtraction,
   type CareerProfileDetail,
   type CareerProfileDirectory,
   type CareerRecordInput,
   type ConfirmedCareerEvidence,
+  type PackArtifactStyle,
 } from '@hanaply/contracts';
 import { Inject, Injectable } from '@nestjs/common';
 import { z } from 'zod';
@@ -30,7 +35,24 @@ import {
 } from './career-files.js';
 import { extractCareerProfile } from './career-extraction.js';
 import { CareerRepository, careerError } from './career.repository.js';
+import { generatePackArtifacts, readPackMatchSnapshot } from './pack-generation.js';
 import type { AuthenticatedRequest } from './http.js';
+
+/**
+ * `plain_text` is capped at 60000 characters by the database. A draft that
+ * cannot be stored is reported rather than silently truncated, because a
+ * truncated resume would be a document the subscriber did not review.
+ */
+const maximumPlainTextLength = 60_000;
+
+const allArtifactKinds: readonly ApplicationArtifactKind[] = [
+  'resume',
+  'cover_letter',
+  'strategy',
+  'requirement_map',
+  'recruiter_message',
+  'interview_prep',
+];
 
 const extractionPayloadSchema = z.object({
   extractor: z.enum(['deterministic', 'ai']),
@@ -795,6 +817,106 @@ export class CareerService {
       idempotencyKey,
       requestId,
     );
+  }
+
+  /**
+   * Generates the pack artifacts and records them under the database truth gate.
+   *
+   * The order matters. The generation context is read first, so the generator
+   * sees exactly the evidence the pack froze and the profile as it stands. The
+   * drafts are then persisted through `record_application_artifact`, which
+   * applies `validate_artifact_evidence`: an artifact that cites anything other
+   * than a confirmed fact is rejected by the database rather than presented as
+   * verified. Only after that is the pack finalised, and the same RPC refuses to
+   * mark it ready while it has no artifacts.
+   *
+   * Persisting is idempotent by construction. `record_application_artifact`
+   * upserts on (pack_id, kind, style) and increments the artifact version, so
+   * regenerating the same kind and style replaces the draft instead of adding a
+   * second copy, and no deduplication happens anywhere else.
+   */
+  async generateApplicationPack(
+    request: AuthenticatedRequest,
+    packId: string,
+    body: unknown,
+  ): Promise<{
+    finalized: boolean;
+    generatedKinds: readonly ApplicationArtifactKind[];
+    [key: string]: unknown;
+  }> {
+    const { userId, requestId } = this.actor(request);
+    const parsed = generateApplicationPackSchema.safeParse(body ?? {});
+    if (!parsed.success) {
+      throw new AppError({
+        code: 'VALIDATION_ERROR',
+        status: 400,
+        message: 'Choose at least one artifact kind, and a supported style',
+        details: toValidationDetails(parsed.error.issues),
+      });
+    }
+
+    const kinds = parsed.data.kinds ?? allArtifactKinds;
+    const style: PackArtifactStyle = parsed.data.style ?? defaultPackArtifactStyle;
+
+    const prepared = await this.repository.generatePackArtifacts(
+      userId,
+      packId,
+      kinds,
+      style,
+      requestId,
+    );
+
+    const drafts = generatePackArtifacts({
+      profile: prepared.profile,
+      facts: prepared.evidence,
+      job: prepared.job,
+      match: readPackMatchSnapshot(prepared.match),
+      kinds,
+      style,
+    });
+
+    for (const draft of drafts) {
+      if (draft.plainText.length > maximumPlainTextLength) {
+        throw new AppError({
+          code: 'VALIDATION_ERROR',
+          status: 400,
+          message: `The generated ${draft.kind.replaceAll('_', ' ')} is longer than the ${maximumPlainTextLength} characters an artifact can store. Shorten the career profile and generate again.`,
+        });
+      }
+    }
+
+    for (const draft of drafts) {
+      await this.repository.recordApplicationArtifact(
+        userId,
+        packId,
+        {
+          kind: draft.kind,
+          style: draft.style,
+          title: draft.title,
+          plainText: draft.plainText,
+          content: draft.content,
+          evidenceFactIds: draft.evidenceFactIds,
+        },
+        requestId,
+      );
+    }
+
+    const finalized = await this.repository.generatePackArtifacts(
+      userId,
+      packId,
+      kinds,
+      style,
+      requestId,
+    );
+
+    return {
+      ...finalized.pack,
+      job: finalized.job,
+      applyUrl: finalized.applyUrl,
+      artifacts: [...finalized.artifacts],
+      finalized: finalized.finalized,
+      generatedKinds: drafts.map((draft) => draft.kind),
+    };
   }
 
   async usageSummary(request: AuthenticatedRequest) {

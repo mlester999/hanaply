@@ -1,5 +1,7 @@
 import type { ApiEnvironment } from '@hanaply/config';
 import {
+  applicationArtifactKindSchema,
+  applicationArtifactSchema,
   applicationPackDetailSchema,
   applicationPackDirectorySchema,
   applicationPackSchema,
@@ -12,11 +14,13 @@ import {
   careerFactCreationResultSchema,
   careerFactDecisionResultSchema,
   careerFactDirectorySchema,
+  careerFactSchema,
   careerProfileDetailSchema,
   careerProfileDirectorySchema,
   confirmedCareerEvidenceSchema,
   jobDetailSchema,
   jobRadarSchema,
+  packGenerationJobSchema,
   usageSummarySchema,
   type CareerDocument,
   type CareerDocumentDetail,
@@ -30,9 +34,12 @@ import {
   type ApplicationPack,
   type ApplicationPackDetail,
   type ApplicationPackDirectory,
+  type ApplicationArtifact,
+  type ApplicationArtifactKind,
   type ApplicationSnapshot,
   type ApplicationTimeline,
   type ApplicationTracker,
+  type PackGenerationJob,
   type UsageSummary,
 } from '@hanaply/contracts';
 import { createServiceDatabaseClient, type Database } from '@hanaply/database';
@@ -41,6 +48,40 @@ import { z } from 'zod';
 
 import { AppError } from './app-error.js';
 import { API_ENVIRONMENT } from './tokens.js';
+
+/**
+ * The generation context returned by `public.generate_application_pack_artifacts`.
+ *
+ * `pack` fields are spread at the top level exactly as the pack detail read
+ * model returns them, so one response shape serves both the viewer and the
+ * generator. `match` stays `unknown` because the frozen snapshot is validated
+ * by the generator's own schema: a pack created before the opportunity was ever
+ * scored stores `{}`, which is the absence of a match result rather than one.
+ */
+const packGenerationContextSchema = applicationPackSchema.extend({
+  job: packGenerationJobSchema,
+  applyUrl: z.string().max(1_000),
+  artifacts: z.array(applicationArtifactSchema),
+  match: z.unknown(),
+  evidence: z.array(careerFactSchema),
+  profile: careerProfileDetailSchema,
+  requestedKinds: z.array(applicationArtifactKindSchema),
+  style: z.string().max(60).nullable(),
+  finalized: z.boolean(),
+});
+
+export interface PackGenerationContext {
+  readonly pack: ApplicationPack;
+  readonly job: PackGenerationJob;
+  readonly applyUrl: string;
+  readonly artifacts: readonly ApplicationArtifact[];
+  readonly match: unknown;
+  readonly evidence: readonly CareerFact[];
+  readonly profile: CareerProfileDetail;
+  readonly requestedKinds: readonly ApplicationArtifactKind[];
+  readonly style: string | null;
+  readonly finalized: boolean;
+}
 
 export const careerDocumentColumns =
   'id, career_profile_id, document_kind, status, original_filename, mime_type, size_bytes, checksum_sha256, page_count, word_count, parsed_at, is_active, version, created_at, updated_at' as const;
@@ -725,6 +766,96 @@ export class CareerRepository {
         return parsed.success ? parsed.data : null;
       },
       'The Application Pack could not be created',
+    );
+  }
+
+  /**
+   * Reads the generation context for one pack, or finalises generation for it.
+   *
+   * The same call does both: it returns the frozen match snapshot, the confirmed
+   * evidence the generator may cite, the profile, and the posting, and once the
+   * artifacts for the requested kinds and style exist it marks the pack ready
+   * and reports `finalized`. Ownership is verified inside the function, so a
+   * caller can never reach a pack they do not own.
+   */
+  async generatePackArtifacts(
+    actorUserId: string,
+    packId: string,
+    kinds: readonly ApplicationArtifactKind[],
+    style: string | null,
+    requestId: string,
+  ): Promise<PackGenerationContext> {
+    return this.rpc(
+      () =>
+        this.callRpc('generate_application_pack_artifacts', {
+          actor_user_id: actorUserId,
+          target_pack_id: packId,
+          requested_kinds: [...kinds],
+          requested_style: style,
+          action_request_id: requestId,
+        }),
+      (value) => {
+        const parsed = packGenerationContextSchema.safeParse(value);
+        if (!parsed.success) return null;
+        const {
+          job,
+          applyUrl,
+          artifacts,
+          match,
+          evidence,
+          profile,
+          requestedKinds,
+          style: storedStyle,
+          finalized,
+          ...packFields
+        } = parsed.data;
+        return {
+          pack: applicationPackSchema.parse(packFields),
+          job,
+          applyUrl,
+          artifacts,
+          match,
+          evidence,
+          profile,
+          requestedKinds,
+          style: storedStyle,
+          finalized,
+        };
+      },
+      'The Application Pack generation context could not be read',
+    );
+  }
+
+  async recordApplicationArtifact(
+    actorUserId: string,
+    packId: string,
+    draft: {
+      kind: ApplicationArtifactKind;
+      style: string;
+      title: string;
+      plainText: string;
+      content: unknown;
+      evidenceFactIds: readonly string[];
+    },
+    requestId: string,
+  ): Promise<string> {
+    return this.rpc(
+      () =>
+        this.callRpc('record_application_artifact', {
+          actor_user_id: actorUserId,
+          target_pack_id: packId,
+          artifact_input: {
+            kind: draft.kind,
+            style: draft.style,
+            title: draft.title,
+            content: draft.content,
+            plainText: draft.plainText,
+            evidenceFactIds: [...draft.evidenceFactIds],
+          },
+          action_request_id: requestId,
+        }),
+      (value) => (typeof value === 'string' ? value : null),
+      'The generated artifact could not be recorded',
     );
   }
 

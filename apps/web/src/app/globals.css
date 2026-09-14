@@ -6649,3 +6649,320 @@ a:hover {
     grid-template-columns: 0.75rem 1fr;
   }
 }
+
+/* ---------------------------------------------------------------------------
+   Insights and coaching
+   --------------------------------------------------------------------------- */
+
+.insight-page {
+  display: grid;
+  gap: var(--hanaply-space-6);
+}
+
+.insight-panel {
+  border: 1px solid var(--hanaply-color-border);
+  border-radius: var(--hanaply-radius-lg);
+  background: var(--hanaply-color-surface);
+  padding: var(--hanaply-space-5);
+  display: grid;
+  gap: var(--hanaply-space-3);
+}
+
+.insight-panel h2 {
+  font-size: 1.05rem;
+  margin: 0;
+}
+
+.insight-panel h3 {
+  font-size: 0.95rem;
+  margin: var(--hanaply-space-2) 0 0;
+}
+
+.insight-panel-note {
+  margin: 0;
+  color: var(--hanaply-color-text-muted);
+  font-size: 0.9rem;
+  line-height: 1.55;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.4rem;
+}
+
+.insight-complete {
+  margin: 0;
+  color: var(--hanaply-color-text-muted);
+  font-size: 0.9rem;
+}
+
+.insight-unavailable,
+.insight-empty {
+  border: 1px solid var(--hanaply-color-border);
+  border-radius: var(--hanaply-radius-lg);
+  background: var(--hanaply-color-surface);
+  padding: var(--hanaply-space-6);
+  display: grid;
+  gap: var(--hanaply-space-3);
+  justify-items: start;
+  max-width: 46rem;
+}
+
+.insight-unavailable {
+  border-color: var(--hanaply-color-warning-border, var(--hanaply-color-border));
+}
+
+.insight-unavailable h2,
+.insight-empty h2 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.insight-unavailable p,
+.insight-empty p {
+  margin: 0;
+  color: var(--hanaply-color-text-muted);
+  line-height: 1.6;
+}
+
+.insight-suggestion-list,
+.insight-field-list,
+.insight-gap-list,
+.insight-direction-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--hanaply-space-3);
+}
+
+.insight-suggestion {
+  border: 1px solid var(--hanaply-color-border);
+  border-radius: var(--hanaply-radius-md);
+  padding: var(--hanaply-space-4);
+  display: grid;
+  gap: var(--hanaply-space-2);
+  background: var(--hanaply-color-surface-muted, transparent);
+}
+
+.insight-suggestion-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.insight-suggestion-head h3 {
+  margin: 0;
+  flex: 1 1 12rem;
+}
+
+.insight-priority {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  border: 1px solid var(--hanaply-color-border);
+  color: var(--hanaply-color-text-muted);
+}
+
+.insight-priority-high {
+  border-color: var(--hanaply-color-primary);
+  color: var(--hanaply-color-primary);
+}
+
+.insight-suggestion-detail,
+.insight-suggestion-action {
+  margin: 0;
+  line-height: 1.6;
+  font-size: 0.92rem;
+}
+
+.insight-suggestion-action {
+  color: var(--hanaply-color-text-muted);
+}
+
+.insight-evidence {
+  font-size: 0.85rem;
+}
+
+.insight-evidence summary {
+  cursor: pointer;
+  color: var(--hanaply-color-text-muted);
+}
+
+.insight-evidence summary:focus-visible {
+  outline: 2px solid var(--hanaply-color-focus, var(--hanaply-color-primary));
+  outline-offset: 2px;
+}
+
+.insight-evidence dl {
+  margin: var(--hanaply-space-2) 0 0;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.insight-evidence dl > div {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.insight-evidence dt {
+  color: var(--hanaply-color-text-muted);
+  min-width: 9rem;
+}
+
+.insight-evidence dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.insight-strength-bar {
+  height: 0.5rem;
+  border-radius: 999px;
+  background: var(--hanaply-color-border);
+  overflow: hidden;
+}
+
+.insight-strength-bar span {
+  display: block;
+  height: 100%;
+  background: var(--hanaply-color-primary);
+}
+
+.insight-field-list li {
+  display: grid;
+  gap: 0.15rem;
+  border-left: 2px solid var(--hanaply-color-border);
+  padding-left: var(--hanaply-space-3);
+}
+
+.insight-field-list span {
+  color: var(--hanaply-color-text-muted);
+  font-size: 0.88rem;
+  line-height: 1.55;
+}
+
+.insight-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  gap: var(--hanaply-space-3);
+}
+
+.insight-metric {
+  border: 1px solid var(--hanaply-color-border);
+  border-radius: var(--hanaply-radius-md);
+  padding: var(--hanaply-space-3);
+  display: grid;
+  gap: 0.2rem;
+}
+
+.insight-metric-label {
+  font-size: 0.8rem;
+  color: var(--hanaply-color-text-muted);
+}
+
+.insight-metric strong {
+  font-size: 1.35rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.insight-rate-list {
+  margin: 0;
+  display: grid;
+  gap: 0.4rem;
+}
+
+.insight-rate-list > div {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--hanaply-space-3);
+  border-bottom: 1px dashed var(--hanaply-color-border);
+  padding-bottom: 0.35rem;
+}
+
+.insight-rate-list dt {
+  color: var(--hanaply-color-text-muted);
+}
+
+.insight-rate-list dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.insight-direction-list li,
+.insight-gap-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--hanaply-space-3);
+  flex-wrap: wrap;
+  border-bottom: 1px dashed var(--hanaply-color-border);
+  padding-bottom: 0.35rem;
+}
+
+.insight-direction-meta {
+  color: var(--hanaply-color-text-muted);
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.insight-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  color: var(--hanaply-color-primary);
+  font-size: 0.9rem;
+}
+
+.insight-activity-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+.insight-activity-table th,
+.insight-activity-table td {
+  text-align: left;
+  padding: 0.4rem 0.5rem;
+  border-bottom: 1px solid var(--hanaply-color-border);
+  font-weight: 400;
+}
+
+.insight-activity-table thead th {
+  font-weight: 600;
+  color: var(--hanaply-color-text-muted);
+  font-size: 0.82rem;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (max-width: 640px) {
+  .insight-panel {
+    padding: var(--hanaply-space-4);
+  }
+
+  .insight-metrics {
+    grid-template-columns: repeat(auto-fit, minmax(7rem, 1fr));
+  }
+
+  .insight-rate-list > div,
+  .insight-direction-list li,
+  .insight-gap-list li {
+    flex-direction: column;
+    gap: 0.15rem;
+  }
+
+  .insight-evidence dt {
+    min-width: 0;
+  }
+}

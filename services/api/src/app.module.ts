@@ -8,6 +8,9 @@ import { HanaplyService } from './app.service.js';
 import { AdminJobsController } from './admin-jobs.controllers.js';
 import { AdminJobsRepository } from './admin-jobs.repository.js';
 import { AdminJobsService } from './admin-jobs.service.js';
+import { InsightsController } from './insights.controllers.js';
+import { InsightsRepository } from './insights.repository.js';
+import { InsightsService } from './insights.service.js';
 import {
   AdminController,
   DocumentationController,
@@ -28,6 +31,7 @@ export interface ApiRuntimeOverrides {
   paymentRepository?: unknown;
   careerRepository?: unknown;
   adminJobsRepository?: unknown;
+  insightsRepository?: unknown;
   authService?: unknown;
 }
 
@@ -47,6 +51,7 @@ export class AppModule {
         AdminController,
         AdminPaymentController,
         AdminJobsController,
+        InsightsController,
         DocumentationController,
       ],
       providers: [
@@ -63,10 +68,14 @@ export class AppModule {
         overrides.adminJobsRepository
           ? { provide: AdminJobsRepository, useValue: overrides.adminJobsRepository }
           : AdminJobsRepository,
+        overrides.insightsRepository
+          ? { provide: InsightsRepository, useValue: overrides.insightsRepository }
+          : InsightsRepository,
         HanaplyService,
         PaymentService,
         CareerService,
         AdminJobsService,
+        InsightsService,
         overrides.authService
           ? { provide: SupabaseAuthService, useValue: overrides.authService }
           : SupabaseAuthService,
