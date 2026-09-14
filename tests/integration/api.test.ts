@@ -106,22 +106,28 @@ const repository = {
     Promise.resolve({
       productUpdates: false,
       marketingEmails: false,
+      jobAlerts: false,
+      dailyDigest: false,
+      instantAlerts: false,
+      weeklyStrategy: false,
+      quietHoursStart: null,
+      quietHoursEnd: null,
       securityEmails: true as const,
-      futureJobAlerts: false as const,
-      futureDailyDigest: false as const,
       updatedAt: now,
     }),
   updateNotificationPreferences: (
     _accessToken: string,
-    input: { productUpdates: boolean; marketingEmails: boolean },
-  ) =>
-    Promise.resolve({
-      ...input,
-      securityEmails: true as const,
-      futureJobAlerts: false as const,
-      futureDailyDigest: false as const,
-      updatedAt: now,
-    }),
+    input: {
+      productUpdates: boolean;
+      marketingEmails: boolean;
+      jobAlerts: boolean;
+      dailyDigest: boolean;
+      instantAlerts: boolean;
+      weeklyStrategy: boolean;
+      quietHoursStart: number | null;
+      quietHoursEnd: number | null;
+    },
+  ) => Promise.resolve({ ...input, securityEmails: true as const, updatedAt: now }),
   listSessions: () =>
     Promise.resolve([
       {
@@ -470,6 +476,12 @@ describe('Phase 1 API integration', () => {
     expect(apiContract.preferences.response.parse(current.json()).data).toMatchObject({
       productUpdates: false,
       marketingEmails: false,
+      jobAlerts: false,
+      dailyDigest: false,
+      instantAlerts: false,
+      weeklyStrategy: false,
+      quietHoursStart: null,
+      quietHoursEnd: null,
       securityEmails: true,
     });
 
@@ -477,11 +489,23 @@ describe('Phase 1 API integration', () => {
       method: 'PATCH',
       url: '/v1/me/preferences',
       headers: { authorization: 'Bearer user-token' },
-      payload: { productUpdates: true, marketingEmails: false },
+      payload: {
+        productUpdates: true,
+        marketingEmails: false,
+        jobAlerts: true,
+        dailyDigest: false,
+        instantAlerts: false,
+        weeklyStrategy: false,
+        quietHoursStart: 22,
+        quietHoursEnd: 6,
+      },
     });
     expect(apiContract.updatePreferences.response.parse(update.json()).data).toMatchObject({
       productUpdates: true,
       marketingEmails: false,
+      jobAlerts: true,
+      quietHoursStart: 22,
+      quietHoursEnd: 6,
       securityEmails: true,
     });
 
@@ -489,9 +513,56 @@ describe('Phase 1 API integration', () => {
       method: 'PATCH',
       url: '/v1/me/preferences',
       headers: { authorization: 'Bearer user-token' },
-      payload: { productUpdates: false, marketingEmails: false, securityEmails: false },
+      payload: {
+        productUpdates: false,
+        marketingEmails: false,
+        jobAlerts: false,
+        dailyDigest: false,
+        instantAlerts: false,
+        weeklyStrategy: false,
+        quietHoursStart: null,
+        quietHoursEnd: null,
+        securityEmails: false,
+      },
     });
     expect(protectedCategory.statusCode).toBe(400);
+
+    const partialQuietHours = await app.inject({
+      method: 'PATCH',
+      url: '/v1/me/preferences',
+      headers: { authorization: 'Bearer user-token' },
+      payload: {
+        productUpdates: false,
+        marketingEmails: false,
+        jobAlerts: false,
+        dailyDigest: false,
+        instantAlerts: false,
+        weeklyStrategy: false,
+        quietHoursStart: 22,
+        quietHoursEnd: null,
+      },
+    });
+    expect(partialQuietHours.statusCode).toBe(400);
+
+    const missingEntitlement = await app.inject({
+      method: 'PATCH',
+      url: '/v1/me/preferences',
+      headers: { authorization: 'Bearer user-token' },
+      payload: {
+        productUpdates: false,
+        marketingEmails: false,
+        jobAlerts: false,
+        dailyDigest: false,
+        instantAlerts: true,
+        weeklyStrategy: false,
+        quietHoursStart: null,
+        quietHoursEnd: null,
+      },
+    });
+    expect(missingEntitlement.statusCode).toBe(403);
+    expect(apiErrorEnvelopeSchema.parse(missingEntitlement.json()).error.code).toBe(
+      'ENTITLEMENT_REQUIRED',
+    );
     expect(apiErrorEnvelopeSchema.parse(protectedCategory.json()).error.code).toBe(
       'VALIDATION_ERROR',
     );

@@ -344,15 +344,15 @@ function salaryWindow(text: string, anchor: number): string {
   return text.slice(start, Math.min(text.length, anchor + 80));
 }
 
-function collectAmounts(window: string): SalaryAmount[] {
+function collectAmounts(segment: string): SalaryAmount[] {
   const pattern = new RegExp(AMOUNT_PATTERN.source, 'gu');
   const amounts: SalaryAmount[] = [];
-  let match = pattern.exec(window);
+  let match = pattern.exec(segment);
   while (match !== null) {
     const raw = match[1] ?? '';
     const suffix = match[2] ?? '';
     const end = match.index + match[0].length;
-    if (!AMOUNT_EXCLUSION.test(window.slice(end, end + 12))) {
+    if (!AMOUNT_EXCLUSION.test(segment.slice(end, end + 12))) {
       const digits = raw.replace(/,/gu, '');
       const digitsOnly = digits.replace(/\./gu, '');
       const value = Number(digits) * (suffix === '' ? 1 : 1_000);
@@ -362,7 +362,7 @@ function collectAmounts(window: string): SalaryAmount[] {
         if (amounts.length > MAX_AMOUNTS) return amounts;
       }
     }
-    match = pattern.exec(window);
+    match = pattern.exec(segment);
   }
   return amounts;
 }
@@ -390,8 +390,8 @@ export function parseSalary(text: string, defaultCurrency?: string): ParsedSalar
   const currency = findCurrency(source, defaultCurrency);
   if (currency === null) return NO_SALARY;
 
-  const window = salaryWindow(source, currency.index);
-  const amounts = collectAmounts(window);
+  const segment = salaryWindow(source, currency.index);
+  const amounts = collectAmounts(segment);
   if (amounts.length === 0 || amounts.length > MAX_AMOUNTS) return NO_SALARY;
 
   const first = amounts[0];
@@ -413,7 +413,7 @@ export function parseSalary(text: string, defaultCurrency?: string): ParsedSalar
     minMinor,
     maxMinor,
     currency: currency.code,
-    period: detectSalaryPeriod(window) ?? detectSalaryPeriod(source),
+    period: detectSalaryPeriod(segment) ?? detectSalaryPeriod(source),
     isEstimate,
   };
 }
