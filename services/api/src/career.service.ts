@@ -5,6 +5,7 @@ import {
   careerLinkKindSchema,
   careerProfileInputSchema,
   careerRecordInputSchema,
+  careerSkillKindSchema,
   type CareerDocument,
   type CareerDocumentExtraction,
   type CareerProfileDetail,
@@ -34,7 +35,9 @@ const extractionPayloadSchema = z.object({
   wordCount: z.number().int().min(0).max(200000),
   headline: z.unknown().nullable(),
   summary: z.unknown().nullable(),
-  skills: z.array(z.object({ name: z.string().max(100), skillKind: z.string().max(40) })).max(200),
+  skills: z
+    .array(z.object({ name: z.string().max(100), skillKind: careerSkillKindSchema }))
+    .max(200),
   employment: z.array(careerExtractionEmploymentSchema).max(40),
   education: z
     .array(

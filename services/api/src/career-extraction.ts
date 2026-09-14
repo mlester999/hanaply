@@ -460,7 +460,10 @@ function extractEducation(lines: readonly string[]): CareerDocumentExtraction['e
 
     const institutionSource = institutionPattern.test(line) ? line : next;
     const degreeSource = degreePattern.test(line) ? line : next;
-    const yearMatch = /(19|20)\d{2}/u.exec(combined);
+    // A graduation year is the end of a range, never the start, so the last
+    // year on the line is the one that describes completion.
+    const years = [...combined.matchAll(/(19|20)\d{2}/gu)].map((match) => Number(match[0]));
+    const endYear = years.length > 0 ? (years.at(-1) ?? null) : null;
     const institution = institutionSource
       .replace(dateRangePattern, '')
       .replace(/[|,–—]\s*$/u, '')
@@ -477,7 +480,7 @@ function extractEducation(lines: readonly string[]): CareerDocumentExtraction['e
         ? field(degreeSource.replace(dateRangePattern, '').trim(), 0.6, degreeSource)
         : null,
       fieldOfStudy: null,
-      endYear: yearMatch ? Number(yearMatch[0]) : null,
+      endYear,
     });
     if (results.length >= 8) break;
   }

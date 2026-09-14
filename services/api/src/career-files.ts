@@ -317,7 +317,7 @@ export async function extractCareerDocumentText(
   return { text, pageCount: null, wordCount, warnings };
 }
 
-export function validateCareerDocument(
+export async function validateCareerDocument(
   input: UploadedCareerDocument,
 ): Promise<ValidatedCareerDocument> {
   if (input.buffer.length === 0) throw invalidUpload('Choose a file to upload.');
@@ -350,7 +350,8 @@ export function validateCareerDocument(
     }
   }
 
-  return extractCareerDocumentText(input.buffer, format).then((extracted) => ({
+  const extracted = await extractCareerDocumentText(input.buffer, format);
+  return {
     buffer: input.buffer,
     mimeType,
     extension: descriptor.extension,
@@ -361,7 +362,7 @@ export function validateCareerDocument(
     wordCount: extracted.wordCount,
     text: extracted.text,
     warnings: extracted.warnings,
-  }));
+  };
 }
 
 export async function readSingleCareerDocument(
