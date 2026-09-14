@@ -333,6 +333,36 @@ export function createApiClient(options: ApiClientOptions) {
       applicationId: string,
       body: z.input<typeof apiContract.setApplicationStage.body>,
     ) => request(apiContract.setApplicationStage, { params: { applicationId }, body }),
+    adminJobSources: () => request(apiContract.adminJobSources),
+    adminSetJobSourceState: (
+      sourceId: string,
+      body: z.input<typeof apiContract.adminSetJobSourceState.body>,
+    ) => request(apiContract.adminSetJobSourceState, { params: { sourceId }, body }),
+    adminUpdateJobSourceConfig: (
+      sourceId: string,
+      body: z.input<typeof apiContract.adminUpdateJobSourceConfig.body>,
+    ) => request(apiContract.adminUpdateJobSourceConfig, { params: { sourceId }, body }),
+    adminRequestJobSourceScan: (sourceId: string) =>
+      request(apiContract.adminRequestJobSourceScan, { params: { sourceId } }),
+    adminIngestionHealth: (query?: z.input<typeof apiContract.adminIngestionHealth.query>) =>
+      query
+        ? request(apiContract.adminIngestionHealth, { query: { ...query } })
+        : request(apiContract.adminIngestionHealth),
+    adminJobs: (query?: z.input<typeof apiContract.adminJobs.query>) =>
+      query
+        ? request(apiContract.adminJobs, { query: { ...query } })
+        : request(apiContract.adminJobs),
+    adminJob: (jobId: string) => request(apiContract.adminJob, { params: { jobId } }),
+    adminSetJobStatus: (jobId: string, body: z.input<typeof apiContract.adminSetJobStatus.body>) =>
+      request(apiContract.adminSetJobStatus, { params: { jobId }, body }),
+    adminDedupCandidates: (query?: z.input<typeof apiContract.adminDedupCandidates.query>) =>
+      query
+        ? request(apiContract.adminDedupCandidates, { query: { ...query } })
+        : request(apiContract.adminDedupCandidates),
+    adminResolveDedupCandidate: (
+      candidateId: string,
+      body: z.input<typeof apiContract.adminResolveDedupCandidate.body>,
+    ) => request(apiContract.adminResolveDedupCandidate, { params: { candidateId }, body }),
   });
 }
 

@@ -38,6 +38,22 @@ import {
 } from './domain.js';
 import { successEnvelopeSchema } from './errors.js';
 import {
+  adminDedupCandidatesSchema,
+  adminDedupParamsSchema,
+  adminDedupQuerySchema,
+  adminDedupResolutionSchema,
+  adminIngestionHealthSchema,
+  adminJobDetailSchema,
+  adminJobDirectoryQuerySchema,
+  adminJobDirectorySchema,
+  adminJobParamsSchema,
+  adminJobSourceConfigSchema,
+  adminJobSourceDirectorySchema,
+  adminJobSourceParamsSchema,
+  adminJobSourceStateSchema,
+  adminJobStatusSchema,
+} from './admin-jobs.js';
+import {
   applicationPackDetailSchema,
   applicationPackDirectorySchema,
   applicationPackParamsSchema,
@@ -146,8 +162,6 @@ const meDataSchema = z.object({
 
 const notificationPreferencesDataSchema = notificationPreferencesSchema.extend({
   securityEmails: z.literal(true),
-  futureJobAlerts: z.literal(false),
-  futureDailyDigest: z.literal(false),
   updatedAt: z.iso.datetime({ offset: true }),
 });
 
@@ -1318,6 +1332,114 @@ export const apiContract = Object.freeze({
     params: applicationParamsSchema,
     body: setApplicationStageSchema,
     response: successEnvelopeSchema(applicationSnapshotSchema),
+  }),
+
+  // -------------------------------------------------------------------------
+  // Administrative job operations
+  // -------------------------------------------------------------------------
+
+  adminJobSources: defineRoute({
+    method: 'GET',
+    path: '/v1/admin/job-sources',
+    operationId: 'listAdminJobSources',
+    summary: 'Provider catalogue with health and due state',
+    auth: 'admin',
+    successStatus: 200,
+    response: successEnvelopeSchema(adminJobSourceDirectorySchema),
+  }),
+  adminSetJobSourceState: defineRoute({
+    method: 'POST',
+    path: '/v1/admin/job-sources/{sourceId}/state',
+    operationId: 'setAdminJobSourceState',
+    summary: 'Enable, pause, or disable a provider with an audited reason',
+    auth: 'admin',
+    successStatus: 200,
+    params: adminJobSourceParamsSchema,
+    body: adminJobSourceStateSchema,
+    response: successEnvelopeSchema(z.object({ changed: z.boolean() })),
+  }),
+  adminUpdateJobSourceConfig: defineRoute({
+    method: 'PATCH',
+    path: '/v1/admin/job-sources/{sourceId}/config',
+    operationId: 'updateAdminJobSourceConfig',
+    summary: 'Replace a provider configuration, refusing credential-shaped keys',
+    auth: 'admin',
+    successStatus: 200,
+    params: adminJobSourceParamsSchema,
+    body: adminJobSourceConfigSchema,
+    response: successEnvelopeSchema(z.object({ updated: z.literal(true) })),
+  }),
+  adminRequestJobSourceScan: defineRoute({
+    method: 'POST',
+    path: '/v1/admin/job-sources/{sourceId}/scan',
+    operationId: 'requestAdminJobSourceScan',
+    summary: 'Make an enabled provider due on the next worker tick',
+    auth: 'admin',
+    successStatus: 200,
+    params: adminJobSourceParamsSchema,
+    response: successEnvelopeSchema(z.object({ requested: z.literal(true) })),
+  }),
+  adminIngestionHealth: defineRoute({
+    method: 'GET',
+    path: '/v1/admin/ingestion',
+    operationId: 'getAdminIngestionHealth',
+    summary: 'Provider health, recent ingestion runs, and job totals',
+    auth: 'admin',
+    successStatus: 200,
+    query: z.object({ runLimit: z.coerce.number().int().min(1).max(200).default(25) }).strict(),
+    response: successEnvelopeSchema(adminIngestionHealthSchema),
+  }),
+  adminJobs: defineRoute({
+    method: 'GET',
+    path: '/v1/admin/jobs',
+    operationId: 'listAdminJobs',
+    summary: 'Internal canonical job directory',
+    auth: 'admin',
+    successStatus: 200,
+    query: adminJobDirectoryQuerySchema,
+    response: successEnvelopeSchema(adminJobDirectorySchema),
+  }),
+  adminJob: defineRoute({
+    method: 'GET',
+    path: '/v1/admin/jobs/{jobId}',
+    operationId: 'getAdminJob',
+    summary: 'Canonical job record with provenance and duplication candidates',
+    auth: 'admin',
+    successStatus: 200,
+    params: adminJobParamsSchema,
+    response: successEnvelopeSchema(adminJobDetailSchema),
+  }),
+  adminSetJobStatus: defineRoute({
+    method: 'POST',
+    path: '/v1/admin/jobs/{jobId}/status',
+    operationId: 'setAdminJobStatus',
+    summary: 'Remove a posting from the feed with an audited reason',
+    auth: 'admin',
+    successStatus: 200,
+    params: adminJobParamsSchema,
+    body: adminJobStatusSchema,
+    response: successEnvelopeSchema(z.object({ changed: z.literal(true) })),
+  }),
+  adminDedupCandidates: defineRoute({
+    method: 'GET',
+    path: '/v1/admin/deduplication',
+    operationId: 'listAdminDedupCandidates',
+    summary: 'Near-duplicate pairs awaiting an operator decision',
+    auth: 'admin',
+    successStatus: 200,
+    query: adminDedupQuerySchema,
+    response: successEnvelopeSchema(adminDedupCandidatesSchema),
+  }),
+  adminResolveDedupCandidate: defineRoute({
+    method: 'POST',
+    path: '/v1/admin/deduplication/{candidateId}/resolve',
+    operationId: 'resolveAdminDedupCandidate',
+    summary: 'Merge or keep separate a reviewed duplicate pair',
+    auth: 'admin',
+    successStatus: 200,
+    params: adminDedupParamsSchema,
+    body: adminDedupResolutionSchema,
+    response: successEnvelopeSchema(z.object({ resolved: z.boolean() })),
   }),
 });
 
