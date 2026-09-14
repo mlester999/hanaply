@@ -363,6 +363,10 @@ export function createApiClient(options: ApiClientOptions) {
       candidateId: string,
       body: z.input<typeof apiContract.adminResolveDedupCandidate.body>,
     ) => request(apiContract.adminResolveDedupCandidate, { params: { candidateId }, body }),
+    careerInsights: (query?: z.input<typeof apiContract.careerInsights.query>) =>
+      query
+        ? request(apiContract.careerInsights, { query: { ...query } })
+        : request(apiContract.careerInsights),
   });
 }
 

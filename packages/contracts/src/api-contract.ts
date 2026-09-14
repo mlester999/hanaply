@@ -53,6 +53,7 @@ import {
   adminJobSourceStateSchema,
   adminJobStatusSchema,
 } from './admin-jobs.js';
+import { careerInsightsQuerySchema, careerInsightsSchema } from './insights.js';
 import {
   applicationPackDetailSchema,
   applicationPackDirectorySchema,
@@ -1440,6 +1441,21 @@ export const apiContract = Object.freeze({
     params: adminDedupParamsSchema,
     body: adminDedupResolutionSchema,
     response: successEnvelopeSchema(z.object({ resolved: z.boolean() })),
+  }),
+
+  // -------------------------------------------------------------------------
+  // Career insights and coaching
+  // -------------------------------------------------------------------------
+
+  careerInsights: defineRoute({
+    method: 'GET',
+    path: '/v1/me/career/insights',
+    operationId: 'getCareerInsights',
+    summary: 'Deterministic coaching and analytics for the active career profile',
+    auth: 'user',
+    successStatus: 200,
+    query: careerInsightsQuerySchema,
+    response: successEnvelopeSchema(careerInsightsSchema),
   }),
 });
 

@@ -1,6 +1,7 @@
 export * from './admin-jobs.js';
 export * from './api-contract.js';
 export * from './applications.js';
+export * from './insights.js';
 export * from './career.js';
 export * from './client.js';
 export * from './domain.js';
