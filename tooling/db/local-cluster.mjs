@@ -57,7 +57,11 @@ const isWindows = process.platform === 'win32';
 // progress is mirrored to an unbuffered trace file for diagnosis.
 function trace(message) {
   try {
-    appendFileSync(join(stateDir, 'harness.log'), `${new Date().toISOString()} ${message}\n`, 'utf8');
+    appendFileSync(
+      join(stateDir, 'harness.log'),
+      `${new Date().toISOString()} ${message}\n`,
+      'utf8',
+    );
   } catch {
     // Tracing must never break the harness.
   }
@@ -134,7 +138,6 @@ async function resolvePort() {
   }
   let candidate = configuredPort;
   for (let attempt = 0; attempt < 40; attempt += 1) {
-    // eslint-disable-next-line no-await-in-loop -- sequential probing keeps the chosen port stable.
     if (await isPortFree(candidate)) {
       mkdirSync(stateDir, { recursive: true });
       writeFileSync(portFile, `${candidate}\n`, 'utf8');
@@ -158,7 +161,11 @@ function port() {
   return resolvedPort;
 }
 
-function run(binary, args, { inherit = false, allowFailure = false, env = {}, silent = false } = {}) {
+function run(
+  binary,
+  args,
+  { inherit = false, allowFailure = false, env = {}, silent = false } = {},
+) {
   // `silent` uses 'ignore' stdio. It is required for `pg_ctl start|stop`:
   // spawnSync otherwise waits for EOF on the captured pipes, which the
   // daemonized postmaster keeps open forever.
@@ -265,7 +272,13 @@ function stopCluster() {
 function databaseExists(name) {
   const result = run(
     exe('psql'),
-    [...connectionArgs(), '-d', 'postgres', '-tAc', `select 1 from pg_database where datname = '${name}'`],
+    [
+      ...connectionArgs(),
+      '-d',
+      'postgres',
+      '-tAc',
+      `select 1 from pg_database where datname = '${name}'`,
+    ],
     { allowFailure: true },
   );
   return result.status === 0 && result.stdout.trim() === '1';
@@ -417,8 +430,7 @@ async function ensurePgtap() {
     fail('The pgTAP release archive did not contain pgtap.control and sql/pgtap.sql.in.');
   }
   const controlText = control.toString('utf8');
-  const declaredVersion =
-    /default_version\s*=\s*'([^']+)'/.exec(controlText)?.[1] ?? pgtapVersion;
+  const declaredVersion = /default_version\s*=\s*'([^']+)'/.exec(controlText)?.[1] ?? pgtapVersion;
   if (!/module_pathname\s*=/.test(controlText)) {
     fail('The pgTAP control file is missing module_pathname.');
   }
@@ -444,9 +456,7 @@ function installPgtap(databaseName) {
     { allowFailure: true },
   );
   if (result.status !== 0) {
-    fail(
-      `pgTAP could not be registered through extension_control_path.\n${result.stderr ?? ''}`,
-    );
+    fail(`pgTAP could not be registered through extension_control_path.\n${result.stderr ?? ''}`);
   }
 }
 

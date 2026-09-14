@@ -1,0 +1,439 @@
+import type { ApiEnvironment } from '@hanaply/config';
+import {
+  careerDocumentDirectorySchema,
+  careerDocumentSchema,
+  careerFactCreationResultSchema,
+  careerFactDecisionResultSchema,
+  careerFactDirectorySchema,
+  careerProfileDetailSchema,
+  careerProfileDirectorySchema,
+  confirmedCareerEvidenceSchema,
+  type CareerDocument,
+  type CareerFact,
+  type CareerProfileDetail,
+  type CareerProfileDirectory,
+  type CareerRecordInput,
+  type ConfirmedCareerEvidence,
+} from '@hanaply/contracts';
+import { createServiceDatabaseClient, type Database } from '@hanaply/database';
+import { Inject, Injectable } from '@nestjs/common';
+
+import { AppError } from './app-error.js';
+import { API_ENVIRONMENT } from './tokens.js';
+
+export const careerDocumentColumns =
+  'id, career_profile_id, document_kind, status, original_filename, mime_type, size_bytes, checksum_sha256, page_count, word_count, parsed_at, is_active, version, created_at, updated_at' as const;
+
+type CareerDocumentRow = Database['public']['Tables']['career_documents']['Row'];
+type CareerDocumentProjection = Pick<
+  CareerDocumentRow,
+  | 'id'
+  | 'career_profile_id'
+  | 'document_kind'
+  | 'status'
+  | 'original_filename'
+  | 'mime_type'
+  | 'size_bytes'
+  | 'checksum_sha256'
+  | 'page_count'
+  | 'word_count'
+  | 'parsed_at'
+  | 'is_active'
+  | 'version'
+  | 'created_at'
+  | 'updated_at'
+>;
+
+/**
+ * Maps PostgreSQL SQLSTATEs raised by the career functions onto the public error
+ * envelope. The career functions use deliberate codes: 42501 for authorization
+ * and plan-limit refusals, 22023/23514 for invalid input, P0002 for missing
+ * rows, 40001 for optimistic-concurrency conflicts, and 23505 for uniqueness
+ * collisions.
+ */
+export function careerError(error: { code?: string; message: string }, fallback: string): AppError {
+  switch (error.code) {
+    case '42501':
+      return new AppError({
+        code: 'FORBIDDEN',
+        status: 403,
+        message: error.message.replace(/^.*?:\s*/u, '') || fallback,
+      });
+    case '22023':
+    case '23514':
+      return new AppError({
+        code: 'VALIDATION_ERROR',
+        status: 400,
+        message: error.message.replace(/^.*?:\s*/u, '') || fallback,
+      });
+    case 'P0002':
+      return new AppError({ code: 'NOT_FOUND', status: 404, message: 'Career record not found' });
+    case '40001':
+      return new AppError({
+        code: 'CONFLICT',
+        status: 409,
+        message: 'This career profile changed in another session. Reload and try again.',
+      });
+    case '23505':
+      return new AppError({
+        code: 'CONFLICT',
+        status: 409,
+        message: 'That value already exists on this career profile.',
+      });
+    default:
+      return new AppError({ code: 'SERVICE_UNAVAILABLE', status: 503, message: fallback });
+  }
+}
+
+export function mapCareerDocument(row: CareerDocumentProjection): CareerDocument {
+  return careerDocumentSchema.parse({
+    id: row.id,
+    careerProfileId: row.career_profile_id,
+    documentKind: row.document_kind,
+    status: row.status,
+    originalFilename: row.original_filename,
+    mimeType: row.mime_type,
+    sizeBytes: row.size_bytes,
+    checksumSha256: row.checksum_sha256,
+    pageCount: row.page_count,
+    wordCount: row.word_count,
+    parsedAt: row.parsed_at,
+    isActive: row.is_active,
+    version: row.version,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  });
+}
+
+interface RpcOutcome {
+  data: unknown;
+  error: { code?: string; message: string } | null;
+}
+
+@Injectable()
+export class CareerRepository {
+  constructor(@Inject(API_ENVIRONMENT) private readonly environment: ApiEnvironment) {}
+
+  private get client() {
+    const url = this.environment.SUPABASE_URL;
+    const serviceRoleKey = this.environment.SUPABASE_SERVICE_ROLE_KEY;
+    if (!url || !serviceRoleKey) {
+      throw new AppError({
+        code: 'SERVICE_UNAVAILABLE',
+        status: 503,
+        message: 'Career services are not configured',
+      });
+    }
+    return createServiceDatabaseClient(url, serviceRoleKey);
+  }
+
+  /**
+   * Career functions take nullable parameters, meaning "not supplied", which the
+   * generated argument types cannot express because PostgreSQL does not record
+   * argument nullability. This is the single narrowing at the database boundary;
+   * every response is still validated with the shared Zod schemas.
+   */
+  private callRpc(name: string, args: Record<string, unknown>): PromiseLike<RpcOutcome> {
+    const rpc = this.client.rpc.bind(this.client) as unknown as (
+      functionName: string,
+      parameters: Record<string, unknown>,
+    ) => PromiseLike<RpcOutcome>;
+    return rpc(name, args);
+  }
+
+  private async rpc<T>(
+    call: () => PromiseLike<RpcOutcome>,
+    parse: (value: unknown) => T | null,
+    failureMessage: string,
+  ): Promise<T> {
+    const { data, error } = await call();
+    if (error) {
+      throw careerError(error, failureMessage);
+    }
+    const parsed = parse(data);
+    if (parsed === null) {
+      throw new AppError({ code: 'SERVICE_UNAVAILABLE', status: 503, message: failureMessage });
+    }
+    return parsed;
+  }
+
+  async profiles(actorUserId: string): Promise<CareerProfileDirectory> {
+    return this.rpc(
+      () => this.callRpc('career_profile_directory', { actor_user_id: actorUserId }),
+      (value) => careerProfileDirectorySchema.safeParse(value).data ?? null,
+      'Career profile limits could not be evaluated',
+    );
+  }
+
+  async profile(actorUserId: string, profileId: string): Promise<CareerProfileDetail> {
+    return this.rpc(
+      () =>
+        this.callRpc('career_profile_detail', {
+          actor_user_id: actorUserId,
+          target_profile_id: profileId,
+        }),
+      (value) => careerProfileDetailSchema.safeParse(value).data ?? null,
+      'The career profile could not be read',
+    );
+  }
+
+  async createProfile(
+    actorUserId: string,
+    input: Record<string, unknown>,
+    requestId: string,
+  ): Promise<string> {
+    return this.rpc(
+      () =>
+        this.callRpc('create_career_profile', {
+          actor_user_id: actorUserId,
+          profile_input: input,
+          action_request_id: requestId,
+        }),
+      (value) => (typeof value === 'string' ? value : null),
+      'The career profile could not be created',
+    );
+  }
+
+  async updateProfile(
+    actorUserId: string,
+    profileId: string,
+    expectedVersion: number,
+    input: Record<string, unknown>,
+    requestId: string,
+  ): Promise<number> {
+    return this.rpc(
+      () =>
+        this.callRpc('update_career_profile', {
+          actor_user_id: actorUserId,
+          target_profile_id: profileId,
+          expected_version: expectedVersion,
+          profile_input: input,
+          action_request_id: requestId,
+        }),
+      (value) => (typeof value === 'number' ? value : null),
+      'The career profile could not be updated',
+    );
+  }
+
+  async setPrimaryProfile(
+    actorUserId: string,
+    profileId: string,
+    requestId: string,
+  ): Promise<boolean> {
+    return this.rpc(
+      () =>
+        this.callRpc('set_primary_career_profile', {
+          actor_user_id: actorUserId,
+          target_profile_id: profileId,
+          action_request_id: requestId,
+        }),
+      (value) => (typeof value === 'boolean' ? value : null),
+      'The primary career profile could not be changed',
+    );
+  }
+
+  async setProfileStatus(
+    actorUserId: string,
+    profileId: string,
+    status: CareerProfileDetail['status'],
+    requestId: string,
+  ): Promise<number> {
+    return this.rpc(
+      () =>
+        this.callRpc('set_career_profile_status', {
+          actor_user_id: actorUserId,
+          target_profile_id: profileId,
+          requested_status: status,
+          action_request_id: requestId,
+        }),
+      (value) => (typeof value === 'number' ? value : null),
+      'The career profile status could not be changed',
+    );
+  }
+
+  async deleteProfile(actorUserId: string, profileId: string, requestId: string): Promise<void> {
+    await this.rpc(
+      () =>
+        this.callRpc('delete_career_profile', {
+          actor_user_id: actorUserId,
+          target_profile_id: profileId,
+          action_request_id: requestId,
+        }),
+      (value) => (typeof value === 'boolean' ? value : null),
+      'The career profile could not be deleted',
+    );
+  }
+
+  async upsertRecord(
+    actorUserId: string,
+    profileId: string,
+    input: CareerRecordInput,
+    requestId: string,
+  ): Promise<string> {
+    return this.rpc(
+      () =>
+        this.callRpc('upsert_career_record', {
+          actor_user_id: actorUserId,
+          target_profile_id: profileId,
+          record_kind: input.kind,
+          record_id: input.recordId ?? null,
+          record_input: input.record,
+          action_request_id: requestId,
+        }),
+      (value) => (typeof value === 'string' ? value : null),
+      'The career record could not be saved',
+    );
+  }
+
+  async deleteRecord(
+    actorUserId: string,
+    profileId: string,
+    recordKind: string,
+    recordId: string,
+    requestId: string,
+  ): Promise<boolean> {
+    return this.rpc(
+      () =>
+        this.callRpc('delete_career_record', {
+          actor_user_id: actorUserId,
+          target_profile_id: profileId,
+          record_kind: recordKind,
+          record_id: recordId,
+          action_request_id: requestId,
+        }),
+      (value) => (typeof value === 'boolean' ? value : null),
+      'The career record could not be deleted',
+    );
+  }
+
+  async facts(
+    actorUserId: string,
+    profileId: string,
+    status: CareerFact['status'] | null,
+  ): Promise<readonly CareerFact[]> {
+    const result = await this.rpc(
+      () =>
+        this.callRpc('career_fact_directory', {
+          actor_user_id: actorUserId,
+          target_profile_id: profileId,
+          status_filter: status,
+        }),
+      (value) => careerFactDirectorySchema.safeParse(value).data ?? null,
+      'The career fact ledger could not be read',
+    );
+    return result.items;
+  }
+
+  async recordFacts(
+    actorUserId: string,
+    profileId: string,
+    facts: readonly Record<string, unknown>[],
+    source: 'user_entered' | 'resume_extraction' | 'ai_inference' | 'imported',
+    documentId: string | null,
+    requestId: string,
+  ): Promise<readonly string[]> {
+    const result = await this.rpc(
+      () =>
+        this.callRpc('record_career_facts', {
+          actor_user_id: actorUserId,
+          target_profile_id: profileId,
+          facts,
+          requested_source: source,
+          source_document_id: documentId,
+          action_request_id: requestId,
+        }),
+      (value) => careerFactCreationResultSchema.safeParse(value).data ?? null,
+      'The career facts could not be recorded',
+    );
+    return result.createdIds;
+  }
+
+  async decideFact(
+    actorUserId: string,
+    factId: string,
+    decision: 'confirm' | 'reject' | 'correct',
+    statement: string | null,
+    metricUnit: string | null,
+    metricValue: number | null,
+    requestId: string,
+  ): Promise<readonly CareerFact[]> {
+    const result = await this.rpc(
+      () =>
+        this.callRpc('decide_career_fact', {
+          actor_user_id: actorUserId,
+          target_fact_id: factId,
+          decision,
+          override_statement: statement,
+          override_metric_unit: metricUnit,
+          override_metric_value: metricValue,
+          action_request_id: requestId,
+        }),
+      (value) => careerFactDecisionResultSchema.safeParse(value).data ?? null,
+      'The career fact decision could not be recorded',
+    );
+    return result.facts.items;
+  }
+
+  async confirmedEvidence(
+    actorUserId: string,
+    profileId: string,
+  ): Promise<ConfirmedCareerEvidence> {
+    return this.rpc(
+      () =>
+        this.callRpc('confirmed_career_evidence', {
+          actor_user_id: actorUserId,
+          target_profile_id: profileId,
+        }),
+      (value) => confirmedCareerEvidenceSchema.safeParse(value).data ?? null,
+      'Confirmed career evidence could not be read',
+    );
+  }
+
+  async setOnboardingStatus(
+    actorUserId: string,
+    status: 'not_started' | 'in_progress' | 'complete',
+    requestId: string,
+  ): Promise<boolean> {
+    return this.rpc(
+      () =>
+        this.callRpc('set_onboarding_status', {
+          actor_user_id: actorUserId,
+          requested_status: status,
+          action_request_id: requestId,
+        }),
+      (value) => (typeof value === 'boolean' ? value : null),
+      'The onboarding state could not be updated',
+    );
+  }
+
+  async documents(actorUserId: string): Promise<readonly CareerDocument[]> {
+    const { data, error } = await this.client
+      .from('career_documents')
+      .select(careerDocumentColumns)
+      .eq('user_id', actorUserId)
+      .eq('is_active', true)
+      .order('created_at', { ascending: false });
+    if (error) {
+      throw careerError(error, 'Career documents could not be read');
+    }
+    return careerDocumentDirectorySchema.parse({
+      items: (data ?? []).map((row) => mapCareerDocument(row)),
+    }).items;
+  }
+
+  async document(actorUserId: string, documentId: string): Promise<CareerDocument> {
+    const { data, error } = await this.client
+      .from('career_documents')
+      .select(careerDocumentColumns)
+      .eq('id', documentId)
+      .eq('user_id', actorUserId)
+      .maybeSingle();
+    if (error) {
+      throw careerError(error, 'The career document could not be read');
+    }
+    if (!data) {
+      throw new AppError({ code: 'NOT_FOUND', status: 404, message: 'Career document not found' });
+    }
+    return mapCareerDocument(data);
+  }
+}

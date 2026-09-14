@@ -342,6 +342,638 @@ export type Database = {
         }
         Relationships: []
       }
+      career_certifications: {
+        Row: {
+          career_profile_id: string
+          created_at: string
+          credential_id: string | null
+          credential_url: string | null
+          expires_on: string | null
+          id: string
+          issued_on: string | null
+          issuer: string | null
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          career_profile_id: string
+          created_at?: string
+          credential_id?: string | null
+          credential_url?: string | null
+          expires_on?: string | null
+          id?: string
+          issued_on?: string | null
+          issuer?: string | null
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          career_profile_id?: string
+          created_at?: string
+          credential_id?: string | null
+          credential_url?: string | null
+          expires_on?: string | null
+          id?: string
+          issued_on?: string | null
+          issuer?: string | null
+          name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "career_certifications_career_profile_id_fkey"
+            columns: ["career_profile_id"]
+            isOneToOne: false
+            referencedRelation: "career_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      career_documents: {
+        Row: {
+          bucket_id: string
+          career_profile_id: string | null
+          checksum_sha256: string
+          created_at: string
+          document_kind: Database["public"]["Enums"]["career_document_kind"]
+          id: string
+          is_active: boolean
+          mime_type: string
+          object_path: string
+          original_filename: string
+          page_count: number | null
+          parse_error_code: string | null
+          parsed_at: string | null
+          size_bytes: number
+          status: Database["public"]["Enums"]["career_document_status"]
+          updated_at: string
+          user_id: string
+          version: number
+          word_count: number | null
+        }
+        Insert: {
+          bucket_id?: string
+          career_profile_id?: string | null
+          checksum_sha256: string
+          created_at?: string
+          document_kind?: Database["public"]["Enums"]["career_document_kind"]
+          id?: string
+          is_active?: boolean
+          mime_type: string
+          object_path: string
+          original_filename: string
+          page_count?: number | null
+          parse_error_code?: string | null
+          parsed_at?: string | null
+          size_bytes: number
+          status?: Database["public"]["Enums"]["career_document_status"]
+          updated_at?: string
+          user_id: string
+          version?: number
+          word_count?: number | null
+        }
+        Update: {
+          bucket_id?: string
+          career_profile_id?: string | null
+          checksum_sha256?: string
+          created_at?: string
+          document_kind?: Database["public"]["Enums"]["career_document_kind"]
+          id?: string
+          is_active?: boolean
+          mime_type?: string
+          object_path?: string
+          original_filename?: string
+          page_count?: number | null
+          parse_error_code?: string | null
+          parsed_at?: string | null
+          size_bytes?: number
+          status?: Database["public"]["Enums"]["career_document_status"]
+          updated_at?: string
+          user_id?: string
+          version?: number
+          word_count?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "career_documents_career_profile_id_fkey"
+            columns: ["career_profile_id"]
+            isOneToOne: false
+            referencedRelation: "career_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      career_education: {
+        Row: {
+          career_profile_id: string
+          created_at: string
+          degree: string | null
+          description: string | null
+          end_year: number | null
+          field_of_study: string | null
+          grade: string | null
+          id: string
+          institution: string
+          is_current: boolean
+          start_year: number | null
+          updated_at: string
+        }
+        Insert: {
+          career_profile_id: string
+          created_at?: string
+          degree?: string | null
+          description?: string | null
+          end_year?: number | null
+          field_of_study?: string | null
+          grade?: string | null
+          id?: string
+          institution: string
+          is_current?: boolean
+          start_year?: number | null
+          updated_at?: string
+        }
+        Update: {
+          career_profile_id?: string
+          created_at?: string
+          degree?: string | null
+          description?: string | null
+          end_year?: number | null
+          field_of_study?: string | null
+          grade?: string | null
+          id?: string
+          institution?: string
+          is_current?: boolean
+          start_year?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "career_education_career_profile_id_fkey"
+            columns: ["career_profile_id"]
+            isOneToOne: false
+            referencedRelation: "career_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      career_employment_history: {
+        Row: {
+          career_profile_id: string
+          company_name: string
+          company_url: string | null
+          country_code: string | null
+          created_at: string
+          display_order: number
+          employment_type: Database["public"]["Enums"]["employment_type"]
+          end_date: string | null
+          highlights: string[]
+          id: string
+          industry: string | null
+          is_current: boolean
+          location: string | null
+          role_title: string
+          skills: string[]
+          start_date: string
+          summary: string | null
+          updated_at: string
+          work_arrangement:
+            Database["public"]["Enums"]["work_arrangement"] | null
+        }
+        Insert: {
+          career_profile_id: string
+          company_name: string
+          company_url?: string | null
+          country_code?: string | null
+          created_at?: string
+          display_order?: number
+          employment_type?: Database["public"]["Enums"]["employment_type"]
+          end_date?: string | null
+          highlights?: string[]
+          id?: string
+          industry?: string | null
+          is_current?: boolean
+          location?: string | null
+          role_title: string
+          skills?: string[]
+          start_date: string
+          summary?: string | null
+          updated_at?: string
+          work_arrangement?:
+            Database["public"]["Enums"]["work_arrangement"] | null
+        }
+        Update: {
+          career_profile_id?: string
+          company_name?: string
+          company_url?: string | null
+          country_code?: string | null
+          created_at?: string
+          display_order?: number
+          employment_type?: Database["public"]["Enums"]["employment_type"]
+          end_date?: string | null
+          highlights?: string[]
+          id?: string
+          industry?: string | null
+          is_current?: boolean
+          location?: string | null
+          role_title?: string
+          skills?: string[]
+          start_date?: string
+          summary?: string | null
+          updated_at?: string
+          work_arrangement?:
+            Database["public"]["Enums"]["work_arrangement"] | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "career_employment_history_career_profile_id_fkey"
+            columns: ["career_profile_id"]
+            isOneToOne: false
+            referencedRelation: "career_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      career_facts: {
+        Row: {
+          career_profile_id: string
+          category: Database["public"]["Enums"]["career_fact_category"]
+          confidence: number | null
+          confirmed_at: string | null
+          confirmed_by: string | null
+          created_at: string
+          document_id: string | null
+          evidence: Json
+          id: string
+          metric_context: string | null
+          metric_unit: string | null
+          metric_value: number | null
+          source: Database["public"]["Enums"]["career_fact_source"]
+          statement: string
+          status: Database["public"]["Enums"]["career_fact_status"]
+          superseded_by: string | null
+          updated_at: string
+        }
+        Insert: {
+          career_profile_id: string
+          category?: Database["public"]["Enums"]["career_fact_category"]
+          confidence?: number | null
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          created_at?: string
+          document_id?: string | null
+          evidence?: Json
+          id?: string
+          metric_context?: string | null
+          metric_unit?: string | null
+          metric_value?: number | null
+          source: Database["public"]["Enums"]["career_fact_source"]
+          statement: string
+          status?: Database["public"]["Enums"]["career_fact_status"]
+          superseded_by?: string | null
+          updated_at?: string
+        }
+        Update: {
+          career_profile_id?: string
+          category?: Database["public"]["Enums"]["career_fact_category"]
+          confidence?: number | null
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          created_at?: string
+          document_id?: string | null
+          evidence?: Json
+          id?: string
+          metric_context?: string | null
+          metric_unit?: string | null
+          metric_value?: number | null
+          source?: Database["public"]["Enums"]["career_fact_source"]
+          statement?: string
+          status?: Database["public"]["Enums"]["career_fact_status"]
+          superseded_by?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "career_facts_career_profile_id_fkey"
+            columns: ["career_profile_id"]
+            isOneToOne: false
+            referencedRelation: "career_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "career_facts_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "career_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "career_facts_superseded_by_fkey"
+            columns: ["superseded_by"]
+            isOneToOne: false
+            referencedRelation: "career_facts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      career_profile_links: {
+        Row: {
+          career_profile_id: string
+          created_at: string
+          display_order: number
+          id: string
+          label: string | null
+          link_kind: Database["public"]["Enums"]["career_link_kind"]
+          updated_at: string
+          url: string
+        }
+        Insert: {
+          career_profile_id: string
+          created_at?: string
+          display_order?: number
+          id?: string
+          label?: string | null
+          link_kind: Database["public"]["Enums"]["career_link_kind"]
+          updated_at?: string
+          url: string
+        }
+        Update: {
+          career_profile_id?: string
+          created_at?: string
+          display_order?: number
+          id?: string
+          label?: string | null
+          link_kind?: Database["public"]["Enums"]["career_link_kind"]
+          updated_at?: string
+          url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "career_profile_links_career_profile_id_fkey"
+            columns: ["career_profile_id"]
+            isOneToOne: false
+            referencedRelation: "career_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      career_profiles: {
+        Row: {
+          availability:
+            Database["public"]["Enums"]["availability_status"] | null
+          career_goals: string | null
+          career_level: Database["public"]["Enums"]["career_level"] | null
+          completeness_percent: number
+          created_at: string
+          current_role_title: string | null
+          excluded_role_titles: string[]
+          headline: string | null
+          id: string
+          industries: string[]
+          is_primary: boolean
+          last_reviewed_at: string | null
+          name: string
+          open_to_international: boolean
+          open_to_relocation: boolean
+          preferred_employment_types: Database["public"]["Enums"]["employment_type"][]
+          preferred_locations: string[]
+          preferred_work_arrangement:
+            Database["public"]["Enums"]["work_arrangement"] | null
+          salary_currency: string
+          salary_expectation_max_minor: number | null
+          salary_expectation_min_minor: number | null
+          salary_period: Database["public"]["Enums"]["salary_period"] | null
+          status: Database["public"]["Enums"]["career_profile_status"]
+          summary: string | null
+          target_role_titles: string[]
+          updated_at: string
+          user_id: string
+          version: number
+          work_authorizations: string[]
+          years_experience: number | null
+        }
+        Insert: {
+          availability?:
+            Database["public"]["Enums"]["availability_status"] | null
+          career_goals?: string | null
+          career_level?: Database["public"]["Enums"]["career_level"] | null
+          completeness_percent?: number
+          created_at?: string
+          current_role_title?: string | null
+          excluded_role_titles?: string[]
+          headline?: string | null
+          id?: string
+          industries?: string[]
+          is_primary?: boolean
+          last_reviewed_at?: string | null
+          name: string
+          open_to_international?: boolean
+          open_to_relocation?: boolean
+          preferred_employment_types?: Database["public"]["Enums"]["employment_type"][]
+          preferred_locations?: string[]
+          preferred_work_arrangement?:
+            Database["public"]["Enums"]["work_arrangement"] | null
+          salary_currency?: string
+          salary_expectation_max_minor?: number | null
+          salary_expectation_min_minor?: number | null
+          salary_period?: Database["public"]["Enums"]["salary_period"] | null
+          status?: Database["public"]["Enums"]["career_profile_status"]
+          summary?: string | null
+          target_role_titles?: string[]
+          updated_at?: string
+          user_id: string
+          version?: number
+          work_authorizations?: string[]
+          years_experience?: number | null
+        }
+        Update: {
+          availability?:
+            Database["public"]["Enums"]["availability_status"] | null
+          career_goals?: string | null
+          career_level?: Database["public"]["Enums"]["career_level"] | null
+          completeness_percent?: number
+          created_at?: string
+          current_role_title?: string | null
+          excluded_role_titles?: string[]
+          headline?: string | null
+          id?: string
+          industries?: string[]
+          is_primary?: boolean
+          last_reviewed_at?: string | null
+          name?: string
+          open_to_international?: boolean
+          open_to_relocation?: boolean
+          preferred_employment_types?: Database["public"]["Enums"]["employment_type"][]
+          preferred_locations?: string[]
+          preferred_work_arrangement?:
+            Database["public"]["Enums"]["work_arrangement"] | null
+          salary_currency?: string
+          salary_expectation_max_minor?: number | null
+          salary_expectation_min_minor?: number | null
+          salary_period?: Database["public"]["Enums"]["salary_period"] | null
+          status?: Database["public"]["Enums"]["career_profile_status"]
+          summary?: string | null
+          target_role_titles?: string[]
+          updated_at?: string
+          user_id?: string
+          version?: number
+          work_authorizations?: string[]
+          years_experience?: number | null
+        }
+        Relationships: []
+      }
+      career_projects: {
+        Row: {
+          career_profile_id: string
+          created_at: string
+          description: string | null
+          display_order: number
+          end_date: string | null
+          highlights: string[]
+          id: string
+          is_featured: boolean
+          name: string
+          project_url: string | null
+          repository_url: string | null
+          role_title: string | null
+          skills: string[]
+          start_date: string | null
+          updated_at: string
+        }
+        Insert: {
+          career_profile_id: string
+          created_at?: string
+          description?: string | null
+          display_order?: number
+          end_date?: string | null
+          highlights?: string[]
+          id?: string
+          is_featured?: boolean
+          name: string
+          project_url?: string | null
+          repository_url?: string | null
+          role_title?: string | null
+          skills?: string[]
+          start_date?: string | null
+          updated_at?: string
+        }
+        Update: {
+          career_profile_id?: string
+          created_at?: string
+          description?: string | null
+          display_order?: number
+          end_date?: string | null
+          highlights?: string[]
+          id?: string
+          is_featured?: boolean
+          name?: string
+          project_url?: string | null
+          repository_url?: string | null
+          role_title?: string | null
+          skills?: string[]
+          start_date?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "career_projects_career_profile_id_fkey"
+            columns: ["career_profile_id"]
+            isOneToOne: false
+            referencedRelation: "career_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      career_skills: {
+        Row: {
+          career_profile_id: string
+          created_at: string
+          display_order: number
+          id: string
+          is_primary: boolean
+          last_used_year: number | null
+          name: string
+          proficiency: Database["public"]["Enums"]["proficiency_level"] | null
+          skill_kind: Database["public"]["Enums"]["career_skill_kind"]
+          updated_at: string
+          years_experience: number | null
+        }
+        Insert: {
+          career_profile_id: string
+          created_at?: string
+          display_order?: number
+          id?: string
+          is_primary?: boolean
+          last_used_year?: number | null
+          name: string
+          proficiency?: Database["public"]["Enums"]["proficiency_level"] | null
+          skill_kind?: Database["public"]["Enums"]["career_skill_kind"]
+          updated_at?: string
+          years_experience?: number | null
+        }
+        Update: {
+          career_profile_id?: string
+          created_at?: string
+          display_order?: number
+          id?: string
+          is_primary?: boolean
+          last_used_year?: number | null
+          name?: string
+          proficiency?: Database["public"]["Enums"]["proficiency_level"] | null
+          skill_kind?: Database["public"]["Enums"]["career_skill_kind"]
+          updated_at?: string
+          years_experience?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "career_skills_career_profile_id_fkey"
+            columns: ["career_profile_id"]
+            isOneToOne: false
+            referencedRelation: "career_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      career_sub_careers: {
+        Row: {
+          career_profile_id: string
+          created_at: string
+          focus: string | null
+          id: string
+          keywords: string[]
+          name: string
+          priority: number
+          updated_at: string
+        }
+        Insert: {
+          career_profile_id: string
+          created_at?: string
+          focus?: string | null
+          id?: string
+          keywords?: string[]
+          name: string
+          priority?: number
+          updated_at?: string
+        }
+        Update: {
+          career_profile_id?: string
+          created_at?: string
+          focus?: string | null
+          id?: string
+          keywords?: string[]
+          name?: string
+          priority?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "career_sub_careers_career_profile_id_fkey"
+            columns: ["career_profile_id"]
+            isOneToOne: false
+            referencedRelation: "career_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       email_delivery_events: {
         Row: {
           category: string
@@ -943,11 +1575,9 @@ export type Database = {
           id: string
           internal_note: string | null
           new_status:
-            | Database["public"]["Enums"]["payment_submission_status"]
-            | null
+            Database["public"]["Enums"]["payment_submission_status"] | null
           previous_status:
-            | Database["public"]["Enums"]["payment_submission_status"]
-            | null
+            Database["public"]["Enums"]["payment_submission_status"] | null
           public_message: string | null
           reason_code: string | null
           request_id: string | null
@@ -962,11 +1592,9 @@ export type Database = {
           id?: string
           internal_note?: string | null
           new_status?:
-            | Database["public"]["Enums"]["payment_submission_status"]
-            | null
+            Database["public"]["Enums"]["payment_submission_status"] | null
           previous_status?:
-            | Database["public"]["Enums"]["payment_submission_status"]
-            | null
+            Database["public"]["Enums"]["payment_submission_status"] | null
           public_message?: string | null
           reason_code?: string | null
           request_id?: string | null
@@ -981,11 +1609,9 @@ export type Database = {
           id?: string
           internal_note?: string | null
           new_status?:
-            | Database["public"]["Enums"]["payment_submission_status"]
-            | null
+            Database["public"]["Enums"]["payment_submission_status"] | null
           previous_status?:
-            | Database["public"]["Enums"]["payment_submission_status"]
-            | null
+            Database["public"]["Enums"]["payment_submission_status"] | null
           public_message?: string | null
           reason_code?: string | null
           request_id?: string | null
@@ -1596,301 +2222,390 @@ export type Database = {
     Functions: {
       admin_attach_payment_method_qr: {
         Args: {
-          action_request_id?: string
           actor_user_id: string
-          requested_checksum_sha256: string
-          requested_height: number
-          requested_mime_type: string
+          target_payment_method_id: string
           requested_object_path: string
+          requested_mime_type: string
+          requested_checksum_sha256: string
           requested_size_bytes: number
           requested_width: number
-          target_payment_method_id: string
+          requested_height: number
+          action_request_id?: string
         }
         Returns: Json
       }
       admin_audit_event_directory: {
         Args: {
           actor_user_id: string
-          filter_action?: string
           filter_actor_user_id?: string
-          filter_request_id?: string
-          filter_target_id?: string
+          filter_action?: string
           filter_target_type?: string
+          filter_target_id?: string
+          filter_request_id?: string
           occurred_from?: string
           occurred_to?: string
-          page_offset?: number
           page_size?: number
+          page_offset?: number
         }
         Returns: {
-          action: string
-          after_state: Json
-          before_state: Json
-          created_at: string
-          event_actor_type: Database["public"]["Enums"]["audit_actor_type"]
-          event_actor_user_id: string
           event_id: string
-          metadata: Json
-          request_id: string
-          target_id: string
+          event_actor_user_id: string
+          event_actor_type: Database["public"]["Enums"]["audit_actor_type"]
+          action: string
           target_type: string
+          target_id: string
+          request_id: string
+          before_state: Json
+          after_state: Json
+          metadata: Json
+          created_at: string
           total_count: number
         }[]
       }
       admin_create_payment_method: {
         Args: {
-          action_request_id?: string
           actor_user_id: string
           requested_method: Json
+          action_request_id?: string
         }
         Returns: string
       }
       admin_overview: {
-        Args: { actor_user_id: string }
+        Args: {
+          actor_user_id: string
+        }
         Returns: {
+          registered_users: number
+          verified_users: number
+          suspended_users: number
           active_administrators: number
           auth_events_last_24_hours: number
-          registered_users: number
-          suspended_users: number
-          verified_users: number
         }[]
       }
       admin_revoke_user_sessions: {
         Args: {
-          action_reason: string
-          action_request_id?: string
           actor_user_id: string
           target_user_id: string
+          action_reason: string
+          action_request_id?: string
         }
         Returns: number
       }
       admin_set_account_status: {
         Args: {
+          actor_user_id: string
+          target_user_id: string
+          requested_status: Database["public"]["Enums"]["account_status"]
           action_reason: string
           action_request_id?: string
-          actor_user_id: string
-          requested_status: Database["public"]["Enums"]["account_status"]
-          target_user_id: string
         }
         Returns: boolean
       }
       admin_set_payment_method_state: {
         Args: {
-          action_reason: string
-          action_request_id?: string
           actor_user_id: string
+          target_payment_method_id: string
           expected_version: number
           requested_action: string
-          target_payment_method_id: string
+          action_reason: string
+          action_request_id?: string
         }
         Returns: number
       }
       admin_update_payment_method: {
         Args: {
-          action_request_id?: string
           actor_user_id: string
+          target_payment_method_id: string
           expected_version: number
           requested_method: Json
-          target_payment_method_id: string
+          action_request_id?: string
         }
         Returns: number
       }
       admin_user_detail: {
-        Args: { actor_user_id: string; target_user_id: string }
+        Args: {
+          actor_user_id: string
+          target_user_id: string
+        }
         Returns: {
-          account_status: Database["public"]["Enums"]["account_status"]
-          admin_membership_status: string
-          admin_roles: string[]
-          country_code: string
-          created_at: string
-          display_name: string
+          user_id: string
           email: string
           email_verified: boolean
           email_verified_at: string
           first_name: string
           last_name: string
+          display_name: string
           locale: string
-          onboarding_status: Database["public"]["Enums"]["onboarding_status"]
-          subscription_ends_at: string
-          subscription_plan_code: string
-          subscription_starts_at: string
-          subscription_status: string
           timezone: string
+          country_code: string
+          onboarding_status: Database["public"]["Enums"]["onboarding_status"]
+          account_status: Database["public"]["Enums"]["account_status"]
+          subscription_plan_code: string
+          subscription_status: string
+          subscription_starts_at: string
+          subscription_ends_at: string
+          admin_membership_status: string
+          admin_roles: string[]
+          created_at: string
           updated_at: string
-          user_id: string
         }[]
       }
       admin_user_directory: {
         Args: {
           actor_user_id: string
+          search_query?: string
+          verification_filter?: string
+          status_filter?: Database["public"]["Enums"]["account_status"]
           created_from?: string
           created_to?: string
-          page_offset?: number
           page_size?: number
-          search_query?: string
-          status_filter?: Database["public"]["Enums"]["account_status"]
-          verification_filter?: string
+          page_offset?: number
         }
         Returns: {
-          account_status: Database["public"]["Enums"]["account_status"]
-          admin_roles: string[]
-          created_at: string
-          display_name: string
+          user_id: string
           email: string
           email_verified: boolean
           email_verified_at: string
           first_name: string
           last_name: string
+          display_name: string
+          account_status: Database["public"]["Enums"]["account_status"]
           subscription_plan_code: string
           subscription_status: string
-          total_count: number
+          admin_roles: string[]
+          created_at: string
           updated_at: string
-          user_id: string
+          total_count: number
         }[]
       }
       approve_payment_submission: {
         Args: {
-          action_reason: string
-          action_request_id?: string
           actor_user_id: string
-          expected_version: number
-          internal_note?: string
           target_submission_id: string
+          expected_version: number
+          action_reason: string
+          internal_note?: string
+          action_request_id?: string
         }
         Returns: Json
       }
       attach_payment_proof: {
         Args: {
-          action_request_id?: string
           actor_user_id: string
-          requested_checksum_sha256: string
-          requested_height: number
-          requested_mime_type: string
-          requested_object_path: string
-          requested_original_filename: string
-          requested_scan_status?: string
-          requested_size_bytes: number
-          requested_width: number
           target_submission_id: string
+          requested_object_path: string
+          requested_checksum_sha256: string
+          requested_mime_type: string
+          requested_size_bytes: number
+          requested_original_filename: string
+          requested_width: number
+          requested_height: number
+          requested_scan_status?: string
+          action_request_id?: string
         }
         Returns: Json
       }
       authorize_admin_payment_access: {
-        Args: { actor_user_id: string; required_permission: string }
+        Args: {
+          actor_user_id: string
+          required_permission: string
+        }
         Returns: boolean
       }
       bootstrap_first_super_admin: {
         Args: {
-          confirmation: string
-          target_email: string
           target_user_id: string
+          target_email: string
+          confirmation: string
         }
         Returns: boolean
       }
       cancel_payment_submission: {
         Args: {
-          action_request_id?: string
           actor_user_id: string
-          expected_version: number
           target_submission_id: string
+          expected_version: number
+          action_request_id?: string
+        }
+        Returns: Json
+      }
+      career_fact_directory: {
+        Args: {
+          actor_user_id: string
+          target_profile_id: string
+          status_filter?: Database["public"]["Enums"]["career_fact_status"]
+        }
+        Returns: Json
+      }
+      career_profile_detail: {
+        Args: {
+          actor_user_id: string
+          target_profile_id: string
+        }
+        Returns: Json
+      }
+      career_profile_directory: {
+        Args: {
+          actor_user_id: string
         }
         Returns: Json
       }
       claim_payment_notifications: {
-        Args: { requested_batch_size?: number; requested_claim_token: string }
+        Args: {
+          requested_claim_token: string
+          requested_batch_size?: number
+        }
         Returns: {
-          attempts: number
           id: string
-          idempotency_key: string
+          user_id: string
           payment_submission_id: string
           subscription_id: string
           template_id: string
           template_version: string
-          user_id: string
+          idempotency_key: string
           variables: Json
+          attempts: number
         }[]
       }
       claim_storage_cleanup_jobs: {
-        Args: { requested_batch_size?: number; requested_claim_token: string }
+        Args: {
+          requested_claim_token: string
+          requested_batch_size?: number
+        }
         Returns: {
-          attempts: number
-          bucket_id: string
           id: string
+          bucket_id: string
           object_path: string
+          attempts: number
         }[]
       }
       complete_payment_notification: {
         Args: {
-          requested_attempts: number
-          requested_claim_token: string
-          requested_failure_code: string
-          requested_provider_message_id: string
-          requested_status: string
           target_notification_id: string
+          requested_claim_token: string
+          requested_status: string
+          requested_provider_message_id: string
+          requested_failure_code: string
+          requested_attempts: number
         }
         Returns: boolean
       }
       complete_storage_cleanup_job: {
         Args: {
-          requested_claim_token: string
-          requested_error_code?: string
-          requested_status: Database["public"]["Enums"]["storage_cleanup_status"]
           target_job_id: string
+          requested_claim_token: string
+          requested_status: Database["public"]["Enums"]["storage_cleanup_status"]
+          requested_error_code?: string
         }
         Returns: boolean
       }
+      confirmed_career_evidence: {
+        Args: {
+          actor_user_id: string
+          target_profile_id: string
+        }
+        Returns: Json
+      }
       consume_auth_rate_limit: {
-        Args: { rate_bucket: string; rate_key_hash: string }
+        Args: {
+          rate_bucket: string
+          rate_key_hash: string
+        }
         Returns: {
           allowed: boolean
-          remaining: number
           retry_after_seconds: number
+          remaining: number
         }[]
       }
       correct_subscription: {
         Args: {
-          action_reason: string
-          action_request_id?: string
           actor_user_id: string
-          expected_version: number
-          internal_note?: string
-          requested_ends_at: string
-          requested_starts_at: string
-          restore_reversed?: boolean
           target_subscription_id: string
+          expected_version: number
+          requested_starts_at: string
+          requested_ends_at: string
+          action_reason: string
+          internal_note?: string
+          restore_reversed?: boolean
+          action_request_id?: string
         }
         Returns: number
       }
-      create_payment_draft: {
+      create_career_profile: {
         Args: {
-          action_request_id?: string
           actor_user_id: string
-          draft_input: Json
+          profile_input: Json
+          action_request_id?: string
         }
         Returns: string
       }
+      create_payment_draft: {
+        Args: {
+          actor_user_id: string
+          draft_input: Json
+          action_request_id?: string
+        }
+        Returns: string
+      }
+      decide_career_fact: {
+        Args: {
+          actor_user_id: string
+          target_fact_id: string
+          decision: string
+          override_statement?: string
+          override_metric_unit?: string
+          override_metric_value?: number
+          action_request_id?: string
+        }
+        Returns: Json
+      }
+      delete_career_profile: {
+        Args: {
+          actor_user_id: string
+          target_profile_id: string
+          action_request_id?: string
+        }
+        Returns: boolean
+      }
+      delete_career_record: {
+        Args: {
+          actor_user_id: string
+          target_profile_id: string
+          record_kind: string
+          record_id: string
+          action_request_id?: string
+        }
+        Returns: boolean
+      }
       expire_subscriptions: {
-        Args: { action_request_id?: string; evaluated_at?: string }
+        Args: {
+          evaluated_at?: string
+          action_request_id?: string
+        }
         Returns: number
       }
       get_my_admin_access: {
-        Args: never
+        Args: Record<PropertyKey, never>
         Returns: {
-          permissions: string[]
           roles: string[]
+          permissions: string[]
         }[]
       }
       is_auth_session_active: {
-        Args: { target_session_id: string; target_user_id: string }
+        Args: {
+          target_user_id: string
+          target_session_id: string
+        }
         Returns: boolean
       }
       list_my_sessions: {
-        Args: never
+        Args: Record<PropertyKey, never>
         Returns: {
-          created_at: string
-          current_session: boolean
-          last_seen_at: string
           session_id: string
+          created_at: string
+          last_seen_at: string
           user_agent: string
+          current_session: boolean
         }[]
       }
       queue_storage_cleanup: {
@@ -1902,175 +2617,286 @@ export type Database = {
         Returns: string
       }
       queue_subscription_expiry_reminders: {
-        Args: { evaluated_at?: string; reminder_days?: number }
+        Args: {
+          evaluated_at?: string
+          reminder_days?: number
+        }
         Returns: number
       }
-      reconcile_my_profile: { Args: never; Returns: boolean }
+      reconcile_my_profile: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
+      record_career_facts: {
+        Args: {
+          actor_user_id: string
+          target_profile_id: string
+          facts: Json
+          requested_source: Database["public"]["Enums"]["career_fact_source"]
+          source_document_id?: string
+          action_request_id?: string
+        }
+        Returns: Json
+      }
       record_my_auth_event: {
-        Args: { requested_event_type: string; requested_request_id?: string }
+        Args: {
+          requested_event_type: string
+          requested_request_id?: string
+        }
         Returns: string
       }
       record_payment_refund: {
         Args: {
-          action_reason: string
-          action_request_id?: string
           actor_user_id: string
+          target_submission_id: string
           expected_version: number
-          external_reference: string
-          internal_note?: string
           refunded_amount_minor: number
+          external_reference: string
           refunded_at: string
           requested_subscription_impact: Database["public"]["Enums"]["payment_subscription_impact"]
-          target_submission_id: string
+          action_reason: string
+          internal_note?: string
+          action_request_id?: string
         }
         Returns: number
       }
       reject_payment_submission: {
         Args: {
+          actor_user_id: string
+          target_submission_id: string
+          expected_version: number
+          requested_rejection_reason_code: string
+          public_message: string
+          internal_note?: string
           action_reason?: string
           action_request_id?: string
-          actor_user_id: string
-          expected_version: number
-          internal_note?: string
-          public_message: string
-          requested_rejection_reason_code: string
-          target_submission_id: string
         }
         Returns: number
       }
       release_payment_notification_claim: {
         Args: {
+          target_notification_id: string
           requested_claim_token: string
           retry_at: string
-          target_notification_id: string
         }
         Returns: boolean
       }
       release_storage_cleanup_job: {
         Args: {
+          target_job_id: string
           requested_claim_token: string
           retry_at: string
-          target_job_id: string
         }
         Returns: boolean
       }
       request_payment_information: {
         Args: {
+          actor_user_id: string
+          target_submission_id: string
+          expected_version: number
+          reason_category: string
+          public_message: string
+          internal_note?: string
           action_reason?: string
           action_request_id?: string
-          actor_user_id: string
-          expected_version: number
-          internal_note?: string
-          public_message: string
-          reason_category: string
-          target_submission_id: string
         }
         Returns: number
       }
       resolve_payment_method_qr_object: {
         Args: {
           actor_user_id: string
-          administrator_access?: boolean
           target_payment_method_id: string
+          administrator_access?: boolean
         }
         Returns: {
           bucket_id: string
-          mime_type: string
           object_path: string
+          mime_type: string
         }[]
       }
       resolve_payment_proof_object: {
         Args: {
           actor_user_id: string
-          administrator_access?: boolean
           target_submission_id: string
+          administrator_access?: boolean
         }
         Returns: {
           bucket_id: string
-          mime_type: string
           object_path: string
+          mime_type: string
           original_filename: string
         }[]
       }
       resubmit_payment_submission: {
         Args: {
-          action_request_id?: string
           actor_user_id: string
-          declaration_accepted: boolean
+          target_submission_id: string
           expected_version: number
           requested_response: string
-          target_submission_id: string
+          declaration_accepted: boolean
+          action_request_id?: string
         }
         Returns: number
       }
       reverse_payment_approval: {
         Args: {
-          action_reason: string
-          action_request_id?: string
           actor_user_id: string
-          expected_version: number
-          internal_note?: string
           target_submission_id: string
+          expected_version: number
+          action_reason: string
+          internal_note?: string
+          action_request_id?: string
         }
         Returns: number
       }
+      set_career_profile_status: {
+        Args: {
+          actor_user_id: string
+          target_profile_id: string
+          requested_status: Database["public"]["Enums"]["career_profile_status"]
+          action_request_id?: string
+        }
+        Returns: number
+      }
+      set_onboarding_status: {
+        Args: {
+          actor_user_id: string
+          requested_status: Database["public"]["Enums"]["onboarding_status"]
+          action_request_id?: string
+        }
+        Returns: boolean
+      }
+      set_primary_career_profile: {
+        Args: {
+          actor_user_id: string
+          target_profile_id: string
+          action_request_id?: string
+        }
+        Returns: boolean
+      }
       start_payment_review: {
         Args: {
-          action_request_id?: string
           actor_user_id: string
-          expected_version: number
           target_submission_id: string
+          expected_version: number
+          action_request_id?: string
         }
         Returns: number
       }
       submit_payment_submission: {
         Args: {
-          action_request_id?: string
           actor_user_id: string
-          declaration_accepted: boolean
-          expected_version: number
           target_submission_id: string
+          expected_version: number
+          declaration_accepted: boolean
+          action_request_id?: string
+        }
+        Returns: number
+      }
+      update_career_profile: {
+        Args: {
+          actor_user_id: string
+          target_profile_id: string
+          expected_version: number
+          profile_input: Json
+          action_request_id?: string
         }
         Returns: number
       }
       update_my_notification_preferences: {
         Args: {
-          requested_marketing_emails: boolean
           requested_product_updates: boolean
+          requested_marketing_emails: boolean
           requested_request_id?: string
         }
-        Returns: {
-          created_at: string
-          future_daily_digest: boolean
-          future_job_alerts: boolean
-          marketing_emails: boolean
-          product_updates: boolean
-          updated_at: string
-          user_id: string
-        }
-        SetofOptions: {
-          from: "*"
-          to: "user_notification_preferences"
-          isOneToOne: true
-          isSetofReturn: false
-        }
+        Returns: Database["public"]["Tables"]["user_notification_preferences"]["Row"]
       }
       update_payment_draft: {
         Args: {
-          action_request_id?: string
           actor_user_id: string
-          draft_input: Json
-          expected_version: number
           target_submission_id: string
+          expected_version: number
+          draft_input: Json
+          action_request_id?: string
         }
         Returns: number
+      }
+      upsert_career_record: {
+        Args: {
+          actor_user_id: string
+          target_profile_id: string
+          record_kind: string
+          record_id: string
+          record_input: Json
+          action_request_id?: string
+        }
+        Returns: string
       }
     }
     Enums: {
       account_status: "active" | "suspended" | "disabled" | "pending_deletion"
       admin_membership_status: "active" | "suspended" | "revoked"
       audit_actor_type: "user" | "admin" | "service" | "system"
+      availability_status:
+        | "immediately"
+        | "two_weeks"
+        | "one_month"
+        | "three_months"
+        | "not_looking"
       billing_period: "monthly" | "annual"
+      career_document_kind: "resume" | "cover_letter" | "portfolio" | "other"
+      career_document_status:
+        | "uploaded"
+        | "processing"
+        | "parsed"
+        | "needs_review"
+        | "failed"
+        | "rejected"
+        | "archived"
+      career_fact_category:
+        | "experience"
+        | "responsibility"
+        | "achievement"
+        | "metric"
+        | "skill"
+        | "education"
+        | "certification"
+        | "preference"
+        | "goal"
+      career_fact_source:
+        "user_entered" | "resume_extraction" | "ai_inference" | "imported"
+      career_fact_status: "candidate" | "confirmed" | "rejected" | "superseded"
+      career_level:
+        | "student"
+        | "entry"
+        | "junior"
+        | "mid"
+        | "senior"
+        | "lead"
+        | "manager"
+        | "director"
+        | "executive"
+      career_link_kind:
+        | "github"
+        | "gitlab"
+        | "linkedin"
+        | "portfolio"
+        | "personal_website"
+        | "behance"
+        | "dribbble"
+        | "stackoverflow"
+        | "other"
+      career_profile_status: "draft" | "active" | "archived"
+      career_skill_kind:
+        "skill" | "tool" | "technology" | "language" | "soft_skill" | "domain"
+      employment_type:
+        | "full_time"
+        | "part_time"
+        | "contract"
+        | "freelance"
+        | "internship"
+        | "temporary"
+        | "volunteer"
       entitlement_value_type: "boolean" | "integer" | "string"
       onboarding_status: "not_started" | "in_progress" | "complete"
       payment_method_type: "gcash" | "maya" | "bank_transfer" | "other"
@@ -2091,12 +2917,11 @@ export type Database = {
       plan_tier: "plus" | "pro"
       platform_kind: "web" | "ios" | "android"
       platform_lifecycle: "planned" | "active" | "maintenance" | "retired"
+      proficiency_level: "beginner" | "intermediate" | "advanced" | "expert"
+      salary_period: "hourly" | "daily" | "monthly" | "annual"
       storage_cleanup_status: "pending" | "completed" | "failed"
       subscription_source:
-        | "manual_payment"
-        | "admin_grant"
-        | "migration"
-        | "promotion"
+        "manual_payment" | "admin_grant" | "migration" | "promotion"
       subscription_status:
         | "pending_activation"
         | "active"
@@ -2106,6 +2931,7 @@ export type Database = {
         | "suspended"
         | "refunded"
         | "reversed"
+      work_arrangement: "remote" | "hybrid" | "onsite" | "flexible"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -2121,12 +2947,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -2148,13 +2974,12 @@ export type Tables<
 
 export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
-    | keyof DefaultSchema["Tables"]
-    | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+    keyof DefaultSchema["Tables"] | { schema: keyof DatabaseWithoutInternals },
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -2173,13 +2998,12 @@ export type TablesInsert<
 
 export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
-    | keyof DefaultSchema["Tables"]
-    | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+    keyof DefaultSchema["Tables"] | { schema: keyof DatabaseWithoutInternals },
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -2198,13 +3022,12 @@ export type TablesUpdate<
 
 export type Enums<
   DefaultSchemaEnumNameOrOptions extends
-    | keyof DefaultSchema["Enums"]
-    | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+    keyof DefaultSchema["Enums"] | { schema: keyof DatabaseWithoutInternals },
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -2217,11 +3040,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
+    : never) = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -2236,7 +3059,82 @@ export const Constants = {
       account_status: ["active", "suspended", "disabled", "pending_deletion"],
       admin_membership_status: ["active", "suspended", "revoked"],
       audit_actor_type: ["user", "admin", "service", "system"],
+      availability_status: [
+        "immediately",
+        "two_weeks",
+        "one_month",
+        "three_months",
+        "not_looking",
+      ],
       billing_period: ["monthly", "annual"],
+      career_document_kind: ["resume", "cover_letter", "portfolio", "other"],
+      career_document_status: [
+        "uploaded",
+        "processing",
+        "parsed",
+        "needs_review",
+        "failed",
+        "rejected",
+        "archived",
+      ],
+      career_fact_category: [
+        "experience",
+        "responsibility",
+        "achievement",
+        "metric",
+        "skill",
+        "education",
+        "certification",
+        "preference",
+        "goal",
+      ],
+      career_fact_source: [
+        "user_entered",
+        "resume_extraction",
+        "ai_inference",
+        "imported",
+      ],
+      career_fact_status: ["candidate", "confirmed", "rejected", "superseded"],
+      career_level: [
+        "student",
+        "entry",
+        "junior",
+        "mid",
+        "senior",
+        "lead",
+        "manager",
+        "director",
+        "executive",
+      ],
+      career_link_kind: [
+        "github",
+        "gitlab",
+        "linkedin",
+        "portfolio",
+        "personal_website",
+        "behance",
+        "dribbble",
+        "stackoverflow",
+        "other",
+      ],
+      career_profile_status: ["draft", "active", "archived"],
+      career_skill_kind: [
+        "skill",
+        "tool",
+        "technology",
+        "language",
+        "soft_skill",
+        "domain",
+      ],
+      employment_type: [
+        "full_time",
+        "part_time",
+        "contract",
+        "freelance",
+        "internship",
+        "temporary",
+        "volunteer",
+      ],
       entitlement_value_type: ["boolean", "integer", "string"],
       onboarding_status: ["not_started", "in_progress", "complete"],
       payment_method_type: ["gcash", "maya", "bank_transfer", "other"],
@@ -2258,6 +3156,8 @@ export const Constants = {
       plan_tier: ["plus", "pro"],
       platform_kind: ["web", "ios", "android"],
       platform_lifecycle: ["planned", "active", "maintenance", "retired"],
+      proficiency_level: ["beginner", "intermediate", "advanced", "expert"],
+      salary_period: ["hourly", "daily", "monthly", "annual"],
       storage_cleanup_status: ["pending", "completed", "failed"],
       subscription_source: [
         "manual_payment",
@@ -2275,7 +3175,7 @@ export const Constants = {
         "refunded",
         "reversed",
       ],
+      work_arrangement: ["remote", "hybrid", "onsite", "flexible"],
     },
   },
 } as const
-
