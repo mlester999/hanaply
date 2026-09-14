@@ -179,7 +179,7 @@ Verified in this repository: yes.
 
 The cluster is initialized with `initdb -D .localdb/pgdata -U postgres --encoding=UTF8 --locale=C --auth-local=trust --auth-host=trust` and listens on `127.0.0.1` only. `postgresql.auto.conf` disables `fsync`, `synchronous_commit`, and `full_page_writes` because the cluster is disposable, and sets `log_min_messages = warning`.
 
-Commands: `start`, `stop`, `status`, `reset`, `migrate`, `test`, `seed`, `psql`, `url`, and `destroy`, exposed as `pnpm db:harness`, `db:harness:reset`, `db:harness:test`, `db:harness:stop`, and `db:verify`. `node tooling/db/local-cluster.mjs url` prints a connection string.
+Commands: `start`, `stop`, `status`, `reset`, `migrate`, `test`, `seed`, `demo`, `psql`, `url`, and `destroy`, exposed as `pnpm db:harness`, `db:harness:reset`, `db:harness:test`, `db:harness:stop`, `pnpm db:demo`, and `db:verify`. `pnpm db:demo` applies `tooling/db/demo-data.sql`, which inserts five synthetic Philippines and Singapore postings through the real `upsert_ingested_job` path so the radar has something to rank; it is deliberately not part of `supabase/seed.sql`, because every `db reset` applies that file and the pgTAP suites assert on real counts. `node tooling/db/local-cluster.mjs url` prints a connection string.
 
 ### `tooling/db/supabase-base.sql`
 

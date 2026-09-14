@@ -101,9 +101,12 @@ select ok(
   'ingestion runs are not client-readable'
 );
 select is(
-  (select count(*)::integer from public.job_sources where status = 'active'),
+  -- Scoped to the catalogued providers: a local development database may also
+  -- hold the synthetic fixture source, and that must not change this assertion.
+  (select count(*)::integer from public.job_sources
+   where status = 'active' and code <> 'local_fixtures'),
   0,
-  'no provider is enabled until an operator reviews it'
+  'no catalogued provider is enabled until an operator reviews it'
 );
 select is(
   (select count(*)::integer from public.job_sources where requires_credentials and credential_env_var is null),
@@ -162,9 +165,9 @@ set local role service_role;
 select set_config('request.jwt.claims', '{"role":"service_role"}', true);
 
 select is(
-  (select count(*)::integer from public.job_ingestion_schedule()),
+  (select count(*)::integer from public.job_ingestion_schedule() where source_code <> 'local_fixtures'),
   0,
-  'no provider is scheduled while every provider is paused'
+  'no catalogued provider is scheduled while every one of them is paused'
 );
 
 select ok(
@@ -227,10 +230,23 @@ select 'job-primary', (public.upsert_ingested_job(
 ) ->> 'jobId')::uuid;
 
 select ok((select value is not null from job_ids where key = 'job-primary'), 'ingestion creates a canonical job');
-select is((select count(*)::integer from public.jobs), 1, 'one canonical job exists after the first ingest');
-select is((select count(*)::integer from public.companies), 1, 'the employer is deduplicated into one company');
 select is(
-  (select normalized_name from public.companies),
+  (select count(*)::integer from public.jobs as jobs
+   join public.job_source_records as record on record.job_id = jobs.id
+   where record.source_id = (select value from job_ids where key = 'remotive')),
+  1,
+  'one canonical job exists after the first ingest'
+);
+select is(
+  (select count(*)::integer from public.companies where normalized_name = 'northstar systems'),
+  1,
+  'the employer is deduplicated into one company'
+);
+select is(
+  (select company.normalized_name
+   from public.companies as company
+   join public.jobs as job on job.company_id = company.id
+   where job.id = (select value from job_ids where key = 'job-primary')),
   'northstar systems',
   'the company identity strips the legal suffix'
 );
@@ -245,12 +261,14 @@ select is(
   'a Philippine posting is flagged for the local feed'
 );
 select is(
-  (select count(*)::integer from public.job_source_records),
+  (select count(*)::integer from public.job_source_records
+   where job_id = (select value from job_ids where key = 'job-primary')),
   1,
   'provenance is recorded for the posting'
 );
 select is(
-  (select is_primary from public.job_source_records),
+  (select is_primary from public.job_source_records
+   where job_id = (select value from job_ids where key = 'job-primary')),
   true,
   'the first source record for a job is primary'
 );
@@ -280,7 +298,7 @@ select is(
   'source_identity',
   're-observing the same source posting does not create a duplicate'
 );
-select is((select count(*)::integer from public.jobs), 1, 're-observation keeps a single canonical job');
+select is((select count(*)::integer from public.jobs as jobs join public.job_source_records as record on record.job_id = jobs.id where record.source_id = (select value from job_ids where key = 'remotive')), 1, 're-observation keeps a single canonical job');
 select is((select count(*)::integer from public.job_source_records), 1, 're-observation keeps a single provenance row');
 
 select is(

@@ -13,7 +13,7 @@
  * can be verified in environments where Docker is unavailable, and so CI can gate
  * migrations and RLS without a container daemon.
  *
- * Usage: node tooling/db/local-cluster.mjs <start|stop|status|reset|migrate|seed|test|psql|url|destroy>
+ * Usage: node tooling/db/local-cluster.mjs <start|stop|status|reset|migrate|seed|demo|test|psql|url|destroy>
  */
 
 import { spawnSync } from 'node:child_process';
@@ -43,6 +43,7 @@ const migrationsDir = resolve(root, 'supabase', 'migrations');
 const testsDir = resolve(root, 'supabase', 'tests', 'database');
 const baseSqlPath = resolve(import.meta.dirname, 'supabase-base.sql');
 const seedSqlPath = resolve(root, 'supabase', 'seed.sql');
+const demoDataPath = resolve(import.meta.dirname, 'demo-data.sql');
 
 const configuredPort = Number(process.env.HANAPLY_LOCAL_DB_PORT ?? 55433);
 const database = process.env.HANAPLY_LOCAL_DB_NAME ?? 'hanaply';
@@ -349,6 +350,19 @@ function applySeed(databaseName) {
   note('Applied supabase/seed.sql.');
 }
 
+/**
+ * Synthetic local demo data is applied only on request. It must never run as
+ * part of a reset, because the pgTAP suites assert on real counts and would
+ * otherwise have to exclude development fixtures from every assertion.
+ */
+function applyDemoData(databaseName) {
+  if (!existsSync(demoDataPath)) {
+    fail('No demo data file was found at tooling/db/demo-data.sql.');
+  }
+  applyFile(databaseName, demoDataPath);
+  note('Applied synthetic local demo data (tooling/db/demo-data.sql).');
+}
+
 // ---------------------------------------------------------------------------
 // pgTAP provisioning
 // ---------------------------------------------------------------------------
@@ -580,6 +594,10 @@ async function main() {
     case 'seed':
       await ensureClusterReady();
       applySeed(database);
+      break;
+    case 'demo':
+      await ensureClusterReady();
+      applyDemoData(database);
       break;
     case 'test':
       await commandTest();

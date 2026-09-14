@@ -1,3 +1,13 @@
--- Static roles, plans, entitlements, flags, platforms, and branding are seeded by the
--- forward-only foundation catalog migration so every environment receives the same baseline.
--- Phase 0 intentionally seeds no users, subscriptions, payments, jobs, or product activity.
+-- Static roles, plans, entitlements, flags, platforms, branding, and the job
+-- provider catalogue are seeded by the forward-only foundation and ingestion
+-- migrations, so every environment receives the same baseline.
+--
+-- This file deliberately seeds no users, subscriptions, payments, jobs, or
+-- product activity. It is applied by every `supabase db reset` and by
+-- `pnpm db:harness:reset`, and the pgTAP suites run against the database it
+-- produces, so it must stay a clean baseline.
+--
+-- Synthetic local demo data lives in `tooling/db/demo-data.sql` and is applied
+-- only when you ask for it with `pnpm db:demo`. Keeping it out of this file is
+-- what lets the database suites assert on counts without every assertion having
+-- to exclude development fixtures.

@@ -27,6 +27,7 @@
     "db:harness": "node tooling/db/local-cluster.mjs",
     "db:harness:reset": "node tooling/db/local-cluster.mjs reset",
     "db:harness:test": "node tooling/db/local-cluster.mjs test",
+    "db:demo": "node tooling/db/local-cluster.mjs demo",
     "db:harness:stop": "node tooling/db/local-cluster.mjs stop",
     "db:verify": "node tooling/db/local-cluster.mjs reset && node tooling/db/local-cluster.mjs test",
     "db:types": "node tooling/db/generate-types.mjs --write",
