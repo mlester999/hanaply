@@ -1,16 +1,45 @@
 # Hanaply
 
-Hanaply is a Philippines-first AI Career Radar and Job Intelligence SaaS. This repository contains the completed local implementation of Phase 1: Authentication and SaaS Core Experience plus the Phase 2 manual-payment activation checkpoint, built on the Phase 0 pnpm/Turborepo, Next.js, NestJS, Supabase, shared-contract, and RLS foundation.
+Hanaply is a Philippines-first career radar and job intelligence SaaS. A member keeps a structured career profile, Hanaply ingests postings from approved job providers, scores each posting against that profile with an explainable deterministic engine, and shows only opportunities worth attention. Generated application material may only restate claims the member has confirmed.
 
-Phase 1 provides registration, email verification, login/logout, password recovery, session refresh and revocation, protected customer settings, account-status enforcement, permissioned admin user operations, transactional-email adapters, audit trails, and executable security/accessibility gates. The Phase 2 checkpoint adds manual payment methods and QR instructions, private proof upload and signed access, permissioned review with approve/reject/request-information actions, atomic subscription and entitlement lifecycle, refunds/reversals/corrections, and a database-backed notification/cleanup worker. Career-profile onboarding, resume handling, job ingestion, AI matching, application packs, and native mobile applications remain intentionally unopened.
+The repository contains the complete local implementation: the Phase 0 foundation (pnpm/Turborepo, Next.js, NestJS, Supabase, shared contracts, RLS), Phase 1 authentication and SaaS core, the Phase 2 manual-payment activation checkpoint, and the career, ingestion, matching, radar, and application-pack work that followed.
+
+## The product loop
+
+1. **Build a career profile.** A member creates a `career_profiles` row, records employment, projects, education, certifications, links, and skills, and can upload a resume. Resume parsing is deterministic and produces a reviewable draft, never a trusted record.
+2. **Confirm the truth ledger.** Every claim lives in `career_facts` as `candidate`, `confirmed`, `rejected`, or `superseded`. Only `confirmed` facts are admissible evidence.
+3. **Ingest approved postings.** The worker runs one shared scan per enabled provider and normalizes each posting into `jobs` with provenance retained per source posting.
+4. **Score each opportunity.** `@hanaply/matching` scores nine weighted dimensions, reports unknown dimensions honestly, and computes confidence separately from score.
+5. **Read the radar.** `/dashboard/radar` ranks cached matches, filters them, and supports save, unsave, and feedback. Feedback removes postings the member does not want to see again.
+6. **Track applications.** The tracker records where an application stands across eight stages with an append-only history.
+7. **Pay for it manually.** Activation is a reviewed manual payment: submit a reference and private proof, an authorized reviewer approves, and an atomic SQL function grants the subscription.
+
+## Delivery status
+
+Verified locally in this repository, by running the commands in [Testing](docs/testing.md):
+
+- 26 forward-only migrations in `supabase/migrations`, 62 tables, 169 functions, 74 triggers, 35 RLS policies.
+- 13 pgTAP suites in `supabase/tests/database` with 542 assertions, all passing through the Dockerless harness (`pnpm db:harness:test`).
+- 18 Vitest files with 251 tests passing (`pnpm test`).
+- 87 routes in the single contract registry, 5 public, 53 authenticated-user, and 29 admin.
+- `pnpm format:check`, `pnpm lint`, `pnpm typecheck`, `pnpm tokens:check`, `pnpm openapi:check`, `pnpm secrets:check`, `pnpm db:types:check`, and `pnpm audit:prod` pass.
+
+Not verified in this repository, and explicitly not claimed:
+
+- No hosted Supabase project, Resend domain, DNS record, production deployment, or remote migration exists. Every hosted gate is an owner action.
+- `pnpm e2e` (Playwright) needs Docker Desktop, local Supabase, and Mailpit. It has not been run as part of this documentation pass.
+- `pnpm db:start`, `pnpm db:reset`, `pnpm db:lint`, `pnpm db:test`, and `pnpm validate:local` need Docker Desktop and have not been run here.
+- No live AI generation exists. `@hanaply/ai` ships a `DisabledAiProvider` whose `generate` always rejects. Matching and resume extraction are deterministic code.
+- Application Pack and application-tracker data and API routes exist and are covered by tests and pgTAP, but the customer-facing packs and applications pages are not shipped. `createApplicationPackAction` and `trackApplicationAction` are server actions without a page that calls them.
+- No job provider is enabled. Every catalogued provider starts `paused`.
 
 ## Prerequisites
 
 - Node.js 24 LTS (`>=24.11.0 <25`)
 - pnpm 11.10
-- Docker Desktop
-- Supabase CLI 2.109 or compatible
+- Supabase CLI 2.109 or compatible, plus Docker Desktop, for the canonical database workflow
 - Chromium installed through Playwright for browser tests
+- PostgreSQL 17 or newer with `initdb`, `pg_ctl`, `psql`, `createdb`, and `dropdb` on `PATH`, or `HANAPLY_PG_BIN` pointing at its `bin` directory, for the Dockerless database workflow
 
 ## Local setup
 
@@ -18,6 +47,13 @@ Phase 1 provides registration, email verification, login/logout, password recove
 corepack enable
 pnpm install --frozen-lockfile
 Copy-Item .env.example .env.local
+```
+
+Then choose one database workflow. Both apply the same `supabase/migrations` chain to the same schema.
+
+### Option A: Supabase CLI (canonical, needs Docker)
+
+```powershell
 pnpm db:start
 pnpm db:reset
 pnpm dev
@@ -30,25 +66,53 @@ After `pnpm db:start`, run `supabase status -o env` and copy only the local valu
 - `SERVICE_ROLE_KEY` to `SUPABASE_SERVICE_ROLE_KEY`
 - `DB_URL` to `SUPABASE_DB_URL`
 
+### Option B: Dockerless database harness
+
+```powershell
+pnpm db:harness:reset
+pnpm dev
+```
+
+`tooling/db/local-cluster.mjs` provisions a throwaway PostgreSQL cluster under `.localdb/`, applies `tooling/db/supabase-base.sql` (a Supabase-compatible baseline of roles, `auth`/`storage`/`extensions` schemas, `auth.uid()`, `storage.foldername()`, and friends), runs the migration chain and `supabase/seed.sql`, and executes the pgTAP suites. It needs no container runtime.
+
+The harness exists because Docker Desktop and the Supabase CLI are not available in every development, review, or CI environment, and the same SQL still has to be verifiable there. The Supabase CLI workflow remains canonical; the harness is the fallback that keeps migrations, RLS, and pgTAP gate-able without a daemon.
+
+The harness listens on `127.0.0.1:55433` by default (`HANAPLY_LOCAL_DB_PORT`) with database `hanaply` (`HANAPLY_LOCAL_DB_NAME`), and prints a connection URL with `node tooling/db/local-cluster.mjs url`. It is not a Supabase replacement: it does not run the Supabase API, Auth, Storage, or Studio, so `pnpm e2e` and the hosted-style auth flows still need Option A.
+
 Keep `EMAIL_PROVIDER=capture`, `EMAIL_ALLOW_LIVE_SENDS=false`, and `ADMIN_BOOTSTRAP_ENABLED=false` locally. Never commit `.env.local`, put a service-role key in a `NEXT_PUBLIC_` variable, or reuse local credentials outside the local stack.
 
-| Service         | URL                      |
-| --------------- | ------------------------ |
-| Web             | `http://localhost:3100`  |
-| API             | `http://localhost:3101`  |
-| Worker health   | `http://localhost:3102`  |
-| Supabase API    | `http://127.0.0.1:55421` |
-| PostgreSQL      | `127.0.0.1:55432`        |
-| Supabase Studio | `http://127.0.0.1:55423` |
-| Mailpit         | `http://127.0.0.1:55424` |
+| Service          | URL                      | Notes                                         |
+| ---------------- | ------------------------ | --------------------------------------------- |
+| Web              | `http://localhost:3100`  | `apps/web`, Next.js App Router                |
+| API              | `http://localhost:3101`  | `services/api`, routes under `/v1`            |
+| Worker health    | `http://localhost:3102`  | `services/worker`, `/health` and `/ready`     |
+| Supabase API     | `http://127.0.0.1:55421` | Supabase CLI workflow only                    |
+| PostgreSQL       | `127.0.0.1:55432`        | Supabase CLI workflow only                    |
+| Supabase Studio  | `http://127.0.0.1:55423` | Supabase CLI workflow only                    |
+| Local SMTP       | `127.0.0.1:55424`        | Supabase CLI local mail catcher port          |
+| Harness Postgres | `127.0.0.1:55433`        | Dockerless harness, database `hanaply`        |
 
-The worker defaults to idle. Set `WORKER_MODE=active` only with the local database and reviewed email configuration; it runs subscription expiry maintenance, the payment/subscription notification outbox, and private payment-object cleanup. A production deployment still needs worker health probes, retry/dead-letter monitoring, and owner-approved provider configuration.
+The worker defaults to `WORKER_MODE=idle` and only serves health. Set `WORKER_MODE=active` with a local database and reviewed email configuration to run the three job-intelligence cycles (ingestion, match computation, freshness) and the payment maintenance cycles (subscription expiry and reminders, notification delivery, private-object cleanup). A production deployment still needs health probes, retry/dead-letter monitoring, and owner-approved provider configuration; see [Owner actions](docs/owner-actions.md).
+
+## What you can do in the web app today
+
+Verified surfaces:
+
+- `/register`, `/login`, `/verify-email`, `/forgot-password`, `/reset-password`, `/auth/callback` — Supabase Auth owns verification and recovery; local mail goes to the local mail catcher.
+- `/dashboard` — Career Radar summary built from real `job_radar` reads.
+- `/dashboard/onboarding` — guided first-profile setup.
+- `/dashboard/career`, `/dashboard/career/[profileId]`, `/dashboard/career/[profileId]/facts`, `/dashboard/career/documents` — profile, records, truth ledger, and resume upload with deterministic extraction.
+- `/dashboard/radar`, `/dashboard/radar/saved`, `/dashboard/radar/[jobId]` — ranked feed, saved list, and job intelligence detail with save, unsave, and feedback actions.
+- `/dashboard/activation`, `/dashboard/settings/*` — manual payment submission and account settings.
+- `/admin/*` — permissioned overview, users, payments, payment methods, subscriptions, audit, security, and a local-only email preview.
+
+Marketing pages: `/`, `/help`, `/privacy`, `/terms`, `/security`. `/pricing` redirects to `/#pricing`. The large visuals on `/` (`CareerRadarSimulator`, `ApplicationPackDemo`, `ProductPreviews`, `ProductScenes`) render hardcoded sample data and label themselves as demonstration data; they are not connected to the database.
 
 ## Local authentication and email
 
-Open `/register`, submit a valid account with the required draft legal acknowledgements, and retrieve the verification link from Mailpit. Verification and recovery are owned by Supabase Auth; local Supabase sends branded confirmation, recovery, and password-change messages only to Mailpit.
+Open `/register`, submit a valid account with the required draft legal acknowledgements, and read the verification link from the local mail catcher. Verification and recovery are owned by Supabase Auth.
 
-`@hanaply/email` also provides disabled, in-memory capture, and Resend adapters with versioned HTML/plain-text templates, idempotency keys, bounded timeout/retry behavior, and masked receipts. Live Resend delivery is forbidden in local/test environments and requires all production gates. Hosted Supabase Auth must be configured to use the owner-controlled Resend SMTP credentials before hosted verification is considered passed. See [Email operations](docs/email.md).
+`@hanaply/email` provides disabled, in-memory capture, and Resend adapters with versioned HTML and plain-text templates, idempotency keys, bounded timeout and retry behavior, and masked receipts. Live Resend delivery is forbidden in local and test environments and requires every production gate. Hosted Supabase Auth must use owner-controlled Resend SMTP credentials before hosted verification counts as passed. See [Email operations](docs/email.md).
 
 Playwright creates and removes deterministic local users during `pnpm e2e`; migrations seed no users. The fixtures are defined in `tests/e2e/accounts.ts`:
 
@@ -61,7 +125,7 @@ Playwright creates and removes deterministic local users during `pnpm e2e`; migr
 | `phase1.managed@hanaply.test`      | Admin suspend/restore/session actions |
 | `phase1.registration@hanaply.test` | Created through the registration UI   |
 
-These credentials are test data, not development seed accounts, and do not exist after the browser suite tears down.
+These credentials are test data, not development seed accounts, and do not exist after the browser suite tears down. `supabase/seed.sql` contains comments only; all catalog data is migration-owned.
 
 ## First Super Admin
 
@@ -75,59 +139,79 @@ $env:SUPABASE_SERVICE_ROLE_KEY = '<secret-manager-value>'
 pnpm admin:bootstrap --user <verified-auth-uuid> --confirm ASSIGN_FIRST_SUPER_ADMIN
 ```
 
-Immediately disable the gate and remove the service key from the shell afterward. The script verifies the UUID/email pair and email confirmation, requires HTTPS remotely, calls an atomic service-only function, protects against a second owner bootstrap, and writes one audit event. It has not been run against a hosted project. Follow [Admin bootstrap](docs/admin-bootstrap.md) before using it.
+Immediately disable the gate and remove the service key from the shell afterward. The script verifies the UUID and email pair plus email confirmation, requires HTTPS remotely, calls an atomic service-only function, protects against a second owner bootstrap, and writes one audit event. It has not been run against a hosted project. Follow [Admin bootstrap](docs/admin-bootstrap.md) before using it.
 
 ## Commands
 
-| Command                                        | Purpose                                                        |
-| ---------------------------------------------- | -------------------------------------------------------------- |
-| `pnpm dev`                                     | Start web, API, and idle worker development processes          |
-| `pnpm format` / `pnpm format:check`            | Write or verify Prettier formatting                            |
-| `pnpm lint`                                    | Run strict flat-config ESLint                                  |
-| `pnpm typecheck`                               | Type-check all workspaces and test tooling                     |
-| `pnpm test`                                    | Run unit, component, email, and API integration tests          |
-| `pnpm build`                                   | Build all workspaces and the Next.js production app            |
-| `pnpm db:start` / `pnpm db:stop`               | Start or stop local Supabase                                   |
-| `pnpm db:reset`                                | Recreate the database from forward-only migrations             |
-| `pnpm db:lint`                                 | Run the Supabase schema linter at error severity               |
-| `pnpm db:test`                                 | Run pgTAP database, catalog, and RLS tests                     |
-| `pnpm db:types` / `pnpm db:types:check`        | Write or verify generated database types                       |
-| `pnpm admin:bootstrap`                         | Run the gated first-Super-Admin tool                           |
-| `pnpm e2e`                                     | Run real local auth/admin, responsive, keyboard, and Axe tests |
-| `pnpm openapi:generate` / `pnpm openapi:check` | Write or verify OpenAPI 3.1                                    |
-| `pnpm tokens:check`                            | Verify generated design-token outputs                          |
-| `pnpm secrets:check`                           | Scan committed source for credential patterns                  |
-| `pnpm audit:prod`                              | Audit production dependencies at high severity                 |
-| `pnpm validate`                                | Run all non-database local gates                               |
-| `pnpm validate:local`                          | Reset and validate the complete local system                   |
+Every script below is defined in the root `package.json`.
+
+| Command                                        | Purpose                                                                                                        |
+| ---------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `pnpm dev`                                     | Start web, API, and worker development processes in parallel                                                   |
+| `pnpm build`                                   | Build every workspace and the Next.js production app                                                           |
+| `pnpm clean`                                   | Remove build and cache output                                                                                  |
+| `pnpm format` / `pnpm format:check`            | Write or verify Prettier formatting                                                                            |
+| `pnpm lint`                                    | Run strict flat-config ESLint with zero warnings allowed                                                       |
+| `pnpm typecheck`                               | Type-check every workspace, then the test tooling project                                                      |
+| `pnpm test` / `pnpm test:coverage`             | Run unit, component, email, and API integration tests, with or without coverage                                |
+| `pnpm tokens:check`                            | Verify generated design-token output matches `tokens.json`                                                     |
+| `pnpm db:start` / `pnpm db:stop`               | Start or stop local Supabase through the CLI (needs Docker)                                                    |
+| `pnpm db:reset`                                | Recreate the local Supabase database from forward-only migrations (needs Docker)                               |
+| `pnpm db:lint`                                 | Run the Supabase schema linter at error severity (needs Docker)                                                |
+| `pnpm db:test`                                 | Run pgTAP suites through the Supabase CLI (needs Docker)                                                       |
+| `pnpm db:harness` / `pnpm db:harness:stop`     | Start or stop the Dockerless PostgreSQL cluster in `.localdb/`                                                 |
+| `pnpm db:harness:reset`                        | Rebuild the Dockerless cluster from the baseline, migrations, and seed                                         |
+| `pnpm db:harness:test`                         | Run the pgTAP suites against the Dockerless cluster                                                            |
+| `pnpm db:verify`                               | `db:harness:reset` then `db:harness:test`                                                                      |
+| `pnpm db:types` / `pnpm db:types:check`        | Write or verify `packages/database/src/generated.types.ts` by introspecting PostgreSQL over `psql`             |
+| `pnpm admin:bootstrap`                         | Run the gated first-Super-Admin tool                                                                           |
+| `pnpm e2e`                                     | Run Playwright browser acceptance, responsive, keyboard, and Axe checks (needs Docker, Supabase, a browser)    |
+| `pnpm openapi:generate` / `pnpm openapi:check` | Write or verify `packages/contracts/openapi.generated.json`                                                    |
+| `pnpm secrets:check`                           | Scan tracked text files for JWT, Supabase service, Resend, and OpenAI credential patterns                      |
+| `pnpm audit:prod`                              | Audit production dependencies, failing at high severity                                                        |
+| `pnpm validate`                                | `format:check`, `lint`, `typecheck`, `test`, `tokens:check`, `build`, `openapi:check`, `secrets:check`          |
+| `pnpm validate:local`                          | `validate`, then the Supabase CLI database path (`db:reset`, `db:lint`, `db:test`, `db:types:check`) and `e2e`  |
+| `pnpm validate:db`                             | Alias for `db:verify`                                                                                          |
+| `pnpm validate:dockerless`                     | `validate` then `db:verify` — the full gate set that runs without Docker                                       |
 
 `pnpm validate:local` requires Docker Desktop and local Supabase. It resets the database before pgTAP and browser tests, so do not point the local CLI at a shared or production project.
 
 ## Repository map
 
 ```text
-apps/web                  Next.js presentation, Supabase SSR sessions, and server actions
-services/api              Bearer-only REST orchestration and permission guards
-services/worker           Payment notification/cleanup maintenance and worker health
+apps/web                  Next.js App Router, Supabase SSR sessions, proxy, and server actions
+services/api              NestJS/Fastify REST orchestration, permission guards, file validation
+services/worker           Health server, payment maintenance, job intelligence worker
+packages/ai               Disabled provider-neutral AI boundary and truth-gate result types
 packages/auth             Shared validation, redirect, account-status, and RBAC primitives
-packages/contracts        Canonical Zod routes, OpenAPI, task schemas, and fetch client
-packages/database         Typed clients and generated schema types
-packages/email            Capture/disabled/Resend providers and versioned templates
-packages/entitlements     Fail-closed subscription evaluation
+packages/config           Zod environment schemas for browser, web server, API, worker, email, bootstrap
+packages/contracts        The single route registry, Zod schemas, fetch client, OpenAPI 3.1
+packages/database         Typed Supabase clients and generated schema types
+packages/design-tokens    Canonical JSON tokens and generated output
+packages/email            Disabled/capture/Resend providers and versioned templates
+packages/entitlements     Fail-closed subscription and entitlement evaluation
+packages/jobs             Source adapter contract, nine adapters, normalizer, dedupe, runner
+packages/matching         Deterministic nine-dimension matching engine
 packages/observability    Correlation context and sensitive-field redaction
-packages/platform         Feature and platform-version evaluation
-packages/design-tokens    Canonical JSON tokens and generated outputs
+packages/platform         Feature-flag and platform-version evaluation
+packages/testing          Shared test helpers
 packages/ui               Accessible Hanaply components
-supabase/migrations       Forward-only Phase 0, Phase 1, and Phase 2 schema/catalog migrations
-supabase/tests/database   pgTAP constraints, permissions, and RLS tests
-templates                 Supabase Auth confirmation and recovery email templates
-tests                     Unit, API, component, and browser acceptance tests
-tooling                   Drift, secret, bootstrap, and test runners
+supabase/migrations       Forward-only schema, catalog, and policy migrations
+supabase/tests/database   pgTAP constraint, permission, RLS, and lifecycle suites
+templates                 Supabase Auth confirmation, recovery, and password-change templates
+tests                     Unit, API integration, component, and Playwright acceptance tests
+tooling                   Dockerless database harness, type generator, OpenAPI artifact, scanners, configs
 ```
+
+See [Architecture](docs/architecture.md) for the boundary diagram and per-workspace responsibilities.
 
 ## Documentation
 
-- [Architecture](docs/architecture.md)
+- [Architecture](docs/architecture.md) — system boundary, workspace responsibilities, route families, trust boundary
+- [Job ingestion](docs/job-ingestion.md) — adapters, source activation, normalization, deduplication, freshness, scheduling
+- [AI and truth gating](docs/ai-and-truth-gating.md) — the matching engine and the confirmed-fact evidence rule
+- [Entitlements](docs/entitlements.md) — plans, entitlement catalog, deny-by-default resolution, usage metering
+- [Testing](docs/testing.md) — every validation command, what it proves, and which gates need Docker
 - [Authentication](docs/authentication.md)
 - [Authorization](docs/authorization.md)
 - [Email operations](docs/email.md)
@@ -138,8 +222,8 @@ tooling                   Drift, secret, bootstrap, and test runners
 - [Product lock](docs/product-lock.md)
 - [Roadmap](docs/roadmap.md)
 - [Owner actions](docs/owner-actions.md)
-- [Phase 0 report](docs/phase-0-report.md)
-- [Phase 1 report](docs/phase-1-report.md)
-- [Phase 2 report](docs/phase-2-report.md)
+- [Phase 0 report](docs/phase-0-report.md), [Phase 1 report](docs/phase-1-report.md), [Phase 2 report](docs/phase-2-report.md) — historical checkpoint records
 
-Privacy and terms remain owner-review drafts, not approved legal advice. Hosted Supabase, Resend/DNS, production URLs, first-owner bootstrap, deployment, and production smoke validation remain explicit owner actions.
+## Owner actions
+
+Nothing hosted exists yet. Privacy and terms remain owner-review drafts, not approved legal advice. The pending owner decisions are hosted Supabase, Resend and DNS, production infrastructure, the first Super Admin, legal review, deployment, enabling job providers after terms and attribution review, Adzuna and Jooble credentials, production queue and worker monitoring approval, and AI provider selection before any live generation. See [Owner actions](docs/owner-actions.md).

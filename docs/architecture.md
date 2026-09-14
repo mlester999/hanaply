@@ -4,110 +4,136 @@
 
 ```mermaid
 flowchart LR
-  Browser["Next.js web\nSupabase SSR cookies"] -->|"Bearer access token"| API["NestJS API\nFastify"]
+  Browser["Next.js web\nSupabase SSR cookies\nproxy.ts nonce + route guard"] -->|"Bearer access token"| API["NestJS API on Fastify\n87 contract routes"]
   Mobile["Future React Native client\nsecure token storage"] -->|"Bearer access token"| API
-  API -->|"request-scoped token\nRLS remains active"| Supabase["Supabase Auth + PostgreSQL"]
-  API -->|"service role\nconfiguration only"| Supabase
-  Supabase -->|"Auth SMTP"| Email["Mailpit locally\nResend when owner-configured"]
-  Worker["Payment maintenance worker"] --> Tasks["Versioned task contracts"]
-  Tasks -. "future adapter" .-> Queue["Production queue"]
+  API -->|"request-scoped token\nRLS active"| Supabase["Supabase Auth + PostgreSQL"]
+  API -->|"service role\nserver-only"| Supabase
+  Supabase -->|"Auth SMTP"| Email["Local mail catcher\nResend when owner-configured"]
+  Worker["services/worker\nidle or active"] -->|"service role RPC"| Supabase
+  Worker -->|"HTTPS"| Providers["Job providers\ncatalogued paused"]
   API --> Contracts["@hanaply/contracts"]
   Browser --> Contracts
   Mobile --> Contracts
-  Worker --> Contracts
+  Worker --> Matching["@hanaply/matching\ndeterministic"]
+  Worker --> Adapters["@hanaply/jobs\nnine adapters"]
 ```
 
-The API is the authoritative orchestration boundary. The web application renders presentation, refreshes Supabase cookies, and sends bearer tokens to the API. It does not decide plans, account status, entitlements, admin roles, permissions, feature rules, or platform lifecycle state.
+The API is the authoritative orchestration boundary. The web application renders presentation, refreshes Supabase cookies, and sends bearer tokens to the API. It does not decide plans, account status, entitlements, admin roles, permissions, feature rules, platform lifecycle state, match scores, or job visibility.
 
 ## Workspace responsibilities
 
-| Boundary                                | Responsibility                                                                                                                                  |
-| --------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| `apps/web`                              | Marketing, auth UI, protected customer/admin layouts, Supabase SSR cookie handling, CSP, and the shared API client                              |
-| `services/api`                          | Validation, bearer authentication, account-status enforcement, authorization, rate limiting, OpenAPI, repositories, and response envelopes      |
-| `services/worker`                       | Liveness/readiness, graceful shutdown, subscription expiry maintenance, payment notification delivery, private-object cleanup, and retry policy |
-| `packages/contracts`                    | One route registry, Zod request/response/error schemas, OpenAPI 3.1, DOM-free fetch transport, and task envelopes                               |
-| `packages/database`                     | Supabase client factories, generated schema types, and explicit snake_case boundaries                                                           |
-| `packages/auth`                         | Identity validation, redirect sanitization, account-state decisions, and explicit permission primitives/matrix                                  |
-| `packages/entitlements`                 | Subscription timing and complete, fail-closed entitlement evaluation                                                                            |
-| `packages/platform`                     | Prioritized feature targeting and semantic-version platform evaluation                                                                          |
-| `packages/ai`                           | Disabled provider-neutral AI boundary                                                                                                           |
-| `packages/email`                        | Versioned templates plus disabled, capture, and production-gated Resend adapters                                                                |
-| `packages/observability`                | AsyncLocalStorage context, Pino labels, and sensitive-field redaction                                                                           |
-| `packages/design-tokens`, `packages/ui` | Canonical visual tokens and accessible reusable primitives                                                                                      |
+| Boundary                                | Responsibility                                                                                                                                                                    |
+| --------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `apps/web`                              | Marketing, auth UI, customer and admin App Router surfaces, Supabase SSR cookie handling, CSP and security headers through `src/proxy.ts`, server actions, and the shared API client |
+| `services/api`                          | Zod-validated request and response handling, bearer authentication, session liveness, account-status enforcement, permission guards, rate limiting, OpenAPI, repositories, file validation, and deterministic resume extraction |
+| `services/worker`                       | Health and readiness server, payment maintenance (expiry, reminders, notification outbox, private-object cleanup), and the job intelligence worker (ingestion, match computation, freshness) |
+| `packages/contracts`                    | One route registry, Zod request/response/error schemas, the DOM-free fetch client, OpenAPI 3.1 generation, and task envelopes                                                     |
+| `packages/jobs`                         | Source adapter contract, nine provider adapters, the deterministic normalizer, multi-signal dedupe scoring, and the ingestion runner                                                |
+| `packages/matching`                     | The deterministic nine-dimension matching engine, requirement mapping, verdict and confidence computation                                                                          |
+| `packages/database`                     | Supabase client factories, generated schema types, and explicit snake_case boundaries                                                                                             |
+| `packages/auth`                         | Identity validation, redirect sanitization, account-state decisions, and explicit permission primitives and matrix                                                                 |
+| `packages/config`                       | Zod environment schemas for browser, web server, API, worker, email, and bootstrap scopes                                                                                          |
+| `packages/entitlements`                 | Subscription timing and complete, fail-closed entitlement evaluation                                                                                                              |
+| `packages/platform`                     | Prioritized feature targeting and semantic-version platform evaluation                                                                                                             |
+| `packages/ai`                           | Disabled provider-neutral AI boundary, generation request/result types, and truth-gate result types                                                                               |
+| `packages/email`                        | Versioned templates plus disabled, capture, and production-gated Resend adapters                                                                                                   |
+| `packages/observability`                | AsyncLocalStorage context, Pino labels, and sensitive-field redaction                                                                                                             |
+| `packages/design-tokens`, `packages/ui` | Canonical visual tokens and accessible reusable primitives                                                                                                                        |
+| `packages/testing`                      | Shared test helpers                                                                                                                                                                |
 
-Runtime-neutral packages avoid DOM and Node-only dependencies when mobile reuse is expected. Database rows remain snake_case; repository mappers return camelCase contract objects.
+Runtime-neutral packages avoid DOM and Node-only dependencies where mobile reuse is expected. Database rows remain snake_case; repository mappers return camelCase contract objects.
+
+## The product loop and its owners
+
+| Step                          | Owner                                                                                                                    | Notes                                                                                                              |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------ |
+| Career profile and records    | `/v1/me/career/*` in `services/api` → `career_profiles` and related tables                                                | Limits enforced inside `public.create_career_profile` and `public.upsert_career_record`                             |
+| Resume upload and extraction  | `services/api/src/career-files.ts` validates bytes; `career-extraction.ts` parses                                          | Deterministic; produces a `needs_review` draft, never a trusted record                                              |
+| Truth ledger                  | `public.record_career_facts` and `public.decide_career_fact`                                                              | Only `user_entered` facts are auto-confirmed; extraction results start as `candidate`                               |
+| Job ingestion                 | `services/worker/src/jobs.ts` + `@hanaply/jobs` → `public.upsert_ingested_job`                                             | One shared scan per source; see [Job ingestion](job-ingestion.md)                                                   |
+| Deduplication                 | `public.upsert_ingested_job` proposes merges; `packages/jobs/src/dedupe.ts` scores review candidates                        | Provenance is retained per source posting                                                                           |
+| Freshness                     | `public.refresh_job_freshness`, driven by the worker's freshness cycle                                                     | Active → stale → expired                                                                                            |
+| Match computation             | `@hanaply/matching` scored in the worker, persisted by `public.record_job_matches`                                          | Scores are cached in `job_matches`; see [AI and truth gating](ai-and-truth-gating.md)                                |
+| Radar feed and job detail     | `public.job_radar` and `public.job_detail`, exposed as `/v1/me/jobs*`                                                       | Ranking reads cached matches, so an unscored job sorts after scored ones                                            |
+| Save, unsave, feedback        | `public.save_job`, `public.unsave_job`, `public.record_job_feedback`                                                       | Negative feedback removes a posting from `matching_job_candidates`                                                  |
+| Application packs and usage   | `public.create_application_pack`, `app_private.consume_usage`, artifact truth gate                                          | Data and API routes exist; the customer-facing packs page is not shipped                                             |
+| Application tracker           | `public.upsert_job_application`, `public.set_application_stage`, `public.application_timeline`                              | Data and API routes exist; the customer-facing applications page is not shipped                                      |
+| Manual payment and activation | `services/api/src/payment.*` → `public.approve_payment_submission` and friends                                              | No payment-provider integration; approval is an authorized manual decision                                           |
+| Entitlement resolution        | `packages/entitlements` in the API and `app_private.career_entitlements` in SQL                                             | Both fail closed; see [Entitlements](entitlements.md)                                                               |
 
 ## Contract flow
 
-Each REST operation is declared once in `@hanaply/contracts` with its method, path, auth class, query schema, success schema, and operation metadata. The registry drives:
+The single canonical route registry is `packages/contracts/src/api-contract.ts`, which declares `export const apiContract = Object.freeze({ ... })` with 87 entries. Each entry is wrapped by the local `defineRoute` helper and carries `method` (`GET`, `PATCH`, `POST`, or `DELETE`), `path` (`` `/v1/${string}` ``), `operationId`, `summary`, `auth` (`'public' | 'user' | 'admin'`), `successStatus`, and the optional `query`, `params`, `body`, `multipartBody`, and `response` schemas.
+
+There is no group or permission field in the registry. Permissions live on the Nest controllers as `@RequirePermission`, `@RequireAllPermissions`, and `@RequireAnyPermission` metadata, and every route's `successStatus` is the literal `200`.
+
+The registry drives:
 
 1. Controller paths and inferred TypeScript types.
 2. Runtime request and outgoing response validation.
-3. The shared fetch client used by web and future mobile clients.
-4. The checked-in OpenAPI 3.1 artifact and local `/openapi.json` endpoint.
+3. The shared fetch client used by the web and future mobile clients — `client.ts` exposes exactly one method per contract entry.
+4. The checked-in OpenAPI 3.1 artifact at `packages/contracts/openapi.generated.json` and the local `/openapi.json` endpoint.
 
-Successful responses contain `data` and `meta.apiVersion/requestId`. Errors contain a safe `error` object and the same metadata. Internal exceptions are never serialized directly.
+Successful responses contain `data` and `meta.apiVersion` / `meta.requestId`. Errors contain a safe `error` object from the 11-value `errorCodeSchema` plus the same metadata. Internal exceptions are never serialized directly; `ApiExceptionFilter` in `services/api/src/infrastructure.ts` maps `ZodError` to `VALIDATION_ERROR`, `AppError` to its own status and code, and other exceptions through an allowlist.
 
-## Phase 1 and Phase 2 endpoints
+## API route families
 
-| Endpoint                                           | Boundary                                                        |
-| -------------------------------------------------- | --------------------------------------------------------------- |
-| `GET /v1/health`                                   | Public liveness; no dependency check                            |
-| `GET /v1/ready`                                    | Public readiness; verifies database connectivity                |
-| `GET /v1/version`                                  | Public API/service/build version                                |
-| `GET /v1/meta`                                     | Public platform and client-exposed feature evaluation           |
-| `GET /v1/plans`                                    | Active database-backed plans and allowlisted entitlements       |
-| `GET /v1/me`                                       | Active bearer-authenticated profile and subscription summary    |
-| `PATCH /v1/me`                                     | Allowlisted profile update                                      |
-| `GET/PATCH /v1/me/preferences`                     | Caller-owned optional notification preferences                  |
-| `GET /v1/me/sessions`                              | Safe caller session summaries                                   |
-| `POST /v1/me/sessions/revoke-others`               | Revoke all non-current sessions                                 |
-| `GET /v1/me/entitlements`                          | Server-evaluated caller entitlements                            |
-| `GET /v1/payment-methods`                          | Current enabled manual payment methods and signed QR access     |
-| `GET /v1/me/subscription`                          | Caller subscription and evaluated entitlements                  |
-| `GET /v1/me/payment-submissions`                   | Caller payment history                                          |
-| `POST/PATCH /v1/me/payment-submissions`            | Canonical payment draft creation/update                         |
-| `POST /v1/me/payment-submissions/{id}/proof`       | Validated private proof upload                                  |
-| `GET /v1/me/payment-submissions/{id}/proof-access` | Short-lived caller proof access                                 |
-| `POST .../{id}/submit                              | cancel                                                          | resubmit`                               | Versioned customer lifecycle actions |
-| `GET /v1/admin/me`                                 | Active admin membership, roles, and permissions from PostgreSQL |
-| `GET /v1/admin/overview`                           | Permissioned real identity/account totals                       |
-| `GET /v1/admin/users`                              | Filtered, paginated user directory                              |
-| `GET /v1/admin/users/{userId}`                     | Safe user/account/subscription detail                           |
-| `POST /v1/admin/users/{userId}/suspend`            | Audited account suspension                                      |
-| `POST /v1/admin/users/{userId}/restore`            | Audited suspension restoration                                  |
-| `POST /v1/admin/users/{userId}/revoke-sessions`    | Audited full session revocation                                 |
-| `GET /v1/admin/audit-events`                       | Filtered, redacted audit directory                              |
-| `GET /v1/admin/security`                           | Safe implementation/configuration diagnostics                   |
-| `GET/POST/PATCH /v1/admin/payment-methods`         | Permissioned method configuration and version history           |
-| `POST .../payment-methods/{id}/enable              | disable                                                         | archive                                 | qr`                                  | Permissioned method state/QR operations |
-| `GET /v1/admin/payment-submissions`                | Permissioned payment review queue                               |
-| `GET .../payment-submissions/{id}`                 | Review detail with private warning metadata                     |
-| `GET .../{id}/proof-access`                        | `payments.review`-only short-lived proof access                 |
-| `POST .../{id}/start-review                        | request-information                                             | approve                                 | reject`                              | Locked review outcomes                  |
-| `POST .../{id}/record-refund                       | reverse`                                                        | Dual-authority refund/reversal outcomes |
-| `GET/POST /v1/admin/subscriptions`                 | Subscription inspection and controlled date correction          |
-| `/openapi.json`, `/docs`                           | Local/test documentation; production-disabled by configuration  |
+Counted from `apiContract`: 87 routes total — 5 public, 53 authenticated-user, and 29 admin. Grouping below is by path prefix, because the registry has no explicit group field.
+
+| Family                            | Routes | Contract key examples                                                                              |
+| --------------------------------- | -----: | -------------------------------------------------------------------------------------------------- |
+| Public core                       |      4 | `health`, `ready`, `version`, `meta`                                                                |
+| Public plan catalog               |      1 | `plans`                                                                                             |
+| Public payment method list        |      1 | `paymentMethods` (authenticated, listed here for path shape)                                        |
+| Caller identity and settings      |      9 | `me`, `updateMe`, `preferences`, `updatePreferences`, `sessions`, `revokeOtherSessions`, `entitlements` |
+| Caller subscription and payments  |     10 | `mySubscription`, `myPaymentSubmissions`, `createPaymentSubmission`, `uploadPaymentProof`, `submitPaymentSubmission`, `cancelPaymentSubmission`, `resubmitPaymentSubmission` |
+| Career intelligence profile       |     21 | `careerProfiles`, `careerProfile`, `upsertCareerRecord`, `recordCareerFacts`, `decideCareerFact`, `careerDocuments`, `uploadCareerDocument`, `applyCareerDocumentExtraction`, `setOnboardingStatus` |
+| Career Radar                      |      5 | `jobRadar`, `jobDetail`, `saveJob`, `unsaveJob`, `recordJobFeedback`                                |
+| Application packs, usage, tracker |      8 | `applicationPacks`, `createApplicationPack`, `applicationPack`, `usageSummary`, `applicationTracker`, `trackApplication`, `applicationTimeline`, `setApplicationStage` |
+| Admin core                        |      9 | `adminMe`, `adminOverview`, `adminUsers`, `adminUser`, `adminSuspendUser`, `adminRestoreUser`, `adminRevokeUserSessions`, `adminAudit`, `adminSecurity` |
+| Admin payment methods             |      8 | `adminPaymentMethods`, `createAdminPaymentMethod`, `enableAdminPaymentMethod`, `uploadAdminPaymentMethodQr` |
+| Admin payment review              |      9 | `adminPaymentSubmissions`, `startPaymentReview`, `requestPaymentInformation`, `approvePaymentSubmission`, `rejectPaymentSubmission`, `recordPaymentRefund`, `reversePaymentApproval` |
+| Admin subscriptions               |      3 | `adminSubscriptions`, `adminSubscription`, `correctAdminSubscription`                               |
+
+`DocumentationController` additionally serves `GET /openapi.json` and `GET /docs`, which are not contract entries. Both are available only when `OPENAPI_ENABLED` is true and `HANAPLY_ENV` is not `production`.
+
+Controllers: `PublicController` (5 handlers), `UserController` (7), `CustomerPaymentController` (12), `CareerController` (34), `AdminController` (9), `AdminPaymentController` (20), and `DocumentationController` (2). The first six sum to 87, matching the registry exactly.
+
+## Trust boundary
+
+1. **The browser never receives the job table.** The web application holds no Supabase query for jobs, sources, companies, or matches. Every read goes through the API as an authenticated `/v1/me/...` call, the API holds the service-role key server-side, and the browser only ever sees the response schema declared in the registry. Row-level security is a second, independent barrier: `jobs` has a policy permitting `select` only where `status = 'active'`, and `job_sources` only where `status = 'active'`, so even a leaked publishable key cannot read paused providers, provenance rows, ingestion runs, or dedup candidates.
+2. **The API is the authoritative orchestration boundary.** Authorization, account status, session liveness, entitlement resolution, rate limiting, file validation, and response shaping all happen in `services/api` or in SQL functions that the API calls with the service role. Presentation-layer checks in `apps/web` are convenience only; the API and the database re-check them.
+3. **The service role is server-only.** `SUPABASE_SERVICE_ROLE_KEY` is read by `services/api`, `services/worker`, `tooling/bootstrap-super-admin.mjs`, and the Playwright fixtures. `parseBrowserEnvironment` strips it, so it can never reach a `NEXT_PUBLIC_` value, and no public endpoint proxies arbitrary service-role requests. Privileged SQL functions call `app_private.require_service_role()` and then independently verify the supplied actor's database permission, so holding the service key is not by itself authority to act as an administrator.
+4. **Writes are function-mediated.** Every RLS policy except `profiles_update_own_active` is `for select` only. Inserts, updates, and deletes reach the database exclusively through `security definer` functions with `set search_path = ''`, revoked from `public`, `anon`, and `authenticated`. Direct table writes from a browser client fail by construction.
+5. **Web mutation origin is verified.** Every server action calls `assertTrustedMutationOrigin()` from `apps/web/src/lib/request-integrity.ts` before doing anything else, and `src/proxy.ts` sets a per-request CSP nonce plus `frame-ancestors 'none'`.
 
 ## Authentication and authorization sequence
 
-1. Same-origin server actions send registration/login/recovery operations directly to Supabase Auth after shared validation and database-backed throttling.
-2. Supabase Auth provisions/reconciles the application profile, legal records, preferences, and security history through protected triggers/functions.
-3. Next.js Proxy refreshes cookies, adds a CSP nonce, and performs optimistic route redirects.
-4. Protected server layouts verify Supabase claims, enforce account status, and call the API.
-5. The API accepts only `Authorization: Bearer`, verifies the token with Supabase `getClaims`, and confirms the `session_id` remains active.
-6. Caller-token repositories preserve RLS for user profile/subscription reads; narrowly scoped service functions handle admin operations and re-check actor permissions.
+1. Same-origin server actions send registration, login, and recovery operations directly to Supabase Auth after shared validation and database-backed throttling through `public.consume_auth_rate_limit`.
+2. Supabase Auth provisions and reconciles the application profile, legal records, preferences, and security history through protected triggers and functions.
+3. `apps/web/src/proxy.ts` refreshes cookies, adds the CSP nonce and security headers, and performs optimistic route redirects for `/dashboard*` and `/admin*` except `/admin/login`.
+4. Protected server layouts call `requireUser()` or `requireAdmin()`, enforce account status, and build an API client with the session access token.
+5. The API accepts only `Authorization: Bearer`, verifies the token with Supabase `getClaims`, requires `sub` and `session_id`, and confirms the session is still active through `is_auth_session_active`.
+6. Caller-token repositories preserve RLS for user reads; narrowly scoped service functions handle admin operations and re-check actor permissions.
 7. Suspended, disabled, and pending-deletion accounts are rejected before protected orchestration.
-8. Admin access is resolved through `get_my_admin_access`; JWT metadata is ignored for roles/permissions.
-9. Controller guards require one, any, or all explicit catalog permissions, and privileged database functions enforce them again.
+8. Admin access is resolved through `get_my_admin_access`; JWT metadata is ignored for roles and permissions.
+9. Controller guards require one, all, or any explicit catalog permission, and the privileged database functions enforce the same permission again.
 
-## Worker and provider state
+## Worker topology
 
-Tasks include version, correlation and idempotency identifiers, timestamps, attempts, and a validated payload. Retry delay is exponential with full jitter, defaults to five attempts, and caps at 15 minutes. Dead-letter metadata deliberately omits payloads.
+`services/worker` always serves health on `WORKER_HEALTH_PORT` (default `3102`). `WORKER_MODE=idle` serves health only. `WORKER_MODE=active` additionally constructs `PaymentMaintenanceWorker` and `JobIntelligenceWorker`.
 
-The general production queue and AI providers remain disabled. Active worker mode is limited to the Phase 2 database outbox: it expires subscriptions, queues expiry reminders, delivers payment/subscription messages through the configured email provider, and retries private payment-object cleanup. AI calls reject.
+- `PaymentMaintenanceWorker` runs subscription expiry and reminders (RPC `queue_subscription_expiry_reminders`, `expire_subscriptions`) on the maintenance interval, and runs notification delivery (RPC `claim_payment_notifications`, `complete_payment_notification`, `release_payment_notification_claim`) and private-object cleanup (RPC `claim_storage_cleanup_jobs`, `complete_storage_cleanup_job`, `release_storage_cleanup_job`) on every poll.
+- `JobIntelligenceWorker` runs three bounded cycles on one timer: ingestion (RPC `job_ingestion_schedule`, `acquire_ingestion_lock`, `start_ingestion_run`, `upsert_ingested_job`, `complete_ingestion_run`, `release_ingestion_lock`), match computation (RPC `matching_subjects`, `career_profile_detail`, `confirmed_career_evidence`, `matching_job_candidates`, `record_job_matches`), and freshness (RPC `refresh_job_freshness`). See [Job ingestion](job-ingestion.md).
 
-Email has disabled, in-memory capture, and Resend implementations. Resend can start only outside local/test with a validated key/sender and explicit live-send gate. Supabase Auth owns verification/recovery transport; local messages go to Mailpit and hosted Resend SMTP remains an owner configuration task. No live provider call was made during local validation.
+Both workers poll on `WORKER_POLL_INTERVAL_MS` (default 5000) and use `WORKER_MAINTENANCE_INTERVAL_MS` (default 300000) for slower maintenance. Both are idempotent: repeated cycles re-derive the same work from the database, and a partially completed cycle is picked up again.
 
-Phase 2 adds manual-payment activation and review operations without a payment-provider integration. The Activation Center and admin tools expose real payment/subscription state with honest deferred-feature copy. Career profiles, resumes, jobs, AI, push, mobile, and later queue consumers remain unopened.
+`services/worker/src/queue.ts` defines `TaskQueue`, `DisabledQueueAdapter`, `InMemoryTaskQueue`, `retryDelayMilliseconds` (full-jitter exponential, capped at 15 minutes), and `isRetryableTaskError`. No production queue is wired into the worker runtime; the only importer is `tests/unit/tasks.test.ts`. The live worker calls Supabase RPCs directly.
+
+## Provider state
+
+Tasks include version, correlation and idempotency identifiers, timestamps, attempts, and a validated payload, but the production queue and AI providers remain disabled. `@hanaply/ai` exports `DisabledAiProvider`, whose `generate` rejects with `Live AI generation is disabled in Phase 0`; nothing in `services/api` or `services/worker` imports it or any provider SDK.
+
+All five catalogued job providers start `paused`, so the worker's ingestion cycle has nothing due until an operator enables a source. Adzuna and Jooble additionally need `ADZUNA_APP_ID`/`ADZUNA_APP_KEY` and `JOOBLE_API_KEY` in the worker environment.
+
+Email has disabled, in-memory capture, and Resend implementations. Resend can start only outside local and test with a validated key, sender, and explicit live-send gate. Supabase Auth owns verification and recovery transport; hosted Resend SMTP remains an owner configuration task. No live provider call was made during local validation.
