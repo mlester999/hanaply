@@ -11,18 +11,19 @@ The repository contains the complete local implementation: the Phase 0 foundatio
 3. **Ingest approved postings.** The worker runs one shared scan per enabled provider and normalizes each posting into `jobs` with provenance retained per source posting.
 4. **Score each opportunity.** `@hanaply/matching` scores nine weighted dimensions, reports unknown dimensions honestly, and computes confidence separately from score.
 5. **Read the radar.** `/dashboard/radar` ranks cached matches, filters them, and supports save, unsave, and feedback. Feedback removes postings the member does not want to see again.
-6. **Track applications.** The tracker records where an application stands across eight stages with an append-only history.
-7. **Pay for it manually.** Activation is a reviewed manual payment: submit a reference and private proof, an authorized reviewer approves, and an atomic SQL function grants the subscription.
+6. **Request an application pack.** The opportunity page creates one pack per career profile and opportunity. The pack records the confirmed facts it was allowed to use and is gated on the monthly allowance. Artifact content generation is not implemented yet.
+7. **Track applications.** The tracker records where an application stands across eight stages with an append-only history.
+8. **Pay for it manually.** Activation is a reviewed manual payment: submit a reference and private proof, an authorized reviewer approves, and an atomic SQL function grants the subscription.
 
 ## Delivery status
 
 Verified locally in this repository, by running the commands in [Testing](docs/testing.md):
 
-- 26 forward-only migrations in `supabase/migrations`, 62 tables, 169 functions, 74 triggers, 35 RLS policies.
-- 13 pgTAP suites in `supabase/tests/database` with 542 assertions, all passing through the Dockerless harness (`pnpm db:harness:test`).
-- 18 Vitest files with 251 tests passing (`pnpm test`).
-- 87 routes in the single contract registry, 5 public, 53 authenticated-user, and 29 admin.
-- `pnpm format:check`, `pnpm lint`, `pnpm typecheck`, `pnpm tokens:check`, `pnpm openapi:check`, `pnpm secrets:check`, `pnpm db:types:check`, and `pnpm audit:prod` pass.
+- 27 forward-only migrations in `supabase/migrations`, creating 63 tables (59 in `public`, 4 in `app_private`) and 47 enum types. Object counts come from counting `create table` and `create type` statements in the migrations; the number of triggers is lower at runtime than the number of `create trigger` statements because some migrations drop and recreate them.
+- 14 pgTAP suites in `supabase/tests/database` with 582 assertions, all passing through the Dockerless harness (`pnpm db:harness:test`).
+- 20 Vitest files under `tests/unit`, `tests/integration`, and `tests/component`. Run `pnpm test` for the current count: the suites are the source of truth, and this number moves whenever a suite is added.
+- 87 routes in the single contract registry: 5 public, 53 authenticated-user, and 29 admin.
+- `pnpm format:check`, `pnpm lint`, `pnpm typecheck`, `pnpm build`, `pnpm tokens:check`, `pnpm openapi:check`, `pnpm secrets:check`, `pnpm db:types:check`, and `pnpm audit:prod` pass. `pnpm test` also passes from a clean checkout; if it reports a failure, treat the failing suite as the accurate signal, not this file.
 
 Not verified in this repository, and explicitly not claimed:
 
@@ -30,7 +31,8 @@ Not verified in this repository, and explicitly not claimed:
 - `pnpm e2e` (Playwright) needs Docker Desktop, local Supabase, and Mailpit. It has not been run as part of this documentation pass.
 - `pnpm db:start`, `pnpm db:reset`, `pnpm db:lint`, `pnpm db:test`, and `pnpm validate:local` need Docker Desktop and have not been run here.
 - No live AI generation exists. `@hanaply/ai` ships a `DisabledAiProvider` whose `generate` always rejects. Matching and resume extraction are deterministic code.
-- Application Pack and application-tracker data and API routes exist and are covered by tests and pgTAP, but the customer-facing packs and applications pages are not shipped. `createApplicationPackAction` and `trackApplicationAction` are server actions without a page that calls them.
+- Application Pack and application-tracker data, API routes, and web surfaces exist. Creating a pack consumes metered quota and stores a pack record, but **no artifact content is generated**: nothing in the repository calls `record_application_artifact` or `complete_application_pack`, so a pack shows an empty state until a generator is written. Hanaply does not yet write resumes or cover letters.
+- Job alerts and the daily digest are implemented end to end (consent, quiet hours, `notification_outbox`, queue, claim, render, complete), but delivery runs through the email provider and the shipped default is `EMAIL_PROVIDER=disabled`, so nothing is actually sent. `instant_alerts` and `weekly_strategy` are stored preferences with no queue function, and browser push does not exist.
 - No job provider is enabled. Every catalogued provider starts `paused`.
 
 ## Prerequisites
@@ -81,18 +83,18 @@ The harness listens on `127.0.0.1:55433` by default (`HANAPLY_LOCAL_DB_PORT`) wi
 
 Keep `EMAIL_PROVIDER=capture`, `EMAIL_ALLOW_LIVE_SENDS=false`, and `ADMIN_BOOTSTRAP_ENABLED=false` locally. Never commit `.env.local`, put a service-role key in a `NEXT_PUBLIC_` variable, or reuse local credentials outside the local stack.
 
-| Service          | URL                      | Notes                                         |
-| ---------------- | ------------------------ | --------------------------------------------- |
-| Web              | `http://localhost:3100`  | `apps/web`, Next.js App Router                |
-| API              | `http://localhost:3101`  | `services/api`, routes under `/v1`            |
-| Worker health    | `http://localhost:3102`  | `services/worker`, `/health` and `/ready`     |
-| Supabase API     | `http://127.0.0.1:55421` | Supabase CLI workflow only                    |
-| PostgreSQL       | `127.0.0.1:55432`        | Supabase CLI workflow only                    |
-| Supabase Studio  | `http://127.0.0.1:55423` | Supabase CLI workflow only                    |
-| Local SMTP       | `127.0.0.1:55424`        | Supabase CLI local mail catcher port          |
-| Harness Postgres | `127.0.0.1:55433`        | Dockerless harness, database `hanaply`        |
+| Service          | URL                      | Notes                                     |
+| ---------------- | ------------------------ | ----------------------------------------- |
+| Web              | `http://localhost:3100`  | `apps/web`, Next.js App Router            |
+| API              | `http://localhost:3101`  | `services/api`, routes under `/v1`        |
+| Worker health    | `http://localhost:3102`  | `services/worker`, `/health` and `/ready` |
+| Supabase API     | `http://127.0.0.1:55421` | Supabase CLI workflow only                |
+| PostgreSQL       | `127.0.0.1:55432`        | Supabase CLI workflow only                |
+| Supabase Studio  | `http://127.0.0.1:55423` | Supabase CLI workflow only                |
+| Local SMTP       | `127.0.0.1:55424`        | Supabase CLI local mail catcher port      |
+| Harness Postgres | `127.0.0.1:55433`        | Dockerless harness, database `hanaply`    |
 
-The worker defaults to `WORKER_MODE=idle` and only serves health. Set `WORKER_MODE=active` with a local database and reviewed email configuration to run the three job-intelligence cycles (ingestion, match computation, freshness) and the payment maintenance cycles (subscription expiry and reminders, notification delivery, private-object cleanup). A production deployment still needs health probes, retry/dead-letter monitoring, and owner-approved provider configuration; see [Owner actions](docs/owner-actions.md).
+The worker defaults to `WORKER_MODE=idle` and only serves health. Set `WORKER_MODE=active` with a local database and reviewed email configuration to run the four job-intelligence cycles (ingestion, match computation, freshness, opportunity notification delivery) and the payment maintenance cycles (subscription expiry and reminders, payment notification delivery, private-object cleanup). A production deployment still needs health probes, retry/dead-letter monitoring, and owner-approved provider configuration; see [Owner actions](docs/owner-actions.md).
 
 ## What you can do in the web app today
 
@@ -102,7 +104,9 @@ Verified surfaces:
 - `/dashboard` — Career Radar summary built from real `job_radar` reads.
 - `/dashboard/onboarding` — guided first-profile setup.
 - `/dashboard/career`, `/dashboard/career/[profileId]`, `/dashboard/career/[profileId]/facts`, `/dashboard/career/documents` — profile, records, truth ledger, and resume upload with deterministic extraction.
-- `/dashboard/radar`, `/dashboard/radar/saved`, `/dashboard/radar/[jobId]` — ranked feed, saved list, and job intelligence detail with save, unsave, and feedback actions.
+- `/dashboard/radar`, `/dashboard/radar/saved`, `/dashboard/radar/[jobId]` — ranked feed, saved list, and job intelligence detail with save, unsave, and feedback actions. The opportunity page also carries the Application Pack action and the track-this-application panel.
+- `/dashboard/packs`, `/dashboard/packs/[packId]` — pack list with the period allowance, and pack detail showing status, the confirmed facts the pack drew on, and any stored artifacts with their truth-gate result. Artifact content is not generated yet, so a new pack shows an empty state.
+- `/dashboard/applications`, `/dashboard/applications/[applicationId]` — tracker board grouped by stage with notes, next actions, and a per-application timeline.
 - `/dashboard/activation`, `/dashboard/settings/*` — manual payment submission and account settings.
 - `/admin/*` — permissioned overview, users, payments, payment methods, subscriptions, audit, security, and a local-only email preview.
 
@@ -169,8 +173,8 @@ Every script below is defined in the root `package.json`.
 | `pnpm openapi:generate` / `pnpm openapi:check` | Write or verify `packages/contracts/openapi.generated.json`                                                    |
 | `pnpm secrets:check`                           | Scan tracked text files for JWT, Supabase service, Resend, and OpenAI credential patterns                      |
 | `pnpm audit:prod`                              | Audit production dependencies, failing at high severity                                                        |
-| `pnpm validate`                                | `format:check`, `lint`, `typecheck`, `test`, `tokens:check`, `build`, `openapi:check`, `secrets:check`          |
-| `pnpm validate:local`                          | `validate`, then the Supabase CLI database path (`db:reset`, `db:lint`, `db:test`, `db:types:check`) and `e2e`  |
+| `pnpm validate`                                | `format:check`, `lint`, `typecheck`, `test`, `tokens:check`, `build`, `openapi:check`, `secrets:check`         |
+| `pnpm validate:local`                          | `validate`, then the Supabase CLI database path (`db:reset`, `db:lint`, `db:test`, `db:types:check`) and `e2e` |
 | `pnpm validate:db`                             | Alias for `db:verify`                                                                                          |
 | `pnpm validate:dockerless`                     | `validate` then `db:verify` — the full gate set that runs without Docker                                       |
 
