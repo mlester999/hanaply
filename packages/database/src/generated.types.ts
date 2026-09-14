@@ -974,6 +974,39 @@ export type Database = {
           },
         ]
       }
+      companies: {
+        Row: {
+          country_code: string | null
+          created_at: string
+          display_name: string
+          domain: string | null
+          id: string
+          is_verified: boolean
+          normalized_name: string
+          updated_at: string
+        }
+        Insert: {
+          country_code?: string | null
+          created_at?: string
+          display_name: string
+          domain?: string | null
+          id?: string
+          is_verified?: boolean
+          normalized_name: string
+          updated_at?: string
+        }
+        Update: {
+          country_code?: string | null
+          created_at?: string
+          display_name?: string
+          domain?: string | null
+          id?: string
+          is_verified?: boolean
+          normalized_name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       email_delivery_events: {
         Row: {
           category: string
@@ -1202,6 +1235,403 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      job_dedup_candidates: {
+        Row: {
+          created_at: string
+          duplicate_job_id: string
+          id: string
+          job_id: string
+          resolution: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          score: number
+          signals: Json
+        }
+        Insert: {
+          created_at?: string
+          duplicate_job_id: string
+          id?: string
+          job_id: string
+          resolution?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          score: number
+          signals?: Json
+        }
+        Update: {
+          created_at?: string
+          duplicate_job_id?: string
+          id?: string
+          job_id?: string
+          resolution?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          score?: number
+          signals?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_dedup_candidates_duplicate_job_id_fkey"
+            columns: ["duplicate_job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_dedup_candidates_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      job_ingestion_runs: {
+        Row: {
+          created_count: number
+          duration_ms: number | null
+          error_code: string | null
+          error_message: string | null
+          fetched_count: number
+          finished_at: string | null
+          id: string
+          merged_count: number
+          rejected_count: number
+          request_id: string | null
+          requested_by: string | null
+          skipped_count: number
+          source_id: string
+          started_at: string
+          status: Database["public"]["Enums"]["job_ingestion_run_status"]
+          trigger: Database["public"]["Enums"]["job_ingestion_trigger"]
+          updated_count: number
+        }
+        Insert: {
+          created_count?: number
+          duration_ms?: number | null
+          error_code?: string | null
+          error_message?: string | null
+          fetched_count?: number
+          finished_at?: string | null
+          id?: string
+          merged_count?: number
+          rejected_count?: number
+          request_id?: string | null
+          requested_by?: string | null
+          skipped_count?: number
+          source_id: string
+          started_at?: string
+          status?: Database["public"]["Enums"]["job_ingestion_run_status"]
+          trigger?: Database["public"]["Enums"]["job_ingestion_trigger"]
+          updated_count?: number
+        }
+        Update: {
+          created_count?: number
+          duration_ms?: number | null
+          error_code?: string | null
+          error_message?: string | null
+          fetched_count?: number
+          finished_at?: string | null
+          id?: string
+          merged_count?: number
+          rejected_count?: number
+          request_id?: string | null
+          requested_by?: string | null
+          skipped_count?: number
+          source_id?: string
+          started_at?: string
+          status?: Database["public"]["Enums"]["job_ingestion_run_status"]
+          trigger?: Database["public"]["Enums"]["job_ingestion_trigger"]
+          updated_count?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_ingestion_runs_source_id_fkey"
+            columns: ["source_id"]
+            isOneToOne: false
+            referencedRelation: "job_sources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      job_source_records: {
+        Row: {
+          created_at: string
+          first_seen_at: string
+          id: string
+          is_primary: boolean
+          job_id: string
+          last_seen_at: string
+          last_verified_at: string | null
+          payload_checksum: string
+          raw_payload: Json
+          source_id: string
+          source_job_id: string
+          source_url: string
+          status: Database["public"]["Enums"]["job_source_record_status"]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          first_seen_at?: string
+          id?: string
+          is_primary?: boolean
+          job_id: string
+          last_seen_at?: string
+          last_verified_at?: string | null
+          payload_checksum: string
+          raw_payload: Json
+          source_id: string
+          source_job_id: string
+          source_url: string
+          status?: Database["public"]["Enums"]["job_source_record_status"]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          first_seen_at?: string
+          id?: string
+          is_primary?: boolean
+          job_id?: string
+          last_seen_at?: string
+          last_verified_at?: string | null
+          payload_checksum?: string
+          raw_payload?: Json
+          source_id?: string
+          source_job_id?: string
+          source_url?: string
+          status?: Database["public"]["Enums"]["job_source_record_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_source_records_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_source_records_source_id_fkey"
+            columns: ["source_id"]
+            isOneToOne: false
+            referencedRelation: "job_sources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      job_sources: {
+        Row: {
+          attribution: string
+          base_url: string
+          batch_size: number
+          circuit_open_until: string | null
+          code: string
+          config: Json
+          consecutive_failures: number
+          created_at: string
+          credential_env_var: string | null
+          display_name: string
+          id: string
+          last_error_code: string | null
+          last_failure_at: string | null
+          last_success_at: string | null
+          min_scan_interval_minutes: number
+          requests_per_minute: number
+          requires_credentials: boolean
+          source_kind: Database["public"]["Enums"]["job_source_kind"]
+          status: Database["public"]["Enums"]["job_source_status"]
+          terms_url: string | null
+          total_jobs_ingested: number
+          updated_at: string
+        }
+        Insert: {
+          attribution: string
+          base_url: string
+          batch_size?: number
+          circuit_open_until?: string | null
+          code: string
+          config?: Json
+          consecutive_failures?: number
+          created_at?: string
+          credential_env_var?: string | null
+          display_name: string
+          id?: string
+          last_error_code?: string | null
+          last_failure_at?: string | null
+          last_success_at?: string | null
+          min_scan_interval_minutes?: number
+          requests_per_minute?: number
+          requires_credentials?: boolean
+          source_kind: Database["public"]["Enums"]["job_source_kind"]
+          status?: Database["public"]["Enums"]["job_source_status"]
+          terms_url?: string | null
+          total_jobs_ingested?: number
+          updated_at?: string
+        }
+        Update: {
+          attribution?: string
+          base_url?: string
+          batch_size?: number
+          circuit_open_until?: string | null
+          code?: string
+          config?: Json
+          consecutive_failures?: number
+          created_at?: string
+          credential_env_var?: string | null
+          display_name?: string
+          id?: string
+          last_error_code?: string | null
+          last_failure_at?: string | null
+          last_success_at?: string | null
+          min_scan_interval_minutes?: number
+          requests_per_minute?: number
+          requires_credentials?: boolean
+          source_kind?: Database["public"]["Enums"]["job_source_kind"]
+          status?: Database["public"]["Enums"]["job_source_status"]
+          terms_url?: string | null
+          total_jobs_ingested?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      jobs: {
+        Row: {
+          apply_url: string
+          canonical_url: string
+          city: string | null
+          company_id: string
+          content_fingerprint: string
+          country_code: string | null
+          created_at: string
+          dedup_key: string
+          description: string
+          description_excerpt: string
+          employment_type: Database["public"]["Enums"]["employment_type"]
+          experience_years_max: number | null
+          experience_years_min: number | null
+          expires_at: string | null
+          first_seen_at: string
+          freshness_checked_at: string | null
+          id: string
+          is_international: boolean
+          is_philippines: boolean
+          language: string
+          last_seen_at: string
+          last_verified_at: string | null
+          location_raw: string | null
+          normalized_title: string
+          posted_at: string | null
+          preferred_qualifications: string[]
+          region: string | null
+          remote_state: Database["public"]["Enums"]["job_remote_state"]
+          requirements: string[]
+          salary_currency: string | null
+          salary_is_estimate: boolean
+          salary_max_minor: number | null
+          salary_min_minor: number | null
+          salary_period: Database["public"]["Enums"]["salary_period"] | null
+          seniority: Database["public"]["Enums"]["job_seniority"]
+          skills: string[]
+          source_count: number
+          status: Database["public"]["Enums"]["job_status"]
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          apply_url: string
+          canonical_url: string
+          city?: string | null
+          company_id: string
+          content_fingerprint: string
+          country_code?: string | null
+          created_at?: string
+          dedup_key: string
+          description: string
+          description_excerpt?: string
+          employment_type?: Database["public"]["Enums"]["employment_type"]
+          experience_years_max?: number | null
+          experience_years_min?: number | null
+          expires_at?: string | null
+          first_seen_at?: string
+          freshness_checked_at?: string | null
+          id?: string
+          is_international?: boolean
+          is_philippines?: boolean
+          language?: string
+          last_seen_at?: string
+          last_verified_at?: string | null
+          location_raw?: string | null
+          normalized_title: string
+          posted_at?: string | null
+          preferred_qualifications?: string[]
+          region?: string | null
+          remote_state?: Database["public"]["Enums"]["job_remote_state"]
+          requirements?: string[]
+          salary_currency?: string | null
+          salary_is_estimate?: boolean
+          salary_max_minor?: number | null
+          salary_min_minor?: number | null
+          salary_period?: Database["public"]["Enums"]["salary_period"] | null
+          seniority?: Database["public"]["Enums"]["job_seniority"]
+          skills?: string[]
+          source_count?: number
+          status?: Database["public"]["Enums"]["job_status"]
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          apply_url?: string
+          canonical_url?: string
+          city?: string | null
+          company_id?: string
+          content_fingerprint?: string
+          country_code?: string | null
+          created_at?: string
+          dedup_key?: string
+          description?: string
+          description_excerpt?: string
+          employment_type?: Database["public"]["Enums"]["employment_type"]
+          experience_years_max?: number | null
+          experience_years_min?: number | null
+          expires_at?: string | null
+          first_seen_at?: string
+          freshness_checked_at?: string | null
+          id?: string
+          is_international?: boolean
+          is_philippines?: boolean
+          language?: string
+          last_seen_at?: string
+          last_verified_at?: string | null
+          location_raw?: string | null
+          normalized_title?: string
+          posted_at?: string | null
+          preferred_qualifications?: string[]
+          region?: string | null
+          remote_state?: Database["public"]["Enums"]["job_remote_state"]
+          requirements?: string[]
+          salary_currency?: string | null
+          salary_is_estimate?: boolean
+          salary_max_minor?: number | null
+          salary_min_minor?: number | null
+          salary_period?: Database["public"]["Enums"]["salary_period"] | null
+          seniority?: Database["public"]["Enums"]["job_seniority"]
+          skills?: string[]
+          source_count?: number
+          status?: Database["public"]["Enums"]["job_status"]
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "jobs_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       payment_method_versions: {
         Row: {
@@ -2220,6 +2650,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      acquire_ingestion_lock: {
+        Args: {
+          requested_lock_key: string
+          requested_holder: string
+          ttl_seconds?: number
+        }
+        Returns: boolean
+      }
       admin_attach_payment_method_qr: {
         Args: {
           actor_user_id: string
@@ -2389,6 +2827,14 @@ export type Database = {
         }
         Returns: Json
       }
+      archive_career_document: {
+        Args: {
+          actor_user_id: string
+          target_document_id: string
+          action_request_id?: string
+        }
+        Returns: string
+      }
       attach_payment_proof: {
         Args: {
           actor_user_id: string
@@ -2426,6 +2872,19 @@ export type Database = {
           target_submission_id: string
           expected_version: number
           action_request_id?: string
+        }
+        Returns: Json
+      }
+      career_document_detail: {
+        Args: {
+          actor_user_id: string
+          target_document_id: string
+        }
+        Returns: Json
+      }
+      career_document_directory: {
+        Args: {
+          actor_user_id: string
         }
         Returns: Json
       }
@@ -2478,6 +2937,22 @@ export type Database = {
           object_path: string
           attempts: number
         }[]
+      }
+      complete_career_document_processing: {
+        Args: {
+          actor_user_id: string
+          target_document_id: string
+          outcome: string
+          error_code?: string
+        }
+        Returns: boolean
+      }
+      complete_ingestion_run: {
+        Args: {
+          target_run_id: string
+          outcome: Json
+        }
+        Returns: boolean
       }
       complete_payment_notification: {
         Args: {
@@ -2598,6 +3073,16 @@ export type Database = {
         }
         Returns: boolean
       }
+      job_ingestion_schedule: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          source_id: string
+          source_code: string
+          effective_interval_minutes: number
+          fastest_subscriber_interval_minutes: number
+          due: boolean
+        }[]
+      }
       list_my_sessions: {
         Args: Record<PropertyKey, never>
         Returns: {
@@ -2626,6 +3111,15 @@ export type Database = {
       reconcile_my_profile: {
         Args: Record<PropertyKey, never>
         Returns: boolean
+      }
+      record_career_document_extraction: {
+        Args: {
+          actor_user_id: string
+          target_document_id: string
+          extraction_input: Json
+          action_request_id?: string
+        }
+        Returns: string
       }
       record_career_facts: {
         Args: {
@@ -2660,6 +3154,22 @@ export type Database = {
         }
         Returns: number
       }
+      refresh_job_freshness: {
+        Args: {
+          evaluated_at?: string
+          stale_after_hours?: number
+          expire_after_hours?: number
+        }
+        Returns: Json
+      }
+      register_career_document: {
+        Args: {
+          actor_user_id: string
+          document_input: Json
+          action_request_id?: string
+        }
+        Returns: string
+      }
       reject_payment_submission: {
         Args: {
           actor_user_id: string
@@ -2672,6 +3182,13 @@ export type Database = {
           action_request_id?: string
         }
         Returns: number
+      }
+      release_ingestion_lock: {
+        Args: {
+          requested_lock_key: string
+          requested_holder: string
+        }
+        Returns: boolean
       }
       release_payment_notification_claim: {
         Args: {
@@ -2701,6 +3218,18 @@ export type Database = {
           action_request_id?: string
         }
         Returns: number
+      }
+      resolve_career_document_object: {
+        Args: {
+          actor_user_id: string
+          target_document_id: string
+        }
+        Returns: {
+          bucket_id: string
+          object_path: string
+          mime_type: string
+          original_filename: string
+        }[]
       }
       resolve_payment_method_qr_object: {
         Args: {
@@ -2774,6 +3303,15 @@ export type Database = {
         }
         Returns: boolean
       }
+      start_ingestion_run: {
+        Args: {
+          target_source_id: string
+          requested_trigger?: Database["public"]["Enums"]["job_ingestion_trigger"]
+          requested_by?: string
+          action_request_id?: string
+        }
+        Returns: string
+      }
       start_payment_review: {
         Args: {
           actor_user_id: string
@@ -2831,6 +3369,14 @@ export type Database = {
           action_request_id?: string
         }
         Returns: string
+      }
+      upsert_ingested_job: {
+        Args: {
+          target_source_id: string
+          job_input: Json
+          action_request_id?: string
+        }
+        Returns: Json
       }
     }
     Enums: {
@@ -2898,6 +3444,36 @@ export type Database = {
         | "temporary"
         | "volunteer"
       entitlement_value_type: "boolean" | "integer" | "string"
+      job_ingestion_run_status: "running" | "succeeded" | "partial" | "failed"
+      job_ingestion_trigger: "schedule" | "manual" | "backfill" | "retry"
+      job_remote_state: "remote" | "hybrid" | "onsite" | "unspecified"
+      job_seniority:
+        | "internship"
+        | "entry"
+        | "junior"
+        | "mid"
+        | "senior"
+        | "lead"
+        | "principal"
+        | "manager"
+        | "director"
+        | "executive"
+        | "unspecified"
+      job_source_kind:
+        | "remotive"
+        | "arbeitnow"
+        | "greenhouse"
+        | "lever"
+        | "ashby"
+        | "hn_algolia"
+        | "adzuna"
+        | "jooble"
+        | "partner_feed"
+        | "manual"
+      job_source_record_status: "active" | "removed" | "stale"
+      job_source_status: "active" | "paused" | "disabled"
+      job_status:
+        "active" | "stale" | "expired" | "closed" | "duplicate" | "rejected"
       onboarding_status: "not_started" | "in_progress" | "complete"
       payment_method_type: "gcash" | "maya" | "bank_transfer" | "other"
       payment_review_flag_type: "duplicate_reference" | "duplicate_proof"
@@ -3136,6 +3712,44 @@ export const Constants = {
         "volunteer",
       ],
       entitlement_value_type: ["boolean", "integer", "string"],
+      job_ingestion_run_status: ["running", "succeeded", "partial", "failed"],
+      job_ingestion_trigger: ["schedule", "manual", "backfill", "retry"],
+      job_remote_state: ["remote", "hybrid", "onsite", "unspecified"],
+      job_seniority: [
+        "internship",
+        "entry",
+        "junior",
+        "mid",
+        "senior",
+        "lead",
+        "principal",
+        "manager",
+        "director",
+        "executive",
+        "unspecified",
+      ],
+      job_source_kind: [
+        "remotive",
+        "arbeitnow",
+        "greenhouse",
+        "lever",
+        "ashby",
+        "hn_algolia",
+        "adzuna",
+        "jooble",
+        "partner_feed",
+        "manual",
+      ],
+      job_source_record_status: ["active", "removed", "stale"],
+      job_source_status: ["active", "paused", "disabled"],
+      job_status: [
+        "active",
+        "stale",
+        "expired",
+        "closed",
+        "duplicate",
+        "rejected",
+      ],
       onboarding_status: ["not_started", "in_progress", "complete"],
       payment_method_type: ["gcash", "maya", "bank_transfer", "other"],
       payment_review_flag_type: ["duplicate_reference", "duplicate_proof"],
