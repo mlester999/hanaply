@@ -34,8 +34,8 @@ export default function MarketingLayout({ children }: { children: ReactNode }) {
         <div className="footer-note">
           <strong>A smarter way to move your career forward</strong>
           <p>
-            Create your account now. Career intelligence and truthful application preparation are
-            coming in later releases.
+            Create your account now. Career profile setup, resume review, and the ranked Career
+            Radar are available today.
           </p>
         </div>
         <nav aria-label="Footer navigation">

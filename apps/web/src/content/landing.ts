@@ -62,41 +62,45 @@ export const principles = [
 ] as const;
 
 export const productStatus = [
-  { feature: 'Account foundation', status: 'Complete' },
-  { feature: 'Activation Center', status: 'In development' },
-  { feature: 'Career intelligence', status: 'Coming next' },
+  { feature: 'Account foundation', status: 'Available' },
+  { feature: 'Activation Center', status: 'Available' },
+  { feature: 'Career profile and resume review', status: 'Available' },
+  { feature: 'Career Radar and job intelligence', status: 'Available' },
+  { feature: 'Application Packs and tracker', status: 'In development' },
+  { feature: 'Alerts, digest, and career coaching', status: 'In development' },
+  { feature: 'Mobile experience', status: 'Planned' },
 ] as const;
 
 export const faqItems = [
   {
     question: 'Is Hanaply a job board?',
     answer:
-      'Hanaply is designed as a career system, not another endless listing board. It will connect a trusted Career Profile with explainable opportunity matching and truthful application preparation.',
+      'No. Hanaply connects your Career Profile to explainable opportunity matching and truthful application preparation, instead of leaving you to scroll an endless list of listings.',
   },
   {
     question: 'Does Hanaply apply to jobs automatically?',
     answer:
-      'No. Hanaply will prepare materials for your review. You decide what to use and submit it through the employer’s application process.',
+      'No. Hanaply prepares materials for your review. You decide what to use and submit it through the employer’s own application process, using the original posting link.',
   },
   {
     question: 'Will AI invent experience for my resume?',
     answer:
-      'No. Truth Gate is designed to block unsupported claims and keep generated materials grounded in career facts you provide and verify.',
+      'No. Every claim must trace back to a career fact you entered or confirmed. Resume extraction can only propose, never assert, and the database rejects generated material that cites a claim you have not confirmed.',
   },
   {
-    question: 'How will Hanaply decide whether a role matches me?',
+    question: 'How does Hanaply decide whether a role matches me?',
     answer:
-      'Career Radar will evaluate role requirements against verified experience, skills, projects, preferences, and hard constraints. It will explain strengths, gaps, and blockers instead of showing only a score.',
+      'Career Radar scores nine dimensions, including role alignment, skills coverage, seniority, experience, location and work setup, compensation, employment type, career direction, and freshness. You see every dimension, the strongest evidence, the gaps, and any hard blocker. When the data is too thin to judge a dimension, it is reported as unknown rather than guessed.',
   },
   {
     question: 'Can I review every document before using it?',
     answer:
-      'Yes. User review is a required part of the planned Application Pack flow. Hanaply will not submit a resume, cover letter, message, or application automatically.',
+      'Yes. User review is a required part of the Application Pack flow. Hanaply does not submit a resume, cover letter, message, or application for you.',
   },
   {
     question: 'Can Hanaply support career changes?',
     answer:
-      'That is part of the planned product design. Transferable evidence and learnable gaps will help explain realistic transitions without pretending that every gap is easy to close.',
+      'Yes. Requirements you do not meet are shown as explicit gaps, and where adjacent experience exists it is described as transferable rather than presented as direct experience.',
   },
   {
     question: 'Are subscriptions automatically renewed?',
@@ -104,19 +108,24 @@ export const faqItems = [
       'No. Hanaply uses manual renewals. Where an administrator has configured an available payment method, you can submit payment details and private proof in the Activation Center; paid access begins only after an authorized review.',
   },
   {
+    question: 'Where do the job listings come from?',
+    answer:
+      'From job providers with published terms. Each source is catalogued with its attribution and usage terms and stays disabled until an operator reviews it, and Hanaply issues one shared scan per provider rather than a request per user.',
+  },
+  {
     question: 'Is Hanaply only for users in the Philippines?',
     answer:
-      'The Philippines is the first launch market. Hanaply is being designed so the product can support professionals and opportunities in more markets over time.',
+      'The Philippines is the first launch market, and the product defaults to English, PHP, and Asia/Manila. Country, currency, timezone, and job-market preferences are configurable, so the same platform can serve other markets.',
   },
   {
     question: 'Will there be an iOS or Android app?',
     answer:
-      'Mobile applications are part of the future product roadmap. The web experience is being built first, and no iOS or Android app is available now.',
+      'Mobile applications are part of the future product roadmap. The web experience is built first, the backend is mobile-ready, and no iOS or Android app is available now.',
   },
   {
     question: 'Is the complete Hanaply product already available?',
     answer:
-      'No. Account registration, account controls, and the manual-payment Activation Center checkpoint are implemented in the current web release. Career Profile, Career Radar, Truth Gate, Application Packs, job discovery, and mobile remain deferred.',
+      'Not entirely. Registration, account controls, the manual-payment Activation Center, the Career Intelligence Profile, resume upload with review, Career Radar, and explainable matching are implemented. Application Packs, the application tracker, alert delivery, coaching, and mobile remain in progress.',
   },
 ] as const;
 
@@ -131,11 +140,32 @@ export const roadmap = [
   {
     id: 'phase-2',
     number: '02',
-    status: 'In progress',
-    title: 'Plan activation and career profile',
+    status: 'Available now',
+    title: 'Plan activation and manual payments',
   },
-  { id: 'phase-3', number: '03', status: 'Planned', title: 'Opportunity discovery' },
-  { id: 'phase-4', number: '04', status: 'Planned', title: 'Explainable intelligence' },
-  { id: 'phase-5', number: '05', status: 'Planned', title: 'Notifications and strategy' },
-  { id: 'phase-6', number: '06', status: 'Planned', title: 'Mobile experience' },
+  {
+    id: 'phase-3',
+    number: '03',
+    status: 'Available now',
+    title: 'Career profile, resume review, and verified facts',
+  },
+  {
+    id: 'phase-4',
+    number: '04',
+    status: 'Available now',
+    title: 'Job discovery, explainable matching, and the Career Radar',
+  },
+  {
+    id: 'phase-5',
+    number: '05',
+    status: 'In progress',
+    title: 'Application Packs and the application tracker',
+  },
+  {
+    id: 'phase-6',
+    number: '06',
+    status: 'In progress',
+    title: 'Alerts, digest, and career coaching',
+  },
+  { id: 'phase-7', number: '07', status: 'Planned', title: 'Mobile experience' },
 ] as const;

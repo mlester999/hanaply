@@ -67,7 +67,7 @@ export function AuthBrandPanel() {
         ) : (
           <div className="auth-login-signal">
             <SearchCheck aria-hidden="true" size={19} />
-            <span>Registration is available now. Career intelligence is coming next.</span>
+            <span>Registration is available now. Your career profile and radar are ready.</span>
           </div>
         )}
       </div>

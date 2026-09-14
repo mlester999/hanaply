@@ -107,7 +107,7 @@ function Hero() {
           transition={{ duration: 0.6 }}
         >
           <span />
-          Registration available now <small>Career intelligence coming next</small>
+          Registration available now <small>Career profile and radar available now</small>
         </motion.div>
         <motion.h1
           initial={false}
@@ -216,7 +216,7 @@ const howItWorksSteps = [
     number: '01',
     title: 'Build one trusted Career Profile',
     copy: 'Add verified experience, skills, projects, preferences, and goals.',
-    status: 'Coming next',
+    status: 'Available now',
     href: '#career-profile',
   },
   {
@@ -224,7 +224,7 @@ const howItWorksSteps = [
     number: '02',
     title: 'Let Career Radar find worthwhile roles',
     copy: 'Hanaply filters noise, evaluates requirements, and explains your real fit.',
-    status: 'Planned',
+    status: 'Available now',
     href: '#career-radar',
   },
   {
@@ -232,7 +232,7 @@ const howItWorksSteps = [
     number: '03',
     title: 'Prepare stronger applications',
     copy: 'Create truthful resumes, cover letters, recruiter messages, and interview preparation.',
-    status: 'Planned',
+    status: 'In development',
     href: '#application-packs',
   },
 ] as const;
@@ -1138,8 +1138,9 @@ function PricingSection() {
           })}
         </div>
         <p className="pricing-note">
-          Pick the direction that fits you today. Paid subscription activation is not yet open, and
-          no payment will be collected when you create your account.
+          Pick the direction that fits you today. Paid access is activated through the manual
+          Activation Center after an authorized review, and no payment is collected when you create
+          your account.
         </p>
       </div>
     </section>
