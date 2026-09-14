@@ -1287,6 +1287,60 @@ export type Database = {
           },
         ]
       }
+      job_feedback: {
+        Row: {
+          active: boolean
+          career_profile_id: string | null
+          created_at: string
+          feedback: Database["public"]["Enums"]["job_feedback_kind"]
+          id: string
+          job_id: string
+          reason: string | null
+          superseded_at: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          active?: boolean
+          career_profile_id?: string | null
+          created_at?: string
+          feedback: Database["public"]["Enums"]["job_feedback_kind"]
+          id?: string
+          job_id: string
+          reason?: string | null
+          superseded_at?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          active?: boolean
+          career_profile_id?: string | null
+          created_at?: string
+          feedback?: Database["public"]["Enums"]["job_feedback_kind"]
+          id?: string
+          job_id?: string
+          reason?: string | null
+          superseded_at?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_feedback_career_profile_id_fkey"
+            columns: ["career_profile_id"]
+            isOneToOne: false
+            referencedRelation: "career_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_feedback_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       job_ingestion_runs: {
         Row: {
           created_count: number
@@ -1351,6 +1405,96 @@ export type Database = {
             columns: ["source_id"]
             isOneToOne: false
             referencedRelation: "job_sources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      job_matches: {
+        Row: {
+          blockers: Json
+          career_profile_id: string
+          computed_at: string
+          confidence: Database["public"]["Enums"]["job_match_confidence"]
+          created_at: string
+          data_quality: Json
+          dimensions: Json
+          evidence_fact_ids: string[]
+          gaps: Json
+          id: string
+          job_id: string
+          job_updated_at: string
+          model_version: string
+          profile_version: number
+          recommended_action: string
+          rejection_risks: Json
+          requirement_mapping: Json
+          score: number
+          strengths: Json
+          updated_at: string
+          user_id: string
+          verdict: Database["public"]["Enums"]["job_match_verdict"]
+        }
+        Insert: {
+          blockers?: Json
+          career_profile_id: string
+          computed_at?: string
+          confidence: Database["public"]["Enums"]["job_match_confidence"]
+          created_at?: string
+          data_quality?: Json
+          dimensions?: Json
+          evidence_fact_ids?: string[]
+          gaps?: Json
+          id?: string
+          job_id: string
+          job_updated_at: string
+          model_version: string
+          profile_version: number
+          recommended_action: string
+          rejection_risks?: Json
+          requirement_mapping?: Json
+          score: number
+          strengths?: Json
+          updated_at?: string
+          user_id: string
+          verdict: Database["public"]["Enums"]["job_match_verdict"]
+        }
+        Update: {
+          blockers?: Json
+          career_profile_id?: string
+          computed_at?: string
+          confidence?: Database["public"]["Enums"]["job_match_confidence"]
+          created_at?: string
+          data_quality?: Json
+          dimensions?: Json
+          evidence_fact_ids?: string[]
+          gaps?: Json
+          id?: string
+          job_id?: string
+          job_updated_at?: string
+          model_version?: string
+          profile_version?: number
+          recommended_action?: string
+          rejection_risks?: Json
+          requirement_mapping?: Json
+          score?: number
+          strengths?: Json
+          updated_at?: string
+          user_id?: string
+          verdict?: Database["public"]["Enums"]["job_match_verdict"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_matches_career_profile_id_fkey"
+            columns: ["career_profile_id"]
+            isOneToOne: false
+            referencedRelation: "career_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_matches_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
             referencedColumns: ["id"]
           },
         ]
@@ -2428,6 +2572,54 @@ export type Database = {
         }
         Relationships: []
       }
+      saved_jobs: {
+        Row: {
+          career_profile_id: string | null
+          created_at: string
+          id: string
+          job_id: string
+          note: string | null
+          saved_at: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          career_profile_id?: string | null
+          created_at?: string
+          id?: string
+          job_id: string
+          note?: string | null
+          saved_at?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          career_profile_id?: string | null
+          created_at?: string
+          id?: string
+          job_id?: string
+          note?: string | null
+          saved_at?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "saved_jobs_career_profile_id_fkey"
+            columns: ["career_profile_id"]
+            isOneToOne: false
+            referencedRelation: "career_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "saved_jobs_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       subscription_corrections: {
         Row: {
           after_state: Json
@@ -3073,6 +3265,14 @@ export type Database = {
         }
         Returns: boolean
       }
+      job_detail: {
+        Args: {
+          actor_user_id: string
+          target_job_id: string
+          target_career_profile_id?: string
+        }
+        Returns: Json
+      }
       job_ingestion_schedule: {
         Args: Record<PropertyKey, never>
         Returns: {
@@ -3082,6 +3282,13 @@ export type Database = {
           fastest_subscriber_interval_minutes: number
           due: boolean
         }[]
+      }
+      job_radar: {
+        Args: {
+          actor_user_id: string
+          filters?: Json
+        }
+        Returns: Json
       }
       list_my_sessions: {
         Args: Record<PropertyKey, never>
@@ -3131,6 +3338,25 @@ export type Database = {
           action_request_id?: string
         }
         Returns: Json
+      }
+      record_job_feedback: {
+        Args: {
+          actor_user_id: string
+          target_job_id: string
+          requested_feedback: Database["public"]["Enums"]["job_feedback_kind"]
+          requested_reason?: string
+          target_career_profile_id?: string
+          action_request_id?: string
+        }
+        Returns: string
+      }
+      record_job_matches: {
+        Args: {
+          actor_user_id: string
+          match_input: Json
+          action_request_id?: string
+        }
+        Returns: number
       }
       record_my_auth_event: {
         Args: {
@@ -3278,6 +3504,16 @@ export type Database = {
         }
         Returns: number
       }
+      save_job: {
+        Args: {
+          actor_user_id: string
+          target_job_id: string
+          target_career_profile_id?: string
+          requested_note?: string
+          action_request_id?: string
+        }
+        Returns: boolean
+      }
       set_career_profile_status: {
         Args: {
           actor_user_id: string
@@ -3330,6 +3566,14 @@ export type Database = {
           action_request_id?: string
         }
         Returns: number
+      }
+      unsave_job: {
+        Args: {
+          actor_user_id: string
+          target_job_id: string
+          action_request_id?: string
+        }
+        Returns: boolean
       }
       update_career_profile: {
         Args: {
@@ -3444,9 +3688,27 @@ export type Database = {
         | "temporary"
         | "volunteer"
       entitlement_value_type: "boolean" | "integer" | "string"
+      job_feedback_kind:
+        | "interested"
+        | "not_interested"
+        | "wrong_role"
+        | "wrong_seniority"
+        | "wrong_location"
+        | "salary_too_low"
+        | "already_applied"
+        | "irrelevant"
+        | "saved"
       job_ingestion_run_status: "running" | "succeeded" | "partial" | "failed"
       job_ingestion_trigger: "schedule" | "manual" | "backfill" | "retry"
+      job_match_confidence: "high" | "medium" | "low"
+      job_match_verdict:
+        | "strong_match"
+        | "good_match"
+        | "stretch"
+        | "weak_match"
+        | "not_recommended"
       job_remote_state: "remote" | "hybrid" | "onsite" | "unspecified"
+      job_requirement_status: "met" | "partially_met" | "unmet" | "unknown"
       job_seniority:
         | "internship"
         | "entry"
@@ -3712,9 +3974,29 @@ export const Constants = {
         "volunteer",
       ],
       entitlement_value_type: ["boolean", "integer", "string"],
+      job_feedback_kind: [
+        "interested",
+        "not_interested",
+        "wrong_role",
+        "wrong_seniority",
+        "wrong_location",
+        "salary_too_low",
+        "already_applied",
+        "irrelevant",
+        "saved",
+      ],
       job_ingestion_run_status: ["running", "succeeded", "partial", "failed"],
       job_ingestion_trigger: ["schedule", "manual", "backfill", "retry"],
+      job_match_confidence: ["high", "medium", "low"],
+      job_match_verdict: [
+        "strong_match",
+        "good_match",
+        "stretch",
+        "weak_match",
+        "not_recommended",
+      ],
       job_remote_state: ["remote", "hybrid", "onsite", "unspecified"],
+      job_requirement_status: ["met", "partially_met", "unmet", "unknown"],
       job_seniority: [
         "internship",
         "entry",

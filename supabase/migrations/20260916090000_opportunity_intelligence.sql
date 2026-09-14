@@ -296,7 +296,7 @@ begin
     actor_user_id,
     target_job_id,
     target_career_profile_id,
-    pg_catalog.left(pg_catalog.nullif(pg_catalog.btrim(requested_note), ''), 2000)
+    pg_catalog.left(nullif(pg_catalog.btrim(requested_note), ''), 2000)
   )
   on conflict (user_id, job_id) do update
     set note = coalesce(excluded.note, public.saved_jobs.note),
@@ -379,7 +379,7 @@ begin
     target_job_id,
     target_career_profile_id,
     requested_feedback,
-    pg_catalog.left(pg_catalog.nullif(pg_catalog.btrim(requested_reason), ''), 500)
+    pg_catalog.left(nullif(pg_catalog.btrim(requested_reason), ''), 500)
   )
   returning id into created_id;
 
