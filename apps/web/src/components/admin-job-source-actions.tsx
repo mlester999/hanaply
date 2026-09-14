@@ -150,7 +150,7 @@ function ConfigDialog({ source }: { source: AdminJobSource }) {
         <Result state={state} />
         <FormField
           error={localError}
-          hint="A JSON object. The API refuses a top-level key named apiKey, api_key, key, secret, client_secret, password, private_key, access_token, refresh_token, bearer, or authorization."
+          hint="A JSON object. The API refuses a configuration whose top-level key is a credential name, such as apiKey, api_key, key, secret, client_secret, password, private_key, access_token, refresh_token, bearer, or authorization."
           id={fieldId}
           label="Configuration JSON"
           required

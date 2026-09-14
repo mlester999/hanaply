@@ -14,14 +14,15 @@ No live email was sent during implementation or validation.
 
 ## Templates and categories
 
-`packages/email/src/index.ts` declares 19 template ids in `emailTemplateIds` and pins `templateVersion` to the literal `'v1'`. All of them exist at version `v1`:
+`packages/email/src/index.ts` declares 21 template ids in `emailTemplateIds` and pins `templateVersion` to the literal `'v1'`. All of them exist at version `v1`:
 
 - Authentication and account ids: `verify-email`, `password-reset`, `password-changed`, `email-changed`, `welcome`, `security-alert`.
 - Payment and subscription administrative ids: `payment-submission-received`, `payment-under-review`, `payment-more-information-required`, `payment-resubmitted`, `payment-approved`, `payment-rejected`, `payment-refund-recorded`, `payment-approval-reversed`, `subscription-activated`, `subscription-renewed`, `subscription-expires-soon`, `subscription-expired`, `subscription-corrected`.
+- Opportunity notification ids: `job-alert` (`job_alert`) and `daily-digest` (`daily_digest`).
 
 Every template has responsive, image-independent HTML and a plain-text fallback. Template/category combinations are allowlisted; action links require HTTPS except for loopback local development.
 
-`emailCategories` declares six categories: `authentication`, `account`, `job_alert`, `daily_digest`, `application_reminder`, and `administrative`. The `expectedCategory` map in the same file gives every one of the 19 template ids a concrete category, and only `authentication`, `account`, and `administrative` appear in it. `job_alert`, `daily_digest`, and `application_reminder` are therefore reserved category names with no template id behind them, not a claim of delivery.
+`emailCategories` declares six categories: `authentication`, `account`, `job_alert`, `daily_digest`, `application_reminder`, and `administrative`. The `expectedCategory` map in the same file gives every one of the 21 template ids a concrete category; only `application_reminder` remains a reserved category name with no template id behind it. `job-alert` and `daily-digest` render a bounded `jobs` array (at most 20 entries, at most two levels of plain objects) and link only to the radar on the configured app origin, never to a raw listing URL.
 
 Supabase Auth templates live in `templates/confirmation.html`, `templates/recovery.html`, and `templates/password-changed.html`. The Supabase CLI resolves each `content_path` in `supabase/config.toml` relative to the project root (the directory containing `supabase/`), which is why all three templates live in the root `templates/` directory. Hosted copies must be reviewed after upload because hosted Auth configuration is not changed by local migrations.
 
@@ -60,7 +61,7 @@ Vitest covers HTML/plain text, safe links, category validation, missing credenti
 
 Authentication forms return generic messages and do not expose whether an address exists. Provider failures are not logged verbatim. A failed production send must emit a redacted operational event and retain only allowlisted delivery metadata; storing tokenized action URLs in `email_delivery_events` is prohibited.
 
-The current database includes a protected delivery-event foundation and a service-only payment notification outbox. When `WORKER_MODE=active`, `services/worker/src/main.ts` starts two workers: `PaymentMaintenanceWorker`, which claims outbox rows with an opaque token, renders allowlisted templates, records a provider-neutral result, retries transport failures with bounded attempts, terminally marks exhausted rows failed, expires subscriptions, and cleans failed or deferred private objects; and `JobIntelligenceWorker`, which runs job ingestion, match computation, and freshness maintenance. Expiry reminders are idempotent per subscription version and threshold. Provider webhooks, bounce/complaint processing, suppression lists, and hosted operational ownership remain pending.
+The current database includes a protected delivery-event foundation, a service-only payment notification outbox, and an opportunity notification outbox (`public.notification_outbox`) whose queueing functions require both subscriber consent and the matching plan entitlement. When `WORKER_MODE=active`, `services/worker/src/main.ts` starts two workers: `PaymentMaintenanceWorker`, which claims outbox rows with an opaque token, renders allowlisted templates, records a provider-neutral result, retries transport failures with bounded attempts, terminally marks exhausted rows failed, expires subscriptions, and cleans failed or deferred private objects; and `JobIntelligenceWorker`, which runs job ingestion, match computation, freshness maintenance, and opportunity notification delivery. That fourth cycle queues consented alerts and the daily digest, claims a bounded batch, reuses the outbox idempotency key as the provider idempotency key, releases transport failures with bounded exponential full-jitter backoff, completes permanent failures with a short code, and closes a row as `disabled` when the subscriber has no confirmed address. Expiry reminders are idempotent per subscription version and threshold. Provider webhooks, bounce/complaint processing, suppression lists, and hosted operational ownership remain pending.
 
 ## Hosted Resend owner actions
 
