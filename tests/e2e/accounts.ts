@@ -23,4 +23,33 @@ export const testAccounts = Object.freeze({
     email: 'phase1.registration@hanaply.test',
     password: 'Hanaply-Register-2026!',
   },
+  /**
+   * The product fixtures below exist because the product surfaces mutate state
+   * that is scoped to one account: a Plus plan allows exactly one career
+   * profile, a tracker row and an Application Pack belong to one member, and the
+   * Usage counter is per user. Two spec files sharing one login would race on
+   * that state, so each product area gets its own member.
+   */
+  career: {
+    email: 'phase1.career@hanaply.test',
+    password: 'Hanaply-Career-2026!',
+  },
+  radar: {
+    email: 'phase1.radar@hanaply.test',
+    password: 'Hanaply-Radar-2026!',
+  },
+  payments: {
+    email: 'phase1.payments@hanaply.test',
+    password: 'Hanaply-Payments-2026!',
+  },
+  /** Pro, because the coach is metered against `advancedAiAnalysis`. */
+  coach: {
+    email: 'phase1.coach@hanaply.test',
+    password: 'Hanaply-Coach-2026!',
+  },
+  /** Owns the Application Pack and tracker state. */
+  packs: {
+    email: 'phase1.packs@hanaply.test',
+    password: 'Hanaply-Packs-2026!',
+  },
 });

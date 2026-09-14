@@ -27,6 +27,15 @@ const serviceEnvironment = {
   API_PORT: '3101',
   CORS_ALLOWED_ORIGINS: appUrl,
   RATE_LIMIT_STORE: 'memory',
+  // The throttle keys on the caller's address, and the whole web server calls
+  // the API from one address, so the production default of 100 requests a
+  // minute is shared by every page in the suite: a single walk through the
+  // Career Profile, the radar, and the documents library exceeds it and the
+  // product starts answering 429. Raising the bucket keeps the guard in place
+  // (the per-route limits are unchanged) while letting one browser do the work
+  // a single member does.
+  RATE_LIMIT_GLOBAL_LIMIT: '100000',
+  RATE_LIMIT_GLOBAL_TTL_MS: '60000',
   OPENAPI_ENABLED: 'true',
   BUILD_SHA: 'e2e',
   EMAIL_PROVIDER: 'capture',
@@ -36,6 +45,42 @@ const serviceEnvironment = {
   // mail as well as the Supabase-Auth-owned messages from the auth double.
   EMAIL_CAPTURE_FILE: supabase.mailboxFile,
   ADMIN_BOOTSTRAP_ENABLED: 'false',
+  // The coach and every model-authored surface must run without a paid key, so
+  // the suite selects the deterministic fake provider. `packages/config`
+  // refuses `fake` outside local/test and requires a model name, and the
+  // Playwright service environment is already `HANAPLY_ENV=local`.
+  AI_PROVIDER: 'fake',
+  AI_MODEL: 'hanaply-e2e-fake',
+  // Selecting the fake provider is not enough on its own: it is constructed
+  // with an empty script, so every generation fails with `not_configured` and
+  // no model-written reply can reach the browser. This scripts one coaching
+  // reply per request; `@fact:0` is resolved by the API to the first admissible
+  // confirmed fact the request carries, because a static script cannot know a
+  // tenant's identifiers. See `services/api/src/ai-fake-script.ts`.
+  AI_FAKE_RESPONSES: JSON.stringify({
+    career_coaching: [
+      {
+        facts: [
+          {
+            statement:
+              'your own confirmed claim, recorded in your truth ledger, is the evidence this statement rests on',
+            evidenceFactIds: ['@fact:0'],
+          },
+        ],
+        suggestions: [
+          {
+            kind: 'inference',
+            statement:
+              'consider leading every application with the confirmed claim that carries the clearest outcome',
+            rationale:
+              'a reviewer weighs confirmed evidence first, and the order of the material is the part you control',
+          },
+        ],
+        questionsToConfirm: ['which confirmed claim should every application lead with?'],
+        nextSteps: ['open the truth ledger and confirm any claim you want cited'],
+      },
+    ],
+  }),
 };
 
 export default defineConfig({
@@ -45,7 +90,19 @@ export default defineConfig({
   globalSetup: resolve(root, 'tests/e2e/global-setup.ts'),
   globalTeardown: resolve(root, 'tests/e2e/global-teardown.ts'),
   fullyParallel: false,
-  workers: process.env.CI ? 1 : 2,
+  /**
+   * One worker, deliberately.
+   *
+   * The product surfaces share mutable, account-scoped state: a Plus plan
+   * allows exactly one career profile, an Application Pack and a tracker row
+   * belong to the member who created them, and the manual-payment catalogue is
+   * global — the Activation Center spec has to enable a payment method, and the
+   * existing Activation Center assertion requires that no method is available.
+   * Two workers running those files concurrently would make the suite's result
+   * depend on which file happened to reach a page first, which is a race, not a
+   * gate. Tests inside every file already run serially.
+   */
+  workers: 1,
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI
     ? [['line'], ['html', { outputFolder: resolve(root, 'playwright-report'), open: 'never' }]]

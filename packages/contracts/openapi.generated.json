@@ -52083,6 +52083,13 @@
                           "type": "string",
                           "maxLength": 600
                         },
+                        "expiresAt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "format": "date-time"
+                        },
                         "description": {
                           "type": "string",
                           "minLength": 20,
@@ -52414,6 +52421,7 @@
                         "sourceCount",
                         "status",
                         "excerpt",
+                        "expiresAt",
                         "description",
                         "requirements",
                         "preferredQualifications",

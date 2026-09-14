@@ -169,6 +169,42 @@ export function aiError(error: { code?: string; message: string }, fallback: str
   }
 }
 
+/**
+ * Maps one `coach_conversations` row onto the shape the contract publishes.
+ *
+ * The table and the two RPCs that return it are snake_case (`career_profile_id`,
+ * `message_count`, `last_message_at`, `created_at`, `updated_at`); the published
+ * schema is camelCase. Nothing did that translation, so every conversation row
+ * failed validation: the directory silently dropped all of them (it filters with
+ * `flatMap`, so the coach index always said "No coach threads yet"), and opening
+ * a thread answered 503 "the coach service is not answering right now" even
+ * though the row had been written.
+ */
+function mapCoachConversationRow(row: unknown): unknown {
+  if (typeof row !== 'object' || row === null || Array.isArray(row)) return row;
+  const value = row as Record<string, unknown>;
+  return {
+    id: value.id,
+    careerProfileId: value.careerProfileId ?? value.career_profile_id ?? null,
+    title: value.title,
+    topic: value.topic,
+    status: value.status,
+    provider: value.provider ?? null,
+    model: value.model ?? null,
+    messageCount: value.messageCount ?? value.message_count ?? 0,
+    lastMessageAt: value.lastMessageAt ?? value.last_message_at ?? null,
+    createdAt: value.createdAt ?? value.created_at,
+    updatedAt: value.updatedAt ?? value.updated_at,
+  };
+}
+
+/** The detail RPC nests the same row under `conversation`. */
+function mapCoachConversationDetail(row: unknown): unknown {
+  if (typeof row !== 'object' || row === null || Array.isArray(row)) return row;
+  const value = row as Record<string, unknown>;
+  return { ...value, conversation: mapCoachConversationRow(value.conversation) };
+}
+
 const uuidRowSchema = z.uuid();
 
 /** One row of `public.ai_invocations`, as recorded and never as read back. */
@@ -272,6 +308,17 @@ export class AiRepository {
   // -------------------------------------------------------------------------
 
   /** The opportunity as the subscriber's own read model returns it, match included. */
+  /**
+   * The opportunity as the subscriber's own read model returns it, match included.
+   *
+   * The argument names have to match the SQL function exactly: `job_detail`
+   * declares `target_career_profile_id`, and PostgREST resolves a function by
+   * its argument names, so `requested_career_profile_id` — which belongs to
+   * `career_insights`, a different function — made every call fail with
+   * PGRST202. That took the coach's job context, the AI opportunity analysis,
+   * and AI-assisted pack generation down with it, each answering 503
+   * "the AI service is unavailable".
+   */
   async jobDetail(
     actorUserId: string,
     jobId: string,
@@ -282,7 +329,7 @@ export class AiRepository {
         this.callRpc('job_detail', {
           actor_user_id: actorUserId,
           target_job_id: jobId,
-          requested_career_profile_id: careerProfileId,
+          target_career_profile_id: careerProfileId,
         }),
       (value) => jobDetailSchema.safeParse(value).data ?? null,
       'The opportunity could not be read for analysis',
@@ -383,7 +430,7 @@ export class AiRepository {
     const rows = Array.isArray(result.data) ? result.data : [];
     return rows.flatMap((row) => {
       if (row === null || typeof row !== 'object') return [];
-      const parsed = coachConversationRowSchema.safeParse(row);
+      const parsed = coachConversationRowSchema.safeParse(mapCoachConversationRow(row));
       return parsed.success ? [parsed.data] : [];
     });
   }
@@ -398,7 +445,8 @@ export class AiRepository {
           actor_user_id: actorUserId,
           target_conversation_id: conversationId,
         }),
-      (value) => coachConversationDetailRowSchema.safeParse(value).data ?? null,
+      (value) =>
+        coachConversationDetailRowSchema.safeParse(mapCoachConversationDetail(value)).data ?? null,
       'That coach conversation could not be read',
     );
   }
@@ -506,7 +554,7 @@ export class AiRepository {
           requested_provider: input.provider,
           requested_model: input.model,
         }),
-      (value) => coachConversationRowSchema.safeParse(value).data ?? null,
+      (value) => coachConversationRowSchema.safeParse(mapCoachConversationRow(value)).data ?? null,
       'The coach conversation could not be opened',
     );
   }

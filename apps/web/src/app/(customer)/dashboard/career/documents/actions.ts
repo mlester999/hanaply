@@ -156,13 +156,26 @@ export async function applyCareerDocumentExtractionAction(
   }
 
   const { session } = await requireUser();
+  const client = createAuthenticatedApiClient(session);
   let createdRecords = 0;
   let createdFacts = 0;
   try {
-    const result = await createAuthenticatedApiClient(session).applyCareerDocumentExtraction(
-      params.data.documentId,
-      parsed.data,
-    );
+    /**
+     * Applying is not confirming.
+     *
+     * `confirmSelected: true` told the API to promote every claim this action
+     * created straight to confirmed evidence, which contradicted the checkbox
+     * the member had just ticked ("puts every claim in Needs review until I
+     * confirm it"), the success message below, and the truth ledger's standing
+     * promise that "Nothing is confirmed on your behalf". It also left the
+     * candidate channel of the ledger unreachable from the product, so an
+     * extracted claim could never be reviewed before it became citable. The
+     * checkbox is a review acknowledgement; the decision stays with the member.
+     */
+    const result = await client.applyCareerDocumentExtraction(params.data.documentId, {
+      ...parsed.data,
+      confirmSelected: false,
+    });
     createdRecords = result.data.createdRecordIds.length;
     createdFacts = result.data.createdFactIds.length;
   } catch (error) {

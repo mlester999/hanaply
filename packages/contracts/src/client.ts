@@ -29,6 +29,20 @@ function addQuery(url: URL, query: Record<string, unknown> | undefined): void {
   if (!query) return;
   for (const [key, value] of Object.entries(query)) {
     if (value === undefined || value === null) continue;
+    // Repeated keys are how the contract expresses an array filter — the radar
+    // query schema types `verdicts`, `remoteStates`, `employmentTypes`, and
+    // `seniorities` as arrays, and the API normalises repeated keys and a single
+    // comma-separated value identically (`normalizeRadarQuery`). Without this
+    // branch a caller passing the array its own type demands throws here, which
+    // is how the radar totals silently degraded to "counts unavailable".
+    if (Array.isArray(value)) {
+      url.searchParams.delete(key);
+      for (const entry of value) {
+        if (entry === undefined || entry === null) continue;
+        url.searchParams.append(key, String(entry));
+      }
+      continue;
+    }
     if (typeof value !== 'string' && typeof value !== 'number' && typeof value !== 'boolean') {
       throw new TypeError(`Unsupported query value for ${key}`);
     }

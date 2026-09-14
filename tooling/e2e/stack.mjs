@@ -44,6 +44,7 @@ import { readZipDirectory, readZipEntry } from '../db/zip.mjs';
 import { buildApiKeys, createAuthServer } from './auth-server.mjs';
 import { createGatewayServer } from './gateway.mjs';
 import { clearMailbox, createMailboxServer } from './mailbox.mjs';
+import { clearStorage, createStorageServer } from './storage-server.mjs';
 
 const root = resolve(import.meta.dirname, '..', '..');
 const stateDir = join(root, '.localdb');
@@ -53,6 +54,7 @@ const mailboxFile = join(stateDir, 'mailbox.jsonl');
 const postgrestConfigFile = join(stateDir, 'postgrest.conf');
 const jwtSecretFile = join(stateDir, 'e2e-jwt-secret');
 const postgrestDir = join(stateDir, 'bin');
+const storageDir = join(stateDir, 'storage');
 const localCluster = resolve(import.meta.dirname, '..', 'db', 'local-cluster.mjs');
 const stackScript = resolve(import.meta.dirname, 'stack.mjs');
 
@@ -151,6 +153,37 @@ function ensureDatabase() {
   if (result.status !== 0) {
     fail(
       `The local PostgreSQL cluster could not be started.\n${result.stdout ?? ''}${result.stderr ?? ''}`,
+    );
+  }
+  process.stdout.write(result.stdout ?? '');
+  seedDemoPostings();
+}
+
+/**
+ * The product surfaces the browser suite exercises — the radar, the Application
+ * Pack generator, and the tracker — rank and cite real postings. A reset leaves
+ * the catalogue tables empty, so every product spec would pass against an empty
+ * radar and prove nothing.
+ *
+ * `pnpm db:demo` is the development seed for exactly this data. It inserts its
+ * five synthetic postings through `upsert_ingested_job`, the same
+ * service-role-only writer the ingestion worker uses, so the end-to-end radar
+ * exercises the real deduplication, provenance, and freshness path rather than
+ * a fabricated row. It runs only against this stack's throwaway database, and
+ * `HANAPLY_E2E_DEMO_DATA=off` disables it for a run that needs an empty radar.
+ */
+function seedDemoPostings() {
+  if ((process.env.HANAPLY_E2E_DEMO_DATA ?? 'on').toLowerCase() === 'off') return;
+  note('Seeding the synthetic radar postings ...');
+  const result = spawnSync(process.execPath, [localCluster, 'demo'], {
+    cwd: root,
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+    env: { ...process.env, HANAPLY_LOCAL_DB_NAME: databaseName },
+  });
+  if (result.status !== 0) {
+    fail(
+      `The synthetic radar postings could not be seeded.\n${result.stdout ?? ''}${result.stderr ?? ''}`,
     );
   }
   process.stdout.write(result.stdout ?? '');
@@ -281,10 +314,12 @@ async function commandServe() {
   const postgrestPort = await findFreePort(55440);
   const authPort = await findFreePort(postgrestPort + 1);
   const mailboxPort = await findFreePort(authPort + 1);
-  const gatewayPort = await findFreePort(mailboxPort + 1);
+  const storagePort = await findFreePort(mailboxPort + 1);
+  const gatewayPort = await findFreePort(storagePort + 1);
 
   writePostgrestConfig({ port: postgrestPort, databasePort, jwtSecret });
   clearMailbox(mailboxFile);
+  clearStorage(storageDir);
 
   const postgrestLog = openSync(join(logDir, 'postgrest.log'), 'a');
   // The PostgREST Windows build links against LIBPQ.dll from the PostgreSQL
@@ -311,9 +346,12 @@ async function commandServe() {
   await auth.listen();
   const mailbox = createMailboxServer({ file: mailboxFile });
   await listen(mailbox, mailboxPort);
+  const storage = createStorageServer({ root: storageDir });
+  await listen(storage, storagePort);
   const gateway = createGatewayServer({
     authUrl: `http://127.0.0.1:${authPort}`,
     restUrl: `http://127.0.0.1:${postgrestPort}`,
+    storageUrl: `http://127.0.0.1:${storagePort}`,
   });
   await listen(gateway, gatewayPort);
 
@@ -334,6 +372,7 @@ async function commandServe() {
       postgrest: postgrestPort,
       auth: authPort,
       mailbox: mailboxPort,
+      storage: storagePort,
       gateway: gatewayPort,
       database: databasePort,
     },
@@ -343,6 +382,7 @@ async function commandServe() {
 
   const shutdown = async (code) => {
     await close(gateway);
+    await close(storage);
     await close(mailbox);
     await auth.close();
     terminate(postgrest.pid);

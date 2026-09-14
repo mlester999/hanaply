@@ -409,9 +409,17 @@ test('explains release status and provides keyboard previews and an accessible F
 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/');
+  // `scrollIntoView` is asked for an instant jump explicitly rather than by
+  // writing `html { scroll-behavior: auto }` onto the document element. That
+  // write raced React's hydration: `page.goto` resolves on load, hydration can
+  // still be in flight, and React then compares a `<html>` element carrying a
+  // style attribute the server never rendered and reports a hydration mismatch.
+  // The behaviour option is honoured ahead of the CSS property, so this is the
+  // same jump without mutating a node the framework owns.
   await page.evaluate(() => {
-    document.documentElement.style.scrollBehavior = 'auto';
-    document.querySelector('#career-radar')?.scrollIntoView({ block: 'start' });
+    document
+      .querySelector('#career-radar')
+      ?.scrollIntoView({ behavior: 'instant', block: 'start' });
   });
   await page.getByRole('button', { name: 'Enlarge Career Radar preview' }).click();
   const dialogBox = await page.getByRole('dialog', { name: 'Career Radar' }).boundingBox();

@@ -10,6 +10,7 @@ import { AdminJobsController } from './admin-jobs.controllers.js';
 import { AdminJobsRepository } from './admin-jobs.repository.js';
 import { AdminJobsService } from './admin-jobs.service.js';
 import { AiController } from './ai.controllers.js';
+import { createScriptedFakeProvider } from './ai-fake-script.js';
 import { AiMeter } from './ai-meter.js';
 import { AiRepository } from './ai.repository.js';
 import { AiService } from './ai.service.js';
@@ -47,6 +48,18 @@ export interface ApiRuntimeOverrides {
   aiProvider?: AiProvider;
 }
 
+/**
+ * The AI provider for this process.
+ *
+ * `createScriptedFakeProvider` only answers when `AI_PROVIDER=fake` is combined
+ * with a scripted response set in `local` or `test`, so an ordinary deployment
+ * — and every test that does not opt in — resolves exactly the provider it did
+ * before. See `ai-fake-script.ts` for why the browser suite needs the seam.
+ */
+function resolveAiProvider(environment: ApiEnvironment): AiProvider {
+  return createScriptedFakeProvider(environment) ?? createAiProvider(environment);
+}
+
 @Module({})
 // Nest dynamic modules use a class as the framework registration boundary.
 // eslint-disable-next-line @typescript-eslint/no-extraneous-class
@@ -54,7 +67,15 @@ export class AppModule {
   static register(environment: ApiEnvironment, overrides: ApiRuntimeOverrides = {}): DynamicModule {
     return {
       module: AppModule,
-      imports: [ThrottlerModule.forRoot([{ name: 'default', ttl: 60_000, limit: 100 }])],
+      imports: [
+        ThrottlerModule.forRoot([
+          {
+            name: 'default',
+            ttl: environment.RATE_LIMIT_GLOBAL_TTL_MS,
+            limit: environment.RATE_LIMIT_GLOBAL_LIMIT,
+          },
+        ]),
+      ],
       controllers: [
         PublicController,
         UserController,
@@ -78,7 +99,7 @@ export class AppModule {
          */
         {
           provide: AI_PROVIDER_TOKEN,
-          useValue: overrides.aiProvider ?? createAiProvider(environment),
+          useValue: overrides.aiProvider ?? resolveAiProvider(environment),
         },
         overrides.repository
           ? { provide: HanaplyRepository, useValue: overrides.repository }

@@ -10,12 +10,13 @@
  *   /auth/v1/*     → the GoTrue test double (tooling/e2e/auth-server.mjs)
  *   /rest/v1/*     → PostgREST, the same server Supabase runs, against the
  *                    throwaway local cluster
- *   /storage/v1/*  → not implemented; the browser suite does not exercise
- *                    object storage (documented in tooling/e2e/README.md)
+ *   /storage/v1/*  → the object-storage test double
+ *                    (tooling/e2e/storage-server.mjs), which serves the resume
+ *                    and payment-proof pipelines
  *
  * This is test tooling only.
  *
- * Usage: node tooling/e2e/gateway.mjs --port <port> --auth <url> --rest <url>
+ * Usage: node tooling/e2e/gateway.mjs --port <port> --auth <url> --rest <url> [--storage <url>]
  */
 
 import { createServer, request as httpRequest } from 'node:http';
@@ -52,9 +53,10 @@ function proxy(target, request, response, body, rewritePath) {
   upstream.end();
 }
 
-export function createGatewayServer({ authUrl, restUrl }) {
+export function createGatewayServer({ authUrl, restUrl, storageUrl }) {
   const auth = originOf(authUrl);
   const rest = originOf(restUrl);
+  const storage = storageUrl ? originOf(storageUrl) : null;
   return createServer(async (request, response) => {
     const chunks = [];
     for await (const chunk of request) chunks.push(chunk);
@@ -76,7 +78,12 @@ export function createGatewayServer({ authUrl, restUrl }) {
     response.setHeader('access-control-allow-credentials', 'true');
 
     if (pathname === '/health') {
-      const payload = JSON.stringify({ status: 'ok', auth: authUrl, rest: restUrl });
+      const payload = JSON.stringify({
+        status: 'ok',
+        auth: authUrl,
+        rest: restUrl,
+        storage: storageUrl ?? null,
+      });
       response.writeHead(200, {
         'content-type': 'application/json',
         'content-length': Buffer.byteLength(payload),
@@ -95,11 +102,17 @@ export function createGatewayServer({ authUrl, restUrl }) {
       return;
     }
     if (pathname.startsWith('/storage/v1')) {
+      if (storage) {
+        // Supabase Storage serves its object routes under `/object`, and the
+        // client already includes that prefix, so only `/storage/v1` is
+        // stripped here.
+        proxy(storage, request, response, body, (url) => url.replace(/^\/storage\/v1/u, '') || '/');
+        return;
+      }
       const payload = JSON.stringify({
         statusCode: '501',
         error: 'Not Implemented',
-        message:
-          'The Dockerless e2e stack does not implement Supabase Storage. No browser spec requires object storage.',
+        message: 'The Dockerless e2e stack was started without object storage.',
       });
       response.writeHead(501, {
         'content-type': 'application/json',
@@ -127,6 +140,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
   const server = createGatewayServer({
     authUrl: argument('--auth', 'http://127.0.0.1:54321'),
     restUrl: argument('--rest', 'http://127.0.0.1:54322'),
+    storageUrl: argument('--storage', ''),
   });
   server.listen(port, '127.0.0.1', () => {
     process.stdout.write(`gateway listening on ${port}\n`);

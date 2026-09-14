@@ -172,6 +172,13 @@ export function OnboardingWizard({
           </Alert>
         ) : null}
 
+        {/*
+          Deliberately not keyed on the profile version. A refresh lands after a
+          save, and remounting the step would discard anything the member had
+          typed into it since — a chip added but not yet saved, a half-written
+          summary. The step reads the profile when it mounts, which is the right
+          moment for the wizard's own navigation.
+        */}
         <div className="career-step-content">
           {current.id === 'situation' ? (
             <SituationStep

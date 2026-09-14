@@ -106,6 +106,44 @@ async function createUser(
   return user;
 }
 
+interface PlanRow {
+  id: string;
+  code: string;
+}
+
+async function readPlans(): Promise<PlanRow[]> {
+  const response = await request('/rest/v1/plans?select=id,code&order=display_order.asc');
+  return (await response.json()) as PlanRow[];
+}
+
+function requirePlan(plans: readonly PlanRow[], code: string): PlanRow {
+  const plan = plans.find((candidate) => candidate.code === code);
+  if (!plan) throw new Error(`The ${code} catalog fixture is unavailable`);
+  return plan;
+}
+
+/**
+ * Grants an active subscription directly, the way an administrator would.
+ *
+ * Payment-based activation is exercised by the payment spec; every other
+ * product fixture starts from a working plan so the surface under test is the
+ * one that matters rather than the billing path again.
+ */
+async function grantSubscription(userId: string, planId: string): Promise<void> {
+  await request('/rest/v1/subscriptions', {
+    method: 'POST',
+    headers: { Prefer: 'return=minimal' },
+    body: JSON.stringify({
+      user_id: userId,
+      plan_id: planId,
+      status: 'active',
+      starts_at: '2026-07-01T00:00:00.000Z',
+      ends_at: '2027-07-01T00:00:00.000Z',
+      source: 'admin_grant',
+    }),
+  });
+}
+
 export async function createTestUsers(): Promise<void> {
   await removeTestUsers();
   const customer = await createUser(testAccounts.customer, 'Customer', 'Member');
@@ -113,24 +151,29 @@ export async function createTestUsers(): Promise<void> {
   const suspended = await createUser(testAccounts.suspended, 'Suspended', 'Member');
   await createUser(testAccounts.recovery, 'Recovery', 'Member');
   await createUser(testAccounts.managed, 'Managed', 'Member');
+  const career = await createUser(testAccounts.career, 'Career', 'Member');
+  const radar = await createUser(testAccounts.radar, 'Radar', 'Member');
+  const payments = await createUser(testAccounts.payments, 'Payments', 'Member');
+  const coach = await createUser(testAccounts.coach, 'Coach', 'Member');
+  const packs = await createUser(testAccounts.packs, 'Packs', 'Member');
 
-  const planResponse = await request('/rest/v1/plans?select=id&code=eq.plus_monthly');
-  const plans = (await planResponse.json()) as { id: string }[];
-  const plan = plans[0];
-  if (!plan) throw new Error('The Plus Monthly catalog fixture is unavailable');
+  const plans = await readPlans();
+  const plus = requirePlan(plans, 'plus_monthly');
+  const pro = requirePlan(plans, 'pro_monthly');
 
-  await request('/rest/v1/subscriptions', {
-    method: 'POST',
-    headers: { Prefer: 'return=minimal' },
-    body: JSON.stringify({
-      user_id: customer.id,
-      plan_id: plan.id,
-      status: 'active',
-      starts_at: '2026-07-01T00:00:00.000Z',
-      ends_at: '2027-07-01T00:00:00.000Z',
-      source: 'admin_grant',
-    }),
-  });
+  // Every product fixture needs an active plan, because the plan is what grants
+  // the career-profile allowance, the Application Pack allowance, and — on Pro
+  // only — the coach.
+  for (const [user, plan] of [
+    [customer, plus],
+    [career, plus],
+    [radar, plus],
+    [payments, plus],
+    [packs, plus],
+    [coach, pro],
+  ] as const) {
+    await grantSubscription(user.id, plan.id);
+  }
 
   await request('/rest/v1/profiles?id=eq.' + suspended.id, {
     method: 'PATCH',

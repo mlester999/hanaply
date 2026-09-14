@@ -176,10 +176,18 @@ export class PostgresClient {
         break;
       }
       case 0x45: // ErrorResponse
-        this.#settle({ error: parseError(payload) });
+        // Recorded, not settled: a simple Query always ends with ReadyForQuery,
+        // even when it failed. Settling here would leave that terminating frame
+        // in the buffer, and because `#drain` stops once nothing is pending, the
+        // next query would read it as its own completion — returning zero rows
+        // for a statement that never ran. That desynchronises the connection for
+        // every later query, which is how a refused DELETE turns into an
+        // unrelated "rows is not iterable" failure minutes afterwards.
+        pending.error = parseError(payload);
         break;
       case MESSAGE_READY:
-        this.#settle({ rows: pending.rows });
+        if (pending.error) this.#settle({ error: pending.error });
+        else this.#settle({ rows: pending.rows });
         break;
       default:
         // RowDescription, CommandComplete, ParameterStatus, NoticeResponse, ...

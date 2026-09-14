@@ -212,6 +212,16 @@ const apiEnvironmentSchema = sharedServerEnvironmentSchema
   .extend({
     API_PORT: portFromEnvironment.default(3101),
     RATE_LIMIT_STORE: z.literal('memory').default('memory'),
+    /**
+     * The default bucket every API route shares.
+     *
+     * The throttle keys on the caller's address, and the web application calls
+     * the API server-to-server, so one address carries every member's requests.
+     * The default is the production posture; a local or single-tenant
+     * deployment can raise it rather than disabling the guard.
+     */
+    RATE_LIMIT_GLOBAL_LIMIT: z.coerce.number().int().min(1).max(1_000_000).default(100),
+    RATE_LIMIT_GLOBAL_TTL_MS: z.coerce.number().int().min(1_000).max(3_600_000).default(60_000),
     CORS_ALLOWED_ORIGINS: nonEmptyString.transform((value) =>
       value
         .split(',')

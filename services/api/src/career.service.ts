@@ -54,12 +54,24 @@ const allArtifactKinds: readonly ApplicationArtifactKind[] = [
   'interview_prep',
 ];
 
+/**
+ * The extraction payload an apply reads back.
+ *
+ * `model`, `promptVersion`, and `pageCount` are optional here on purpose. They
+ * are provenance for the *document*, and the read model already returns them on
+ * the document itself (`pageCount`, `parsedAt`, and the extractor fields), but
+ * they are not part of the proposal payload the review UI works from. Requiring
+ * them made `safeParse` fail for every extraction the pipeline produces, so
+ * `applyExtraction` answered "No extraction is available for this document yet"
+ * for a document whose draft the member was looking at — the whole
+ * upload-to-profile path was unreachable.
+ */
 const extractionPayloadSchema = z.object({
   extractor: z.enum(['deterministic', 'ai']),
   extractorVersion: z.string().min(1).max(80),
-  model: z.string().max(120).nullable(),
-  promptVersion: z.string().max(80).nullable(),
-  pageCount: z.number().int().min(1).max(500).nullable(),
+  model: z.string().max(120).nullable().default(null),
+  promptVersion: z.string().max(80).nullable().default(null),
+  pageCount: z.number().int().min(1).max(500).nullable().default(null),
   wordCount: z.number().int().min(0).max(200000),
   headline: z.unknown().nullable(),
   summary: z.unknown().nullable(),

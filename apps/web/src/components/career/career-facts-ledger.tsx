@@ -319,7 +319,8 @@ export function CareerFactsLedger({
           <div>
             <span className="h-eyebrow">Needs review</span>
             <h2 id="career-ledger-review-title">
-              {candidate.length} proposals awaiting your decision
+              {candidate.length} {candidate.length === 1 ? 'proposal' : 'proposals'} awaiting your
+              decision
             </h2>
           </div>
         </div>
@@ -344,7 +345,9 @@ export function CareerFactsLedger({
         <div className="career-section-heading">
           <div>
             <span className="h-eyebrow">Confirmed</span>
-            <h2 id="career-ledger-confirmed-title">{confirmed.length} confirmed facts</h2>
+            <h2 id="career-ledger-confirmed-title">
+              {confirmed.length} confirmed {confirmed.length === 1 ? 'fact' : 'facts'}
+            </h2>
             <p>These are the only claims generation features may cite for this profile.</p>
           </div>
         </div>
@@ -396,7 +399,9 @@ export function CareerFactsLedger({
         <div className="career-section-heading">
           <div>
             <span className="h-eyebrow">Rejected</span>
-            <h2 id="career-ledger-rejected-title">{rejected.length} rejected claims</h2>
+            <h2 id="career-ledger-rejected-title">
+              {rejected.length} rejected {rejected.length === 1 ? 'claim' : 'claims'}
+            </h2>
             <p>Rejected claims stay visible so nothing is silently re-added later.</p>
           </div>
         </div>

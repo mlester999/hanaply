@@ -70,6 +70,46 @@ const packGenerationContextSchema = applicationPackSchema.extend({
   finalized: z.boolean(),
 });
 
+/**
+ * Normalises the generation context before validation.
+ *
+ * Two shapes the contract states differently from the function are joined here:
+ *
+ *   - The function returns `applyUrl` beside the job snapshot, while the shared
+ *     job schema carries it on the job itself.
+ *   - An opportunity that has never been scored stores `{}` as its frozen match
+ *     snapshot — "the absence of a match result", as the schema comment puts it
+ *     — but the pack schema types `match` as a summarised result or `null`, so
+ *     `{}` failed validation and every generation for an unscored posting
+ *     answered 400 "Request validation failed".
+ *
+ * A payload that is not the expected shape is returned untouched, and the schema
+ * then reports it.
+ */
+function normaliseGenerationContext(value: unknown): unknown {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return value;
+  const record = value as Record<string, unknown>;
+  const result: Record<string, unknown> = { ...record };
+
+  const job = result.job;
+  if (
+    typeof job === 'object' &&
+    job !== null &&
+    !Array.isArray(job) &&
+    typeof (job as Record<string, unknown>).applyUrl !== 'string' &&
+    typeof result.applyUrl === 'string'
+  ) {
+    result.job = { ...(job as Record<string, unknown>), applyUrl: result.applyUrl };
+  }
+
+  const match = result.match;
+  if (typeof match === 'object' && match !== null && !Array.isArray(match)) {
+    if (Object.keys(match).length === 0) result.match = null;
+  }
+
+  return result;
+}
+
 export interface PackGenerationContext {
   readonly pack: ApplicationPack;
   readonly job: PackGenerationJob;
@@ -795,7 +835,16 @@ export class CareerRepository {
           action_request_id: requestId,
         }),
       (value) => {
-        const parsed = packGenerationContextSchema.safeParse(value);
+        /*
+         * The function states the apply URL once, at the top level, while the
+         * shared job snapshot carries it on the job itself. Folding it in here
+         * is what lets one response shape serve both the generator and the
+         * viewer; without it `packGenerationJobSchema` rejected every context
+         * with "job.applyUrl: expected string", and every artifact generation
+         * answered 503 "the application service is not answering right now".
+         */
+        const normalised = normaliseGenerationContext(value);
+        const parsed = packGenerationContextSchema.safeParse(normalised);
         if (!parsed.success) return null;
         const {
           job,
