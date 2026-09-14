@@ -3925,6 +3925,23 @@ a:hover {
 }
 
 .career-checkbox,
+/*
+ * No `small` element in the app declares a size, so every one of them falls back
+ * to the user agent's `small` rule, which is the `smaller` keyword - about 83%
+ * of the inherited size. Inside a 14px container that lands at 11.67px, below
+ * the smallest published token (`--hanaply-font-size-xs`, 12px). The layout
+ * audit measures computed sizes against that floor and reported 48 instances of
+ * it on the career documents page alone.
+ *
+ * Pinning the element to the token keeps secondary text at or above the design
+ * system's own minimum everywhere, rather than only where a page happened to set
+ * a size. More specific rules still win, so nothing that already declares its own
+ * size changes.
+ */
+small {
+  font-size: var(--hanaply-font-size-xs);
+}
+
 .career-choice {
   display: flex;
   align-items: flex-start;
