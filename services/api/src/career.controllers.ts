@@ -28,6 +28,9 @@ const careerRecordsPath = routePath(apiContract.upsertCareerRecord.path);
 const jobDetailPath = routePath(apiContract.jobDetail.path);
 const jobSavePath = routePath(apiContract.saveJob.path);
 const jobFeedbackPath = routePath(apiContract.recordJobFeedback.path);
+const applicationPackPath = routePath(apiContract.applicationPack.path);
+const applicationTimelinePath = routePath(apiContract.applicationTimeline.path);
+const applicationStagePath = routePath(apiContract.setApplicationStage.path);
 const careerRecordPath = routePath(apiContract.deleteCareerRecord.path);
 const careerFactsPath = routePath(apiContract.careerFacts.path);
 const careerDecisionPath = routePath(apiContract.decideCareerFact.path);
@@ -403,6 +406,103 @@ export class CareerController {
       successEnvelope(
         request,
         await this.service.recordJobFeedback(request, uuidOnly(params.jobId, 'jobId'), body),
+      ),
+    );
+  }
+
+  // -------------------------------------------------------------------------
+  // Application Packs, usage, and tracker
+  // -------------------------------------------------------------------------
+
+  @Get(apiContract.applicationPacks.path)
+  @Throttle({ default: { limit: 120, ttl: 60_000 } })
+  async applicationPacks(@Req() request: AuthenticatedRequest) {
+    return apiContract.applicationPacks.response.parse(
+      successEnvelope(request, await this.service.applicationPacks(request)),
+    );
+  }
+
+  @Post(apiContract.createApplicationPack.path)
+  @HttpCode(200)
+  @Throttle({ default: { limit: 40, ttl: 3_600_000 } })
+  async createApplicationPack(@Req() request: AuthenticatedRequest, @Body() body: unknown) {
+    return apiContract.createApplicationPack.response.parse(
+      successEnvelope(request, await this.service.createApplicationPack(request, body)),
+    );
+  }
+
+  @Get(applicationPackPath)
+  @Throttle({ default: { limit: 120, ttl: 60_000 } })
+  async applicationPack(
+    @Req() request: AuthenticatedRequest,
+    @Param() params: Record<string, unknown>,
+  ) {
+    return apiContract.applicationPack.response.parse(
+      successEnvelope(
+        request,
+        await this.service.applicationPack(request, uuidOnly(params.packId, 'packId')),
+      ),
+    );
+  }
+
+  @Get(apiContract.usageSummary.path)
+  @Throttle({ default: { limit: 120, ttl: 60_000 } })
+  async usageSummary(@Req() request: AuthenticatedRequest) {
+    return apiContract.usageSummary.response.parse(
+      successEnvelope(request, await this.service.usageSummary(request)),
+    );
+  }
+
+  @Get(apiContract.applicationTracker.path)
+  @Throttle({ default: { limit: 120, ttl: 60_000 } })
+  async applicationTracker(@Req() request: AuthenticatedRequest) {
+    return apiContract.applicationTracker.response.parse(
+      successEnvelope(request, await this.service.applicationTracker(request)),
+    );
+  }
+
+  @Post(apiContract.trackApplication.path)
+  @HttpCode(200)
+  @Throttle({ default: { limit: 240, ttl: 3_600_000 } })
+  async trackApplication(@Req() request: AuthenticatedRequest, @Body() body: unknown) {
+    return apiContract.trackApplication.response.parse(
+      successEnvelope(request, await this.service.trackApplication(request, body)),
+    );
+  }
+
+  @Get(applicationTimelinePath)
+  @Throttle({ default: { limit: 120, ttl: 60_000 } })
+  async applicationTimeline(
+    @Req() request: AuthenticatedRequest,
+    @Param() params: Record<string, unknown>,
+  ) {
+    return apiContract.applicationTimeline.response.parse(
+      successEnvelope(
+        request,
+        await this.service.applicationTimeline(
+          request,
+          uuidOnly(params.applicationId, 'applicationId'),
+        ),
+      ),
+    );
+  }
+
+  @Post(applicationStagePath)
+  @HttpCode(200)
+  @Throttle({ default: { limit: 240, ttl: 3_600_000 } })
+  async setApplicationStage(
+    @Req() request: AuthenticatedRequest,
+    @Param() params: Record<string, unknown>,
+    @Body() body: unknown,
+  ) {
+    return apiContract.setApplicationStage.response.parse(
+      successEnvelope(
+        request,
+        await this.service.setApplicationStage(
+          request,
+          uuidOnly(params.applicationId, 'applicationId'),
+          body,
+        ),
       ),
     );
   }

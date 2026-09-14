@@ -6,9 +6,12 @@ import {
   careerProfileInputSchema,
   careerRecordInputSchema,
   careerSkillKindSchema,
+  createApplicationPackSchema,
   jobFeedbackSchema,
   jobRadarQuerySchema,
   saveJobSchema,
+  setApplicationStageSchema,
+  trackApplicationSchema,
   type CareerDocument,
   type CareerDocumentExtraction,
   type CareerProfileDetail,
@@ -755,6 +758,106 @@ export class CareerService {
       requestId,
     );
     return { recorded: true };
+  }
+
+  // -------------------------------------------------------------------------
+  // Application Packs, usage, and tracker
+  // -------------------------------------------------------------------------
+
+  async applicationPacks(request: AuthenticatedRequest) {
+    const { userId } = this.actor(request);
+    return this.repository.applicationPacks(userId);
+  }
+
+  async applicationPack(request: AuthenticatedRequest, packId: string) {
+    const { userId } = this.actor(request);
+    return this.repository.applicationPack(userId, packId);
+  }
+
+  async createApplicationPack(request: AuthenticatedRequest, body: unknown) {
+    const { userId, requestId } = this.actor(request);
+    const parsed = createApplicationPackSchema.safeParse(body);
+    if (!parsed.success) {
+      throw new AppError({
+        code: 'VALIDATION_ERROR',
+        status: 400,
+        message: 'Choose the opportunity and career profile for this pack',
+        details: toValidationDetails(parsed.error.issues),
+      });
+    }
+    // The idempotency key is derived from the pack identity, so a double click or
+    // a retry resolves to the same pack and never consumes quota twice.
+    const idempotencyKey = `pack:${userId}:${parsed.data.careerProfileId}:${parsed.data.jobId}`;
+    return this.repository.createApplicationPack(
+      userId,
+      parsed.data.jobId,
+      parsed.data.careerProfileId,
+      idempotencyKey,
+      requestId,
+    );
+  }
+
+  async usageSummary(request: AuthenticatedRequest) {
+    const { userId } = this.actor(request);
+    return this.repository.usageSummary(userId);
+  }
+
+  async applicationTracker(request: AuthenticatedRequest) {
+    const { userId } = this.actor(request);
+    return this.repository.applicationTracker(userId);
+  }
+
+  async trackApplication(request: AuthenticatedRequest, body: unknown) {
+    const { userId, requestId } = this.actor(request);
+    const parsed = trackApplicationSchema.safeParse(body);
+    if (!parsed.success) {
+      throw new AppError({
+        code: 'VALIDATION_ERROR',
+        status: 400,
+        message: 'The tracking request is invalid',
+        details: toValidationDetails(parsed.error.issues),
+      });
+    }
+    return this.repository.trackApplication(
+      userId,
+      {
+        jobId: parsed.data.jobId,
+        careerProfileId: parsed.data.careerProfileId ?? null,
+        packId: parsed.data.packId ?? null,
+        stage: parsed.data.stage ?? null,
+        source: parsed.data.source ?? null,
+        nextActionAt: parsed.data.nextActionAt ?? null,
+        nextActionNote: parsed.data.nextActionNote ?? null,
+        notes: parsed.data.notes ?? null,
+      },
+      requestId,
+    );
+  }
+
+  async applicationTimeline(request: AuthenticatedRequest, applicationId: string) {
+    const { userId } = this.actor(request);
+    return this.repository.applicationTimeline(userId, applicationId);
+  }
+
+  async setApplicationStage(request: AuthenticatedRequest, applicationId: string, body: unknown) {
+    const { userId, requestId } = this.actor(request);
+    const parsed = setApplicationStageSchema.safeParse(body);
+    if (!parsed.success) {
+      throw new AppError({
+        code: 'VALIDATION_ERROR',
+        status: 400,
+        message: 'Choose a valid application stage',
+        details: toValidationDetails(parsed.error.issues),
+      });
+    }
+    return this.repository.setApplicationStage(
+      userId,
+      applicationId,
+      parsed.data.stage,
+      parsed.data.expectedVersion,
+      parsed.data.note ?? null,
+      requestId,
+    );
   }
 }
 

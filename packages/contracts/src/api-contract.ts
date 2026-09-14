@@ -38,6 +38,20 @@ import {
 } from './domain.js';
 import { successEnvelopeSchema } from './errors.js';
 import {
+  applicationPackDetailSchema,
+  applicationPackDirectorySchema,
+  applicationPackParamsSchema,
+  applicationPackSchema,
+  applicationParamsSchema,
+  applicationSnapshotSchema,
+  applicationTimelineSchema,
+  applicationTrackerSchema,
+  createApplicationPackSchema,
+  setApplicationStageSchema,
+  trackApplicationSchema,
+  usageSummarySchema,
+} from './applications.js';
+import {
   jobDetailSchema,
   jobFeedbackSchema,
   jobParamsSchema,
@@ -1215,6 +1229,95 @@ export const apiContract = Object.freeze({
     params: jobParamsSchema,
     body: jobFeedbackSchema,
     response: successEnvelopeSchema(z.object({ recorded: z.literal(true) })),
+  }),
+
+  // -------------------------------------------------------------------------
+  // Application Packs, usage, and tracker
+  // -------------------------------------------------------------------------
+
+  applicationPacks: defineRoute({
+    method: 'GET',
+    path: '/v1/me/application-packs',
+    operationId: 'listApplicationPacks',
+    summary: 'Caller Application Packs with current plan usage',
+    auth: 'user',
+    successStatus: 200,
+    response: successEnvelopeSchema(applicationPackDirectorySchema),
+  }),
+  createApplicationPack: defineRoute({
+    method: 'POST',
+    path: '/v1/me/application-packs',
+    operationId: 'createApplicationPack',
+    summary: 'Create an Application Pack, consuming plan quota exactly once',
+    auth: 'user',
+    successStatus: 200,
+    body: createApplicationPackSchema,
+    response: successEnvelopeSchema(
+      z.object({
+        pack: applicationPackSchema,
+        created: z.boolean(),
+        usage: z.record(z.string(), z.unknown()).nullable(),
+      }),
+    ),
+  }),
+  applicationPack: defineRoute({
+    method: 'GET',
+    path: '/v1/me/application-packs/{packId}',
+    operationId: 'getApplicationPack',
+    summary: 'Application Pack detail with its Truth-gated artifacts',
+    auth: 'user',
+    successStatus: 200,
+    params: applicationPackParamsSchema,
+    response: successEnvelopeSchema(applicationPackDetailSchema),
+  }),
+  usageSummary: defineRoute({
+    method: 'GET',
+    path: '/v1/me/usage',
+    operationId: 'getUsageSummary',
+    summary: 'Current plan usage per metered feature',
+    auth: 'user',
+    successStatus: 200,
+    response: successEnvelopeSchema(usageSummarySchema),
+  }),
+  applicationTracker: defineRoute({
+    method: 'GET',
+    path: '/v1/me/applications',
+    operationId: 'getApplicationTracker',
+    summary: 'Pipeline board of tracked applications with per-stage counts',
+    auth: 'user',
+    successStatus: 200,
+    response: successEnvelopeSchema(applicationTrackerSchema),
+  }),
+  trackApplication: defineRoute({
+    method: 'POST',
+    path: '/v1/me/applications',
+    operationId: 'trackApplication',
+    summary: 'Start or update tracking for an opportunity',
+    auth: 'user',
+    successStatus: 200,
+    body: trackApplicationSchema,
+    response: successEnvelopeSchema(applicationSnapshotSchema),
+  }),
+  applicationTimeline: defineRoute({
+    method: 'GET',
+    path: '/v1/me/applications/{applicationId}',
+    operationId: 'getApplicationTimeline',
+    summary: 'One tracked application with its append-only stage history',
+    auth: 'user',
+    successStatus: 200,
+    params: applicationParamsSchema,
+    response: successEnvelopeSchema(applicationTimelineSchema),
+  }),
+  setApplicationStage: defineRoute({
+    method: 'POST',
+    path: '/v1/me/applications/{applicationId}/stage',
+    operationId: 'setApplicationStage',
+    summary: 'Advance a tracked application under optimistic concurrency',
+    auth: 'user',
+    successStatus: 200,
+    params: applicationParamsSchema,
+    body: setApplicationStageSchema,
+    response: successEnvelopeSchema(applicationSnapshotSchema),
   }),
 });
 

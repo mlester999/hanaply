@@ -1,5 +1,11 @@
 import type { ApiEnvironment } from '@hanaply/config';
 import {
+  applicationPackDetailSchema,
+  applicationPackDirectorySchema,
+  applicationPackSchema,
+  applicationSnapshotSchema,
+  applicationTimelineSchema,
+  applicationTrackerSchema,
   careerDocumentDetailSchema,
   careerDocumentDirectorySchema,
   careerDocumentSchema,
@@ -11,6 +17,7 @@ import {
   confirmedCareerEvidenceSchema,
   jobDetailSchema,
   jobRadarSchema,
+  usageSummarySchema,
   type CareerDocument,
   type CareerDocumentDetail,
   type CareerFact,
@@ -20,6 +27,13 @@ import {
   type ConfirmedCareerEvidence,
   type JobDetail,
   type JobRadar,
+  type ApplicationPack,
+  type ApplicationPackDetail,
+  type ApplicationPackDirectory,
+  type ApplicationSnapshot,
+  type ApplicationTimeline,
+  type ApplicationTracker,
+  type UsageSummary,
 } from '@hanaply/contracts';
 import { createServiceDatabaseClient, type Database } from '@hanaply/database';
 import { Inject, Injectable } from '@nestjs/common';
@@ -657,6 +671,131 @@ export class CareerRepository {
         }),
       (value) => (typeof value === 'string' ? value : null),
       'Your feedback could not be recorded',
+    );
+  }
+
+  // -------------------------------------------------------------------------
+  // Application Packs, usage, and tracker
+  // -------------------------------------------------------------------------
+
+  async applicationPacks(actorUserId: string): Promise<ApplicationPackDirectory> {
+    return this.rpc(
+      () => this.callRpc('application_pack_directory', { actor_user_id: actorUserId }),
+      (value) => applicationPackDirectorySchema.safeParse(value).data ?? null,
+      'Your Application Packs could not be read',
+    );
+  }
+
+  async applicationPack(actorUserId: string, packId: string): Promise<ApplicationPackDetail> {
+    return this.rpc(
+      () =>
+        this.callRpc('application_pack_detail', {
+          actor_user_id: actorUserId,
+          target_pack_id: packId,
+        }),
+      (value) => applicationPackDetailSchema.safeParse(value).data ?? null,
+      'The Application Pack could not be read',
+    );
+  }
+
+  async createApplicationPack(
+    actorUserId: string,
+    jobId: string,
+    careerProfileId: string,
+    idempotencyKey: string,
+    requestId: string,
+  ): Promise<{ pack: ApplicationPack; created: boolean; usage: Record<string, unknown> | null }> {
+    return this.rpc(
+      () =>
+        this.callRpc('create_application_pack', {
+          actor_user_id: actorUserId,
+          target_job_id: jobId,
+          target_career_profile_id: careerProfileId,
+          idempotency_key: idempotencyKey,
+          action_request_id: requestId,
+        }),
+      (value) => {
+        const parsed = z
+          .object({
+            pack: applicationPackSchema,
+            created: z.boolean(),
+            usage: z.record(z.string(), z.unknown()).nullable(),
+          })
+          .safeParse(value);
+        return parsed.success ? parsed.data : null;
+      },
+      'The Application Pack could not be created',
+    );
+  }
+
+  async usageSummary(actorUserId: string): Promise<UsageSummary> {
+    return this.rpc(
+      () => this.callRpc('usage_summary', { actor_user_id: actorUserId }),
+      (value) => usageSummarySchema.safeParse(value).data ?? null,
+      'Your usage could not be read',
+    );
+  }
+
+  async applicationTracker(actorUserId: string): Promise<ApplicationTracker> {
+    return this.rpc(
+      () => this.callRpc('application_tracker', { actor_user_id: actorUserId }),
+      (value) => applicationTrackerSchema.safeParse(value).data ?? null,
+      'Your application tracker could not be read',
+    );
+  }
+
+  async trackApplication(
+    actorUserId: string,
+    input: Record<string, unknown>,
+    requestId: string,
+  ): Promise<ApplicationSnapshot> {
+    return this.rpc(
+      () =>
+        this.callRpc('upsert_job_application', {
+          actor_user_id: actorUserId,
+          application_input: input,
+          action_request_id: requestId,
+        }),
+      (value) => applicationSnapshotSchema.safeParse(value).data ?? null,
+      'The application could not be tracked',
+    );
+  }
+
+  async applicationTimeline(
+    actorUserId: string,
+    applicationId: string,
+  ): Promise<ApplicationTimeline> {
+    return this.rpc(
+      () =>
+        this.callRpc('application_timeline', {
+          actor_user_id: actorUserId,
+          target_application_id: applicationId,
+        }),
+      (value) => applicationTimelineSchema.safeParse(value).data ?? null,
+      'The application history could not be read',
+    );
+  }
+
+  async setApplicationStage(
+    actorUserId: string,
+    applicationId: string,
+    stage: string,
+    expectedVersion: number,
+    note: string | null,
+    requestId: string,
+  ): Promise<ApplicationSnapshot> {
+    return this.rpc(
+      () =>
+        this.callRpc('set_application_stage', {
+          actor_user_id: actorUserId,
+          target_application_id: applicationId,
+          requested_stage: stage,
+          expected_version: expectedVersion,
+          requested_note: note,
+          action_request_id: requestId,
+        }),
+      (value) => applicationSnapshotSchema.safeParse(value).data ?? null,
+      'The application stage could not be changed',
     );
   }
 }

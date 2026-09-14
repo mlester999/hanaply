@@ -132,6 +132,16 @@ const jobCoreShape = {
   excerpt: z.string().max(600),
 } as const;
 
+/**
+ * The canonical job card emitted by `app_private.job_card_snapshot`. Shared by
+ * the radar feed, the opportunity detail read model, and Application Packs so
+ * every surface describes an opportunity the same way.
+ */
+export const jobCardSchema = z.object({
+  ...jobCoreShape,
+  expiresAt: isoTimestamp.nullable(),
+});
+
 export const jobRadarItemSchema = z.object({
   ...jobCoreShape,
   companyId: z.uuid(),
@@ -226,6 +236,7 @@ export const jobFeedbackSchema = z
   .strict();
 
 export type JobRadarItem = z.infer<typeof jobRadarItemSchema>;
+export type JobCard = z.infer<typeof jobCardSchema>;
 export type JobRadar = z.infer<typeof jobRadarSchema>;
 export type JobDetail = z.infer<typeof jobDetailSchema>;
 export type JobMatchSummary = z.infer<typeof jobMatchSummarySchema>;

@@ -318,6 +318,21 @@ export function createApiClient(options: ApiClientOptions) {
     unsaveJob: (jobId: string) => request(apiContract.unsaveJob, { params: { jobId } }),
     recordJobFeedback: (jobId: string, body: z.input<typeof apiContract.recordJobFeedback.body>) =>
       request(apiContract.recordJobFeedback, { params: { jobId }, body }),
+    applicationPacks: () => request(apiContract.applicationPacks),
+    createApplicationPack: (body: z.input<typeof apiContract.createApplicationPack.body>) =>
+      request(apiContract.createApplicationPack, { body }),
+    applicationPack: (packId: string) =>
+      request(apiContract.applicationPack, { params: { packId } }),
+    usageSummary: () => request(apiContract.usageSummary),
+    applicationTracker: () => request(apiContract.applicationTracker),
+    trackApplication: (body: z.input<typeof apiContract.trackApplication.body>) =>
+      request(apiContract.trackApplication, { body }),
+    applicationTimeline: (applicationId: string) =>
+      request(apiContract.applicationTimeline, { params: { applicationId } }),
+    setApplicationStage: (
+      applicationId: string,
+      body: z.input<typeof apiContract.setApplicationStage.body>,
+    ) => request(apiContract.setApplicationStage, { params: { applicationId }, body }),
   });
 }
 
