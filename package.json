@@ -24,6 +24,11 @@
     "db:reset": "supabase db reset",
     "db:lint": "supabase db lint --local --level error",
     "db:test": "supabase test db",
+    "db:harness": "node tooling/db/local-cluster.mjs",
+    "db:harness:reset": "node tooling/db/local-cluster.mjs reset",
+    "db:harness:test": "node tooling/db/local-cluster.mjs test",
+    "db:harness:stop": "node tooling/db/local-cluster.mjs stop",
+    "db:verify": "node tooling/db/local-cluster.mjs reset && node tooling/db/local-cluster.mjs test",
     "db:types": "node tooling/check-database-types.mjs --write",
     "db:types:check": "node tooling/check-database-types.mjs --check",
     "admin:bootstrap": "node tooling/bootstrap-super-admin.mjs",
@@ -33,7 +38,9 @@
     "secrets:check": "node tooling/secret-scan.mjs",
     "audit:prod": "pnpm audit --prod --audit-level high",
     "validate": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm tokens:check && pnpm build && pnpm openapi:check && pnpm secrets:check",
-    "validate:local": "pnpm validate && pnpm db:reset && pnpm db:lint && pnpm db:test && pnpm db:types:check && pnpm e2e"
+    "validate:local": "pnpm validate && pnpm db:reset && pnpm db:lint && pnpm db:test && pnpm db:types:check && pnpm e2e",
+    "validate:db": "pnpm db:verify",
+    "validate:dockerless": "pnpm validate && pnpm db:verify"
   },
   "devDependencies": {
     "@eslint/js": "9.39.5",
