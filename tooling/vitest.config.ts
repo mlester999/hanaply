@@ -13,6 +13,7 @@ export default defineConfig({
         replacement: source('packages/contracts/src/openapi.ts'),
       },
       { find: '@hanaply/ai', replacement: source('packages/ai/src/index.ts') },
+      { find: /^@hanaply\/ai\/(.*)$/, replacement: `${source('packages/ai/src')}/$1.ts` },
       { find: '@hanaply/auth', replacement: source('packages/auth/src/index.ts') },
       { find: '@hanaply/config', replacement: source('packages/config/src/index.ts') },
       { find: '@hanaply/contracts', replacement: source('packages/contracts/src/index.ts') },

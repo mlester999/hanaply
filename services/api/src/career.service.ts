@@ -8,7 +8,7 @@ import {
   careerSkillKindSchema,
   createApplicationPackSchema,
   defaultPackArtifactStyle,
-  generateApplicationPackSchema,
+  generateApplicationPackAiRequestSchema,
   jobFeedbackSchema,
   jobRadarQuerySchema,
   saveJobSchema,
@@ -21,12 +21,12 @@ import {
   type CareerProfileDirectory,
   type CareerRecordInput,
   type ConfirmedCareerEvidence,
-  type PackArtifactStyle,
 } from '@hanaply/contracts';
 import { Inject, Injectable } from '@nestjs/common';
 import { z } from 'zod';
 
 import { AppError, toValidationDetails } from './app-error.js';
+import { AiService } from './ai.service.js';
 import {
   careerDocumentObjectPath,
   readSingleCareerDocument,
@@ -34,7 +34,6 @@ import {
 } from './career-files.js';
 import { extractCareerProfile } from './career-extraction.js';
 import { CareerRepository, careerError } from './career.repository.js';
-import { generatePackArtifacts, readPackMatchSnapshot } from './pack-generation.js';
 import type { AuthenticatedRequest } from './http.js';
 
 /**
@@ -42,8 +41,10 @@ import type { AuthenticatedRequest } from './http.js';
  * cannot be stored is reported rather than silently truncated, because a
  * truncated resume would be a document the subscriber did not review.
  */
-const maximumPlainTextLength = 60_000;
-
+/**
+ * Every artifact kind, in the order the pack page lists them. Used when a
+ * generation request names none.
+ */
 const allArtifactKinds: readonly ApplicationArtifactKind[] = [
   'resume',
   'cover_letter',
@@ -99,7 +100,10 @@ function fieldValue(value: unknown): string | null {
 
 @Injectable()
 export class CareerService {
-  constructor(@Inject(CareerRepository) private readonly repository: CareerRepository) {}
+  constructor(
+    @Inject(CareerRepository) private readonly repository: CareerRepository,
+    @Inject(AiService) private readonly ai: AiService,
+  ) {}
 
   private actor(request: AuthenticatedRequest): { userId: string; requestId: string } {
     if (!request.auth) {
@@ -829,6 +833,13 @@ export class CareerService {
    * verified. Only after that is the pack finalised, and the same RPC refuses to
    * mark it ready while it has no artifacts.
    *
+   * Two generators share that one write path. `AiService.generateArtifacts`
+   * chooses between them — the model path only when a provider is configured and
+   * the caller did not ask for the deterministic one, and the deterministic
+   * generator otherwise or as the fallback for any kind the model did not
+   * produce — and reports which one ran. Nothing here decides that, so the two
+   * paths cannot diverge in what the database is allowed to accept.
+   *
    * Persisting is idempotent by construction. `record_application_artifact`
    * upserts on (pack_id, kind, style) and increments the artifact version, so
    * regenerating the same kind and style replaces the draft instead of adding a
@@ -844,67 +855,52 @@ export class CareerService {
     [key: string]: unknown;
   }> {
     const { userId, requestId } = this.actor(request);
-    const parsed = generateApplicationPackSchema.safeParse(body ?? {});
-    if (!parsed.success) {
-      throw new AppError({
-        code: 'VALIDATION_ERROR',
-        status: 400,
-        message: 'Choose at least one artifact kind, and a supported style',
-        details: toValidationDetails(parsed.error.issues),
-      });
-    }
 
-    const kinds = parsed.data.kinds ?? allArtifactKinds;
-    const style: PackArtifactStyle = parsed.data.style ?? defaultPackArtifactStyle;
-
+    // One read of the generation context serves both generators. The AI path
+    // receives it rather than reading its own, so the deterministic drafts and
+    // the model's drafts are always built from the same frozen snapshot, the
+    // same confirmed ledger, and the same profile version.
+    const requested = this.requestedPackGeneration(body);
     const prepared = await this.repository.generatePackArtifacts(
       userId,
       packId,
-      kinds,
-      style,
+      requested.kinds,
+      requested.style,
       requestId,
     );
 
-    const drafts = generatePackArtifacts({
-      profile: prepared.profile,
-      facts: prepared.evidence,
-      job: prepared.job,
-      match: readPackMatchSnapshot(prepared.match),
-      kinds,
-      style,
+    const { drafts, ai } = await this.ai.generateArtifacts({
+      userId,
+      requestId,
+      packId,
+      body,
+      prepared,
+      // Every draft, whichever generator wrote it, is persisted through
+      // `record_application_artifact`, which applies
+      // `validate_artifact_evidence`. Model output and template output are
+      // therefore checked by the same gate, in the same place.
+      recordArtifact: async (draft) => {
+        await this.repository.recordApplicationArtifact(
+          userId,
+          packId,
+          {
+            kind: draft.kind,
+            style: draft.style,
+            title: draft.title,
+            plainText: draft.plainText,
+            content: draft.content,
+            evidenceFactIds: draft.evidenceFactIds,
+          },
+          requestId,
+        );
+      },
     });
-
-    for (const draft of drafts) {
-      if (draft.plainText.length > maximumPlainTextLength) {
-        throw new AppError({
-          code: 'VALIDATION_ERROR',
-          status: 400,
-          message: `The generated ${draft.kind.replaceAll('_', ' ')} is longer than the ${maximumPlainTextLength} characters an artifact can store. Shorten the career profile and generate again.`,
-        });
-      }
-    }
-
-    for (const draft of drafts) {
-      await this.repository.recordApplicationArtifact(
-        userId,
-        packId,
-        {
-          kind: draft.kind,
-          style: draft.style,
-          title: draft.title,
-          plainText: draft.plainText,
-          content: draft.content,
-          evidenceFactIds: draft.evidenceFactIds,
-        },
-        requestId,
-      );
-    }
 
     const finalized = await this.repository.generatePackArtifacts(
       userId,
       packId,
-      kinds,
-      style,
+      requested.kinds,
+      requested.style,
       requestId,
     );
 
@@ -915,6 +911,28 @@ export class CareerService {
       artifacts: [...finalized.artifacts],
       finalized: finalized.finalized,
       generatedKinds: drafts.map((draft) => draft.kind),
+      ai,
+    };
+  }
+
+  /**
+   * The kinds and style a generation request asks for, before either generator
+   * runs.
+   *
+   * Read here as well as in `AiService` so the pack context is loaded once, for
+   * the kinds and style that will actually be written. An unparseable body falls
+   * back to every kind and the default style; `AiService` is what refuses it,
+   * with the field-level detail the caller needs.
+   */
+  private requestedPackGeneration(body: unknown): {
+    kinds: readonly ApplicationArtifactKind[];
+    style: string;
+  } {
+    const parsed = generateApplicationPackAiRequestSchema.safeParse(body ?? {});
+    if (!parsed.success) return { kinds: allArtifactKinds, style: defaultPackArtifactStyle };
+    return {
+      kinds: parsed.data.kinds ?? allArtifactKinds,
+      style: parsed.data.style ?? defaultPackArtifactStyle,
     };
   }
 

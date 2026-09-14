@@ -1,3 +1,6 @@
+import { appendFileSync } from 'node:fs';
+import { randomUUID } from 'node:crypto';
+
 import type { EmailEnvironment } from '@hanaply/config';
 import { Resend, type CreateEmailOptions, type ErrorResponse } from 'resend';
 import { z } from 'zod';
@@ -915,11 +918,50 @@ export class DisabledEmailProvider implements EmailProvider {
   }
 }
 
+export interface CaptureEmailProviderOptions {
+  /**
+   * JSON-lines file every captured message is appended to.
+   *
+   * Capture is used by local development, the e2e stack, and tests. In-memory
+   * capture is invisible to another process, so the Dockerless mailbox
+   * (`tooling/e2e/mailbox.mjs`) and this provider share one file: the mailbox
+   * serves it through Mailpit's HTTP API. Leaving it unset keeps the original
+   * in-process behaviour.
+   */
+  captureFile?: string;
+}
+
+function appendCapturedEmail(file: string, email: RenderedEmail): void {
+  try {
+    const record = {
+      id: randomUUID(),
+      from: { name: 'Hanaply', address: 'no-reply@hanaply.test' },
+      to: [{ name: '', address: email.recipient }],
+      subject: email.subject,
+      text: email.text,
+      html: email.html,
+      createdAt: new Date().toISOString(),
+      templateId: email.templateId,
+    };
+    appendFileSync(file, `${JSON.stringify(record)}\n`, 'utf8');
+  } catch {
+    // The sink is diagnostic. A failed append must never change delivery
+    // semantics for the caller, which still sees its captured receipt.
+  }
+}
+
 export class CaptureEmailProvider implements EmailProvider {
   private readonly messages: RenderedEmail[] = [];
+  private readonly captureFile: string | null;
+
+  constructor(options: CaptureEmailProviderOptions = {}) {
+    this.captureFile = options.captureFile ?? null;
+  }
 
   send(message: EmailMessage): Promise<EmailDeliveryReceipt> {
-    this.messages.push(renderEmailTemplate(message));
+    const rendered = renderEmailTemplate(message);
+    this.messages.push(rendered);
+    if (this.captureFile) appendCapturedEmail(this.captureFile, rendered);
     return Promise.resolve(
       receipt(message, {
         provider: 'capture',
@@ -1098,6 +1140,10 @@ export class ResendEmailProvider implements EmailProvider {
 
 export function createEmailProvider(environment: EmailEnvironment): EmailProvider {
   if (environment.EMAIL_PROVIDER === 'disabled') return new DisabledEmailProvider();
-  if (environment.EMAIL_PROVIDER === 'capture') return new CaptureEmailProvider();
+  if (environment.EMAIL_PROVIDER === 'capture') {
+    return new CaptureEmailProvider(
+      environment.EMAIL_CAPTURE_FILE ? { captureFile: environment.EMAIL_CAPTURE_FILE } : {},
+    );
+  }
   return new ResendEmailProvider(environment);
 }

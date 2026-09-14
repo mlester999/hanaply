@@ -12,11 +12,13 @@
   "dependencies": {
     "@fastify/helmet": "catalog:",
     "@fastify/multipart": "catalog:",
+    "@hanaply/ai": "workspace:*",
     "@hanaply/auth": "workspace:*",
     "@hanaply/config": "workspace:*",
     "@hanaply/contracts": "workspace:*",
     "@hanaply/database": "workspace:*",
     "@hanaply/entitlements": "workspace:*",
+    "@hanaply/matching": "workspace:*",
     "@hanaply/observability": "workspace:*",
     "@hanaply/platform": "workspace:*",
     "@nestjs/common": "catalog:",

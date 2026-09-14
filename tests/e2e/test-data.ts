@@ -52,9 +52,34 @@ export async function getServiceRows<T>(path: string): Promise<T> {
   return (await response.json()) as T;
 }
 
+/**
+ * Removes the fixture accounts.
+ *
+ * Cleanup is best effort, and the failure is reported rather than swallowed.
+ * Deleting an account that suspended, or was suspended by, another account is
+ * refused by `account_suspensions.suspended_by`, whose RESTRICT is intentional:
+ * the administrative audit trail must not lose the fact that a suspension
+ * happened. That makes a strict teardown the wrong shape, because a failed
+ * cleanup says nothing about whether the suite passed.
+ *
+ * This is safe because the end-to-end stack provisions its own database from
+ * the migrations on every run, so a leftover fixture cannot reach the next run.
+ */
 export async function removeTestUsers(): Promise<void> {
+  const failures: string[] = [];
   for (const user of await existingTestUsers()) {
-    await request(`/auth/v1/admin/users/${user.id}`, { method: 'DELETE' });
+    try {
+      await request(`/auth/v1/admin/users/${user.id}`, { method: 'DELETE' });
+    } catch (error) {
+      failures.push(
+        `${user.email ?? user.id}: ${error instanceof Error ? error.message : 'removal failed'}`,
+      );
+    }
+  }
+  if (failures.length > 0) {
+    console.warn(
+      `[e2e] ${failures.length} fixture account(s) could not be removed. The database is rebuilt from the migrations before the next run, so this does not affect the result.\n  ${failures.join('\n  ')}`,
+    );
   }
 }
 

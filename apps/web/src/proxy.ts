@@ -12,6 +12,11 @@ function createContentSecurityPolicy(nonce: string, request: NextRequest): strin
     "default-src 'self'",
     `script-src 'self' 'nonce-${nonce}'${development ? " 'unsafe-eval'" : " 'strict-dynamic'"}`,
     `style-src 'self' 'nonce-${nonce}'`,
+    // Next.js development tools inject their overlay font as a <style> element
+    // without a nonce (next-devtools' `/__nextjs_font/` middleware), which the
+    // element directive would otherwise block and report on every page.
+    // Production keeps the strict policy.
+    development ? "style-src-elem 'self' 'unsafe-inline'" : '',
     "style-src-attr 'unsafe-inline'",
     "img-src 'self' data: blob:",
     "font-src 'self' data:",

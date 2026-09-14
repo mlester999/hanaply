@@ -1,6 +1,9 @@
 'use server';
 
-import { createApplicationPackSchema } from '@hanaply/contracts';
+import {
+  createApplicationPackSchema,
+  type GenerateApplicationPackAiRequest,
+} from '@hanaply/contracts';
 import { revalidatePath } from 'next/cache';
 
 import {
@@ -9,6 +12,7 @@ import {
   applicationSuccess,
   type ApplicationActionState,
 } from '@/lib/application-action';
+import { summarisePackGeneration } from '@/lib/ai';
 import { packStatusLabel } from '@/lib/application';
 import { formEntry } from '@/lib/career-action';
 import { assertTrustedMutationOrigin } from '@/lib/request-integrity';
@@ -75,11 +79,14 @@ export async function createApplicationPackAction(
 /**
  * Generates the pack artifacts from the facts the subscriber has confirmed.
  *
- * Generation is deterministic and grounded: the API composes each artifact from
- * confirmed career facts only, and the database rejects any artifact that cites
- * a fact the subscriber has not confirmed. The message therefore reports what
- * was actually written and how many confirmed facts it drew on, and never
- * claims an artifact exists that the response did not return.
+ * Two paths can write these artifacts and they are not interchangeable, so the
+ * response — not the request — decides what the member is told. The
+ * deterministic generator composes each artifact from confirmed career facts
+ * through a fixed template; the AI path is a model writing prose that the truth
+ * gate checks before anything is stored. The message names the path that ran,
+ * reports the provenance the API returned, and lists any kind the model was
+ * asked for and did not produce, so no artifact is ever reported that was not
+ * written and no model text is ever described as deterministic.
  */
 export async function generateApplicationPackAction(
   previous: ApplicationActionState,
@@ -94,20 +101,40 @@ export async function generateApplicationPackAction(
     return applicationFailure('This pack could not be identified. Reload the page and try again.');
   }
 
+  // `auto` asks the API to prefer the AI path when a provider is configured and
+  // to fall back to the deterministic generator otherwise. Anything else —
+  // including a missing field, which is what a member with no AI configured
+  // sends — means the deterministic path, and the response still states which
+  // one ran.
+  const requested = formEntry(formData, 'generator');
+  const body: GenerateApplicationPackAiRequest = requested === 'auto' ? { generator: 'auto' } : {};
+
   const { session } = await requireUser();
   try {
-    const result = await createAuthenticatedApiClient(session).generateApplicationPack(packId, {});
+    const result = await createAuthenticatedApiClient(session).generateApplicationPack(
+      packId,
+      body,
+    );
     revalidatePacks(jobId ?? result.data.jobId, packId);
+
+    const attribution = summarisePackGeneration(result.data.ai);
     const count = result.data.artifacts.length;
     if (count === 0) {
       return applicationFailure(
-        'No artifact could be written. Confirm at least one career fact on your profile, then generate again.',
+        `No artifact could be written, so nothing was stored. ${attribution.headline} ran and returned none. Confirm at least one career fact on your profile, then generate again.`,
       );
     }
+
     const cited = result.data.evidenceFactIds.length;
+    const skipped =
+      attribution.skipped.length === 0
+        ? ''
+        : ` ${attribution.skipped.length} requested ${attribution.skipped.length === 1 ? 'kind' : 'kinds'} did not come from the model: ${attribution.skipped.join(' ')}`;
+
     return applicationSuccess(
-      `Wrote ${count} ${count === 1 ? 'artifact' : 'artifacts'} from ${cited} confirmed ${cited === 1 ? 'fact' : 'facts'}. Every statement traces to something you confirmed.`,
+      `${attribution.headline}. Wrote ${count} ${count === 1 ? 'artifact' : 'artifacts'} from ${cited} confirmed ${cited === 1 ? 'fact' : 'facts'}. ${attribution.detail}${skipped}`,
       packId,
+      result.data.ai,
     );
   } catch (error) {
     return applicationErrorState(error, 'The pack artifacts could not be generated.');

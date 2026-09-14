@@ -371,6 +371,22 @@ export function createApiClient(options: ApiClientOptions) {
       query
         ? request(apiContract.careerInsights, { query: { ...query } })
         : request(apiContract.careerInsights),
+    aiStatus: () => request(apiContract.aiStatus),
+    opportunityAnalysis: (
+      jobId: string,
+      body?: z.input<typeof apiContract.opportunityAnalysis.body>,
+    ) => request(apiContract.opportunityAnalysis, { params: { jobId }, body: body ?? {} }),
+    storedOpportunityAnalysis: (jobId: string) =>
+      request(apiContract.opportunityAnalysisRead, { params: { jobId } }),
+    coachConversations: () => request(apiContract.coachConversations),
+    openCoachConversation: (body: z.input<typeof apiContract.openCoachConversation.body>) =>
+      request(apiContract.openCoachConversation, { body }),
+    coachConversation: (conversationId: string) =>
+      request(apiContract.coachConversation, { params: { conversationId } }),
+    sendCoachMessage: (
+      conversationId: string,
+      body: z.input<typeof apiContract.sendCoachMessage.body>,
+    ) => request(apiContract.sendCoachMessage, { params: { conversationId }, body }),
   });
 }
 

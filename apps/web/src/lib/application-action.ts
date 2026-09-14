@@ -1,11 +1,11 @@
-import { HanaplyApiError } from '@hanaply/contracts';
+import { HanaplyApiError, type PackGenerationAi } from '@hanaply/contracts';
 
 /**
  * Shared server-action plumbing for the Application Pack and tracker surfaces.
  *
  * This mirrors `radar-action.ts` deliberately: mutations return the same
  * serializable `{ status, message, fieldErrors }` shape so every client form
- * renders one consistent `aria-live` result region. Two extra serializable
+ * renders one consistent `aria-live` result region. Three extra serializable
  * fields are carried because this feature needs them:
  *
  * - `conflict` marks the optimistic-concurrency refusal. A stale write must be
@@ -17,6 +17,11 @@ import { HanaplyApiError } from '@hanaply/contracts';
  * - `packId` carries the pack a create request resolved to, so the client can
  *   open it. The API is idempotent by pack identity, so this is either a newly
  *   created pack or the one that already existed.
+ * - `packAi` carries the generation response's own `ai` block — which path ran,
+ *   its provenance, its grounding report, and the kinds the AI path did not
+ *   produce. It is the only place the path is stated, because the pack detail
+ *   read model does not store it; a page reload therefore loses it, and the
+ *   interface says so rather than implying the path was persisted.
  */
 export interface ApplicationActionState {
   status: 'idle' | 'success' | 'error';
@@ -25,6 +30,7 @@ export interface ApplicationActionState {
   conflict: boolean;
   refused: boolean;
   packId: string | null;
+  packAi: PackGenerationAi | null;
 }
 
 export const idleApplicationActionState: ApplicationActionState = {
@@ -34,20 +40,38 @@ export const idleApplicationActionState: ApplicationActionState = {
   conflict: false,
   refused: false,
   packId: null,
+  packAi: null,
 };
 
 export function applicationSuccess(
   message: string,
   packId: string | null = null,
+  packAi: PackGenerationAi | null = null,
 ): ApplicationActionState {
-  return { status: 'success', message, fieldErrors: {}, conflict: false, refused: false, packId };
+  return {
+    status: 'success',
+    message,
+    fieldErrors: {},
+    conflict: false,
+    refused: false,
+    packId,
+    packAi,
+  };
 }
 
 export function applicationFailure(
   message: string,
   fieldErrors: Readonly<Record<string, readonly string[]>> = {},
 ): ApplicationActionState {
-  return { status: 'error', message, fieldErrors, conflict: false, refused: false, packId: null };
+  return {
+    status: 'error',
+    message,
+    fieldErrors,
+    conflict: false,
+    refused: false,
+    packId: null,
+    packAi: null,
+  };
 }
 
 /** The non-destructive copy a stale write gets, on every surface. */
@@ -110,5 +134,6 @@ export function applicationErrorState(error: unknown, fallback: string): Applica
     conflict: isApplicationConflict(error),
     refused: isApplicationRefusal(error),
     packId: null,
+    packAi: null,
   };
 }

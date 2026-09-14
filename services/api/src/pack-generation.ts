@@ -111,6 +111,14 @@ export const packGenerationInputSchema = z.object({
   style: packArtifactStyleSchema.optional(),
 });
 
+/**
+ * The canonical job card as the pack writer hands it over.
+ *
+ * Exported so the AI path validates the same posting shape the deterministic
+ * generator does, rather than trusting the generation context's raw row.
+ */
+export const packJobSchema = packGenerationJobSchema;
+
 export interface PackGenerationInput {
   readonly profile: CareerProfileDetail;
   readonly facts: readonly CareerFact[];

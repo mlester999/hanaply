@@ -68,42 +68,187 @@ const sharedServerEnvironmentSchema = z.object({
   BUILD_SHA: nonEmptyString.default('local'),
 });
 
-const apiEnvironmentSchema = sharedServerEnvironmentSchema.extend({
-  API_PORT: portFromEnvironment.default(3101),
-  RATE_LIMIT_STORE: z.literal('memory').default('memory'),
-  CORS_ALLOWED_ORIGINS: nonEmptyString.transform((value) =>
-    value
-      .split(',')
-      .map((origin) => origin.trim())
-      .filter(Boolean),
-  ),
-  OPENAPI_ENABLED: booleanFromEnvironment.default(true),
-  EMAIL_PROVIDER: z.enum(['disabled', 'capture', 'resend']).default('disabled'),
-  EMAIL_ALLOW_LIVE_SENDS: booleanFromEnvironment.default(false),
-  ADMIN_BOOTSTRAP_ENABLED: booleanFromEnvironment.default(false),
-  PAYMENT_PROOF_BUCKET: z.literal('payment-proofs').default('payment-proofs'),
-  PAYMENT_QR_BUCKET: z.literal('payment-qr-codes').default('payment-qr-codes'),
-  PAYMENT_PROOF_MAX_BYTES: z.coerce
-    .number()
-    .int()
-    .min(5 * 1024 * 1024)
-    .max(8 * 1024 * 1024)
-    .default(8 * 1024 * 1024),
-  PAYMENT_QR_MAX_BYTES: z.coerce
-    .number()
-    .int()
-    .min(1)
-    .max(5 * 1024 * 1024)
-    .default(5 * 1024 * 1024),
-  PAYMENT_IMAGE_MAX_PIXELS: z.coerce
-    .number()
-    .int()
-    .min(1_000_000)
-    .max(144_000_000)
-    .default(40_000_000),
-  PAYMENT_SIGNED_URL_TTL_SECONDS: z.coerce.number().int().min(30).max(600).default(300),
-  STORAGE_CLEANUP_MODE: z.enum(['immediate', 'queue']).default('immediate'),
-});
+/**
+ * AI provider configuration.
+ *
+ * One OpenAI-compatible contract covers every provider Hanaply supports, so
+ * these settings describe a deployment choice rather than a vendor integration.
+ * `disabled` is the default and means what it says: no generation happens, the
+ * deterministic paths in `@hanaply/matching` and `services/api` remain the
+ * product, and nothing labels their output as model-written. Selecting a
+ * provider without credentials is not a configuration this schema accepts in
+ * production, because a silently absent key would present deterministic text as
+ * though a model had produced it.
+ */
+export const aiProviderNames = [
+  'disabled',
+  'fake',
+  'openai',
+  'azure_openai',
+  'openrouter',
+  'together',
+  'groq',
+  'deepseek',
+  'ollama',
+  'vllm',
+  'openai_compatible',
+] as const;
+
+export const aiProviderNameSchema = z.enum(aiProviderNames);
+
+export const aiBaseUrlDefaults: Readonly<Record<(typeof aiProviderNames)[number], string | null>> =
+  Object.freeze({
+    disabled: null,
+    fake: null,
+    openai: 'https://api.openai.com/v1',
+    azure_openai: null,
+    openrouter: 'https://openrouter.ai/api/v1',
+    together: 'https://api.together.xyz/v1',
+    groq: 'https://api.groq.com/openai/v1',
+    deepseek: 'https://api.deepseek.com/v1',
+    ollama: 'http://127.0.0.1:11434/v1',
+    vllm: 'http://127.0.0.1:8000/v1',
+    openai_compatible: null,
+  });
+
+const providersRequiringAnApiKey = new Set<(typeof aiProviderNames)[number]>([
+  'openai',
+  'azure_openai',
+  'openrouter',
+  'together',
+  'groq',
+  'deepseek',
+  'openai_compatible',
+]);
+
+const aiBaseUrlSchema = z
+  .string()
+  .trim()
+  .min(8)
+  .max(500)
+  .refine((value) => {
+    try {
+      const parsed = new URL(value);
+      return parsed.protocol === 'https:' || parsed.protocol === 'http:';
+    } catch {
+      return false;
+    }
+  }, 'Use an absolute http(s) base URL');
+
+const aiEnvironmentShape = {
+  AI_PROVIDER: aiProviderNameSchema.default('disabled'),
+  AI_MODEL: z.string().trim().min(1).max(120).optional(),
+  AI_API_KEY: z.string().trim().min(1).max(400).optional(),
+  AI_BASE_URL: aiBaseUrlSchema.optional(),
+  AI_TIMEOUT_MS: z.coerce.number().int().min(1_000).max(120_000).default(30_000),
+  AI_MAX_OUTPUT_TOKENS: z.coerce.number().int().min(64).max(16_000).default(1_600),
+  AI_MAX_INPUT_CHARACTERS: z.coerce.number().int().min(1_000).max(400_000).default(60_000),
+  AI_TEMPERATURE: z.coerce.number().min(0).max(2).default(0.2),
+  AI_MAX_ATTEMPTS: z.coerce.number().int().min(1).max(5).default(3),
+  AI_RETRY_BASE_DELAY_MS: z.coerce.number().int().min(10).max(10_000).default(250),
+  AI_STRUCTURED_OUTPUT: z.enum(['auto', 'json_schema', 'parse']).default('auto'),
+} as const;
+
+/**
+ * The AI settings, enforced wherever a process may generate.
+ *
+ * Declared once as a shape so the API environment and the standalone AI
+ * environment cannot drift: the API is the process that actually constructs a
+ * provider, so it has to validate the same rules the provider factory applies.
+ * A production deployment that selects a keyed provider without a key is refused
+ * at startup rather than silently degrading at request time.
+ */
+function enforceAiSettings(
+  value: {
+    HANAPLY_ENV: z.infer<typeof environmentNameSchema>;
+    AI_PROVIDER?: z.infer<typeof aiProviderNameSchema>;
+    AI_MODEL?: string | undefined;
+    AI_API_KEY?: string | undefined;
+    AI_BASE_URL?: string | undefined;
+  },
+  context: z.RefinementCtx,
+): void {
+  const provider = value.AI_PROVIDER ?? 'disabled';
+  if (provider === 'disabled') return;
+  if (value.AI_MODEL === undefined) {
+    context.addIssue({
+      code: 'custom',
+      path: ['AI_MODEL'],
+      message: 'Required whenever a provider other than disabled is selected',
+    });
+  }
+  if (provider === 'fake' && !['local', 'test'].includes(value.HANAPLY_ENV)) {
+    context.addIssue({
+      code: 'custom',
+      path: ['AI_PROVIDER'],
+      message: 'The deterministic fake provider is only selectable in local and test',
+    });
+  }
+  if (provider === 'azure_openai' && value.AI_BASE_URL === undefined) {
+    context.addIssue({
+      code: 'custom',
+      path: ['AI_BASE_URL'],
+      message: 'Azure OpenAI requires the full deployment endpoint',
+    });
+  }
+  if (
+    !providersRequiringAnApiKey.has(provider) ||
+    value.AI_API_KEY !== undefined ||
+    value.HANAPLY_ENV !== 'production'
+  ) {
+    return;
+  }
+  // Local and staging may run a keyless endpoint (Ollama, vLLM, an internal
+  // gateway). Production may not: an absent key there is a silent fallback to
+  // deterministic output, which is the failure this schema exists to prevent.
+  context.addIssue({
+    code: 'custom',
+    path: ['AI_API_KEY'],
+    message: 'Production requires an API key for the selected AI provider',
+  });
+}
+
+const apiEnvironmentSchema = sharedServerEnvironmentSchema
+  .extend({
+    API_PORT: portFromEnvironment.default(3101),
+    RATE_LIMIT_STORE: z.literal('memory').default('memory'),
+    CORS_ALLOWED_ORIGINS: nonEmptyString.transform((value) =>
+      value
+        .split(',')
+        .map((origin) => origin.trim())
+        .filter(Boolean),
+    ),
+    OPENAPI_ENABLED: booleanFromEnvironment.default(true),
+    ...aiEnvironmentShape,
+    EMAIL_PROVIDER: z.enum(['disabled', 'capture', 'resend']).default('disabled'),
+    EMAIL_ALLOW_LIVE_SENDS: booleanFromEnvironment.default(false),
+    ADMIN_BOOTSTRAP_ENABLED: booleanFromEnvironment.default(false),
+    PAYMENT_PROOF_BUCKET: z.literal('payment-proofs').default('payment-proofs'),
+    PAYMENT_QR_BUCKET: z.literal('payment-qr-codes').default('payment-qr-codes'),
+    PAYMENT_PROOF_MAX_BYTES: z.coerce
+      .number()
+      .int()
+      .min(5 * 1024 * 1024)
+      .max(8 * 1024 * 1024)
+      .default(8 * 1024 * 1024),
+    PAYMENT_QR_MAX_BYTES: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(5 * 1024 * 1024)
+      .default(5 * 1024 * 1024),
+    PAYMENT_IMAGE_MAX_PIXELS: z.coerce
+      .number()
+      .int()
+      .min(1_000_000)
+      .max(144_000_000)
+      .default(40_000_000),
+    PAYMENT_SIGNED_URL_TTL_SECONDS: z.coerce.number().int().min(30).max(600).default(300),
+    STORAGE_CLEANUP_MODE: z.enum(['immediate', 'queue']).default('immediate'),
+  })
+  .superRefine((value, context) => {
+    enforceAiSettings(value, context);
+  });
 
 const workerEnvironmentSchema = sharedServerEnvironmentSchema.extend({
   WORKER_HEALTH_PORT: portFromEnvironment.default(3102),
@@ -171,6 +316,12 @@ const emailEnvironmentSchema = z
     HANAPLY_ENV: environmentNameSchema.default('local'),
     EMAIL_PROVIDER: z.enum(['disabled', 'capture', 'resend']).default('disabled'),
     EMAIL_ALLOW_LIVE_SENDS: booleanFromEnvironment.default(false),
+    /**
+     * Optional JSON-lines sink for `EMAIL_PROVIDER=capture`. When set, the
+     * capture provider appends every rendered message so another process (the
+     * Dockerless e2e mailbox) can read it. Unset, capture stays in memory.
+     */
+    EMAIL_CAPTURE_FILE: z.string().trim().min(1).optional(),
     RESEND_API_KEY: z.string().trim().optional(),
     RESEND_FROM_ADDRESS: mailboxSchema.optional(),
     RESEND_REPLY_TO_ADDRESS: z.email().optional(),
@@ -236,12 +387,22 @@ const adminBootstrapEnvironmentSchema = z
     }
   });
 
+const aiEnvironmentSchema = z
+  .object({
+    HANAPLY_ENV: environmentNameSchema.default('local'),
+    ...aiEnvironmentShape,
+  })
+  .superRefine((value, context) => {
+    enforceAiSettings(value, context);
+  });
+
 export type BrowserEnvironment = z.infer<typeof browserEnvironmentSchema>;
 export type WebServerEnvironment = z.infer<typeof webServerEnvironmentSchema>;
 export type ApiEnvironment = z.infer<typeof apiEnvironmentSchema>;
 export type WorkerEnvironment = z.infer<typeof workerEnvironmentSchema>;
 export type EmailEnvironment = z.infer<typeof emailEnvironmentSchema>;
 export type AdminBootstrapEnvironment = z.infer<typeof adminBootstrapEnvironmentSchema>;
+export type AiEnvironment = z.infer<typeof aiEnvironmentSchema>;
 
 function enforceProductionUrls(
   environment: Pick<ApiEnvironment, 'HANAPLY_ENV' | 'APP_BASE_URL' | 'API_BASE_URL'>,
@@ -292,6 +453,10 @@ export function parseAdminBootstrapEnvironment(
   input: Record<string, unknown>,
 ): AdminBootstrapEnvironment {
   return adminBootstrapEnvironmentSchema.parse(input);
+}
+
+export function parseAiEnvironment(input: Record<string, unknown>): AiEnvironment {
+  return aiEnvironmentSchema.parse(input);
 }
 
 export const browserEnvironmentKeys = Object.freeze([

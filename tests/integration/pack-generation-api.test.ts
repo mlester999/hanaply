@@ -261,12 +261,27 @@ describe('Application Pack generation route', () => {
       payload: { kinds: ['resume', 'requirement_map'], style: 'concise' },
     });
     expect(response.statusCode).toBe(200);
+
     const body = apiContract.generateApplicationPack.response.parse(response.json());
     expect(body.data.generatedKinds).toEqual(['resume', 'requirement_map']);
+    // The mock reports the pack as finished only once a draft has been
+    // persisted, so this is the same assertion the route has always made.
     expect(body.data.finalized).toBe(true);
     expect(body.data.artifacts).toEqual([]);
-    // The context is read once before generating and once to finalise.
+    // The context is read once before generating and once to finalise, and both
+    // reads name the same kinds and style: one read serves both generators, so
+    // the model path and the deterministic path cannot disagree about what the
+    // pack was asked for.
     expect(contextReads).toHaveLength(2);
+    expect(contextReads[0]).toEqual({ kinds: ['resume', 'requirement_map'], style: 'concise' });
+    expect(contextReads[1]).toEqual(contextReads[0]);
+    // No provider is configured in this environment, so the deterministic
+    // generator wrote the pack and the response says so rather than implying a
+    // model was involved.
+    expect(body.data.ai.path).toBe('deterministic');
+    expect(body.data.ai.provenance.generated).toBe(false);
+    expect(body.data.ai.provenance.degraded).toBe(true);
+    expect(body.data.ai.provenance.reason).toBeTruthy();
   });
 
   it('persists one draft per requested kind with the shape the truth gate checks', () => {

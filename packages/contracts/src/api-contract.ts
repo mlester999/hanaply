@@ -2,6 +2,18 @@ import { z } from 'zod';
 import { notificationPreferencesSchema, profileUpdateSchema } from '@hanaply/auth';
 
 import {
+  aiStatusDataSchema,
+  coachConversationDetailSchema,
+  coachConversationDirectorySchema,
+  coachConversationParamsSchema,
+  openCoachConversationRequestSchema,
+  opportunityAnalysisQuerySchema,
+  opportunityAnalysisRequestSchema,
+  opportunityAnalysisResponseSchema,
+  generateApplicationPackAiRequestSchema,
+  sendCoachMessageRequestSchema,
+} from './ai.js';
+import {
   careerDocumentApplySchema,
   careerDocumentExtractionSchema,
   careerDocumentParamsSchema,
@@ -65,7 +77,6 @@ import {
   applicationTimelineSchema,
   applicationTrackerSchema,
   createApplicationPackSchema,
-  generateApplicationPackSchema,
   setApplicationStageSchema,
   trackApplicationSchema,
   usageSummarySchema,
@@ -1295,7 +1306,7 @@ export const apiContract = Object.freeze({
     auth: 'user',
     successStatus: 200,
     params: applicationPackParamsSchema,
-    body: generateApplicationPackSchema,
+    body: generateApplicationPackAiRequestSchema,
     response: successEnvelopeSchema(applicationPackGenerationSchema),
   }),
   usageSummary: defineRoute({
@@ -1306,6 +1317,87 @@ export const apiContract = Object.freeze({
     auth: 'user',
     successStatus: 200,
     response: successEnvelopeSchema(usageSummarySchema),
+  }),
+
+  // -------------------------------------------------------------------------
+  // AI: opportunity analysis, coach, and status
+  //
+  // Every route below can carry model output, so every response carries the
+  // grounding report and the degradation flag with it. None of them is allowed
+  // to fail with a 500 because no provider is configured: the deterministic
+  // path is the product, and these routes report it rather than replacing it.
+  // -------------------------------------------------------------------------
+
+  aiStatus: defineRoute({
+    method: 'GET',
+    path: '/v1/me/ai/status',
+    operationId: 'getAiStatus',
+    summary: 'Whether AI generation is configured, and what it can do',
+    auth: 'user',
+    successStatus: 200,
+    response: successEnvelopeSchema(aiStatusDataSchema),
+  }),
+  opportunityAnalysis: defineRoute({
+    method: 'POST',
+    path: '/v1/me/opportunities/{jobId}/analysis',
+    operationId: 'createOpportunityAnalysis',
+    summary: 'Grounded analysis of one opportunity, cached by evidence fingerprint',
+    auth: 'user',
+    successStatus: 200,
+    params: jobParamsSchema,
+    body: opportunityAnalysisRequestSchema,
+    response: successEnvelopeSchema(opportunityAnalysisResponseSchema),
+  }),
+  opportunityAnalysisRead: defineRoute({
+    method: 'GET',
+    path: '/v1/me/opportunities/{jobId}/analysis',
+    operationId: 'getOpportunityAnalysis',
+    summary: 'The stored grounded analysis for one opportunity, if there is one',
+    auth: 'user',
+    successStatus: 200,
+    params: jobParamsSchema,
+    query: opportunityAnalysisQuerySchema,
+    response: successEnvelopeSchema(opportunityAnalysisResponseSchema),
+  }),
+  coachConversations: defineRoute({
+    method: 'GET',
+    path: '/v1/me/coach/conversations',
+    operationId: 'listCoachConversations',
+    summary: 'The caller coach threads, newest activity first',
+    auth: 'user',
+    successStatus: 200,
+    response: successEnvelopeSchema(coachConversationDirectorySchema),
+  }),
+  openCoachConversation: defineRoute({
+    method: 'POST',
+    path: '/v1/me/coach/conversations',
+    operationId: 'openCoachConversation',
+    summary: 'Open a coach thread',
+    auth: 'user',
+    successStatus: 200,
+    body: openCoachConversationRequestSchema,
+    response: successEnvelopeSchema(coachConversationDetailSchema),
+  }),
+  coachConversation: defineRoute({
+    method: 'GET',
+    path: '/v1/me/coach/conversations/{conversationId}',
+    operationId: 'getCoachConversation',
+    summary: 'One coach thread with its messages, facts and suggestions kept apart',
+    auth: 'user',
+    successStatus: 200,
+    params: coachConversationParamsSchema,
+    response: successEnvelopeSchema(coachConversationDetailSchema),
+  }),
+  sendCoachMessage: defineRoute({
+    method: 'POST',
+    path: '/v1/me/coach/conversations/{conversationId}/messages',
+    operationId: 'sendCoachMessage',
+    summary: 'Send a message and receive the grounded reply',
+    auth: 'user',
+    successStatus: 200,
+    params: coachConversationParamsSchema,
+    body: sendCoachMessageRequestSchema,
+    response: successEnvelopeSchema(coachConversationDetailSchema),
   }),
   applicationTracker: defineRoute({
     method: 'GET',

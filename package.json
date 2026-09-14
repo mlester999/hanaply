@@ -33,7 +33,11 @@
     "db:types": "node tooling/db/generate-types.mjs --write",
     "db:types:check": "node tooling/db/generate-types.mjs --check",
     "admin:bootstrap": "node tooling/bootstrap-super-admin.mjs",
-    "e2e": "playwright test --config tooling/playwright.config.ts",
+    "e2e": "node tooling/e2e/run.mjs",
+    "e2e:stack": "node tooling/e2e/stack.mjs",
+    "e2e:stack:stop": "node tooling/e2e/stack.mjs stop",
+    "e2e:stack:status": "node tooling/e2e/stack.mjs status",
+    "e2e:stack:env": "node tooling/e2e/stack.mjs env",
     "openapi:generate": "tsx tooling/openapi-artifact.ts --write",
     "openapi:check": "tsx tooling/openapi-artifact.ts --check",
     "secrets:check": "node tooling/secret-scan.mjs",
@@ -41,7 +45,8 @@
     "validate": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm tokens:check && pnpm build && pnpm openapi:check && pnpm secrets:check",
     "validate:local": "pnpm validate && pnpm db:reset && pnpm db:lint && pnpm db:test && pnpm db:types:check && pnpm e2e",
     "validate:db": "pnpm db:verify",
-    "validate:dockerless": "pnpm validate && pnpm db:verify"
+    "validate:dockerless": "pnpm validate && pnpm db:verify",
+    "validate:launch": "pnpm validate && pnpm db:verify && pnpm db:harness:test 20_ && pnpm db:harness:test 160_ && pnpm db:harness:test 60_ && pnpm db:harness:test 80_ && pnpm e2e"
   },
   "devDependencies": {
     "@eslint/js": "9.39.5",

@@ -10,6 +10,7 @@
     "baseUrl": "..",
     "paths": {
       "@hanaply/ai": ["packages/ai/src/index.ts"],
+      "@hanaply/ai/*": ["packages/ai/src/*.ts"],
       "@hanaply/auth": ["packages/auth/src/index.ts"],
       "@hanaply/config": ["packages/config/src/index.ts"],
       "@hanaply/contracts": ["packages/contracts/src/index.ts"],
@@ -18,6 +19,7 @@
       "@hanaply/email": ["packages/email/src/index.ts"],
       "@hanaply/entitlements": ["packages/entitlements/src/index.ts"],
       "@hanaply/jobs": ["packages/jobs/src/index.ts"],
+      "@hanaply/matching": ["packages/matching/src/index.ts"],
       "@hanaply/observability": ["packages/observability/src/index.ts"],
       "@hanaply/platform": ["packages/platform/src/index.ts"],
       "@hanaply/testing": ["packages/testing/src/index.ts"],

@@ -1,6 +1,6 @@
 import AxeBuilder from '@axe-core/playwright';
-import { expect, test, type Page } from '@playwright/test';
 
+import { expect, test, type Page } from './browser-health.js';
 import { testAccounts } from './accounts.js';
 import { clearMailbox, firstActionLink, waitForEmail } from './mailpit.js';
 import { getAuthUserByEmail, getServiceRows } from './test-data.js';
@@ -369,9 +369,14 @@ test('explains release status and provides keyboard previews and an accessible F
       name: 'One trusted profile. One clearer path from discovery to application.',
     }),
   ).toBeVisible();
-  await expect(page.getByText('Account foundation', { exact: true })).toBeVisible();
-  await expect(page.getByText('In development', { exact: true })).toBeVisible();
-  await expect(page.getByText('Career intelligence', { exact: true })).toBeVisible();
+  // Scoped to the release-status list. A bare text match for "In development"
+  // is not specific enough: the how-it-works steps and the roadmap also use the
+  // same words, which is correct copy rather than a defect.
+  const releaseStatus = page.locator('.product-status-list');
+  await expect(releaseStatus.getByText('Account foundation', { exact: true })).toBeVisible();
+  await expect(releaseStatus.getByText('Career Radar and job intelligence')).toBeVisible();
+  await expect(releaseStatus.getByText('In development').first()).toBeVisible();
+  await expect(releaseStatus.getByText('Planned', { exact: true })).toBeVisible();
   await expect(page.locator('.hero-visual > .preview-label')).toHaveText(
     'Product preview · Demonstration data',
   );
@@ -389,7 +394,9 @@ test('explains release status and provides keyboard previews and an accessible F
   const faqQuestion = page.locator('.faq-list details').nth(1).locator('summary');
   await faqQuestion.focus();
   await page.keyboard.press('Enter');
-  await expect(page.getByText(/Hanaply will prepare materials for your review/iu)).toBeVisible();
+  // The FAQ copy was corrected to describe what ships today, so the assertion
+  // tracks the current wording rather than the pre-launch promise.
+  await expect(page.getByText(/Hanaply prepares materials for your review/iu)).toBeVisible();
   await expect(
     page.getByRole('heading', {
       name: 'Build the Career Profile your next application can trust.',

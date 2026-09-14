@@ -1,4 +1,4 @@
-import { HanaplyApiError, type ApplicationPackDetail } from '@hanaply/contracts';
+import { HanaplyApiError, type AiStatus, type ApplicationPackDetail } from '@hanaply/contracts';
 import { Alert, Badge, Card, LinkButton, PageHeader } from '@hanaply/ui';
 import { ArrowLeft, ExternalLink, FileWarning, ListChecks, PackageOpen, Radar } from 'lucide-react';
 import type { Metadata } from 'next';
@@ -89,14 +89,32 @@ export default async function ApplicationPackPage({
   if (!isUuid(packId)) notFound();
 
   const { session } = await requireUser();
+  const client = createAuthenticatedApiClient(session);
 
   let detail: ApplicationPackDetail | null = null;
   let unavailable: string | null = null;
   try {
-    detail = (await createAuthenticatedApiClient(session).applicationPack(packId)).data;
+    detail = (await client.applicationPack(packId)).data;
   } catch (error) {
     if (error instanceof HanaplyApiError && error.status === 404) notFound();
     unavailable = applicationErrorMessage(error, 'Hanaply could not load this Application Pack.');
+  }
+
+  // Whether the AI path may run is a separate read from the pack itself, and it
+  // fails separately: an unreadable status is reported as unreadable and the
+  // panel falls back to the deterministic path rather than pretending either
+  // answer. The pack page is never taken down by it.
+  let aiStatus: AiStatus | null = null;
+  let aiStatusUnavailable: string | null = null;
+  if (detail !== null) {
+    try {
+      aiStatus = (await client.aiStatus()).data.status;
+    } catch (error) {
+      aiStatusUnavailable = applicationErrorMessage(
+        error,
+        'Hanaply could not read whether AI generation is configured.',
+      );
+    }
   }
 
   if (detail === null) {
@@ -142,6 +160,8 @@ export default async function ApplicationPackPage({
         <p className="application-detail-status">{packStatusExplanation(detail.status)}</p>
 
         <GeneratePackPanel
+          aiStatus={aiStatus}
+          aiStatusUnavailable={aiStatusUnavailable}
           artifactCount={artifacts.length}
           evidenceFactCount={cited}
           jobId={detail.jobId}

@@ -54,6 +54,7 @@ export function useApplicationAction(
           conflict: false,
           refused: false,
           packId: null,
+          packAi: null,
         });
       }
     });

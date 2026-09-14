@@ -27,8 +27,10 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { createServer } from 'node:net';
-import { inflateRawSync } from 'node:zlib';
-import { dirname, join, resolve } from 'node:path';
+import { join, resolve } from 'node:path';
+
+import { findPostgresBinDirectory } from './pg-bin.mjs';
+import { readZipDirectory, readZipEntry } from './zip.mjs';
 
 const root = resolve(import.meta.dirname, '..', '..');
 const stateDir = resolve(root, '.localdb');
@@ -80,34 +82,13 @@ function note(message) {
 }
 
 function findPgBin() {
-  if (process.env.HANAPLY_PG_BIN) {
-    return process.env.HANAPLY_PG_BIN;
+  const bin = findPostgresBinDirectory();
+  if (!bin) {
+    fail(
+      'PostgreSQL server binaries were not found. Install PostgreSQL 17+ or set HANAPLY_PG_BIN to its bin directory.',
+    );
   }
-  const candidates = [];
-  if (isWindows) {
-    const programFiles = process.env['ProgramFiles'] ?? 'C:\\Program Files';
-    const pgRoot = join(programFiles, 'PostgreSQL');
-    if (existsSync(pgRoot)) {
-      for (const entry of readdirSync(pgRoot).sort().reverse()) {
-        candidates.push(join(pgRoot, entry, 'bin'));
-      }
-    }
-  } else {
-    candidates.push('/usr/lib/postgresql/18/bin', '/usr/local/pgsql/bin', '/opt/homebrew/bin');
-  }
-  for (const candidate of candidates) {
-    if (existsSync(join(candidate, isWindows ? 'pg_ctl.exe' : 'pg_ctl'))) {
-      return candidate;
-    }
-  }
-  const which = spawnSync(isWindows ? 'where' : 'which', ['pg_ctl'], { encoding: 'utf8' });
-  if (which.status === 0 && which.stdout.trim()) {
-    return dirname(which.stdout.trim().split(/\r?\n/)[0]);
-  }
-  fail(
-    'PostgreSQL server binaries were not found. Install PostgreSQL 17+ or set HANAPLY_PG_BIN to its bin directory.',
-  );
-  return '';
+  return bin;
 }
 
 const pgBin = findPgBin();
@@ -366,55 +347,6 @@ function applyDemoData(databaseName) {
 // ---------------------------------------------------------------------------
 // pgTAP provisioning
 // ---------------------------------------------------------------------------
-
-function readZipDirectory(buffer) {
-  let eocd = -1;
-  for (let i = buffer.length - 22; i >= Math.max(0, buffer.length - 66_000); i -= 1) {
-    if (buffer.readUInt32LE(i) === 0x06054b50) {
-      eocd = i;
-      break;
-    }
-  }
-  if (eocd < 0) {
-    throw new Error('zip central directory not found');
-  }
-  const total = buffer.readUInt16LE(eocd + 10);
-  let cursor = buffer.readUInt32LE(eocd + 16);
-  const entries = [];
-  for (let i = 0; i < total; i += 1) {
-    if (buffer.readUInt32LE(cursor) !== 0x02014b50) {
-      throw new Error('zip central directory entry is malformed');
-    }
-    const method = buffer.readUInt16LE(cursor + 10);
-    const compressedSize = buffer.readUInt32LE(cursor + 20);
-    const nameLength = buffer.readUInt16LE(cursor + 28);
-    const extraLength = buffer.readUInt16LE(cursor + 30);
-    const commentLength = buffer.readUInt16LE(cursor + 32);
-    const localOffset = buffer.readUInt32LE(cursor + 42);
-    const name = buffer.toString('utf8', cursor + 46, cursor + 46 + nameLength);
-    entries.push({ name, method, compressedSize, localOffset });
-    cursor += 46 + nameLength + extraLength + commentLength;
-  }
-  return entries;
-}
-
-function readZipEntry(buffer, entry) {
-  const offset = entry.localOffset;
-  if (buffer.readUInt32LE(offset) !== 0x04034b50) {
-    throw new Error('zip local header is malformed');
-  }
-  const nameLength = buffer.readUInt16LE(offset + 26);
-  const extraLength = buffer.readUInt16LE(offset + 28);
-  const start = offset + 30 + nameLength + extraLength;
-  const payload = buffer.subarray(start, start + entry.compressedSize);
-  if (entry.method === 0) {
-    return Buffer.from(payload);
-  }
-  if (entry.method === 8) {
-    return inflateRawSync(payload);
-  }
-  throw new Error(`zip compression method ${entry.method} is unsupported`);
-}
 
 async function ensurePgtap() {
   const controlPath = join(extensionDir, 'pgtap.control');

@@ -1,10 +1,39 @@
+import type { AiStatus } from '@hanaply/contracts';
 import { Card, LinkButton, PageHeader } from '@hanaply/ui';
 import { Bell, Globe2, LockKeyhole } from 'lucide-react';
 import type { Metadata } from 'next';
 
+import { AiStatusNotice } from '@/components/coach/ai-status-notice';
+import { coachErrorMessage } from '@/lib/coach-action';
+import { createAuthenticatedApiClient, requireUser } from '@/lib/session';
+
 export const metadata: Metadata = { title: 'Account Settings' };
 
-export default function SettingsPage() {
+/**
+ * Whether AI generation is available is part of the account surface, not a
+ * hidden deployment detail: a member who reads that the coach or an analysis
+ * exists deserves to be told when a model cannot write in this deployment. The
+ * read is caught here so an unreadable status is reported as unreadable rather
+ * than taking the settings page down.
+ */
+async function readAiStatus(): Promise<{ status: AiStatus | null; unavailable: string | null }> {
+  try {
+    const { session } = await requireUser();
+    return {
+      status: (await createAuthenticatedApiClient(session).aiStatus()).data.status,
+      unavailable: null,
+    };
+  } catch (error) {
+    return {
+      status: null,
+      unavailable: coachErrorMessage(error, 'Hanaply could not read whether AI is configured.'),
+    };
+  }
+}
+
+export default async function SettingsPage() {
+  const { status, unavailable } = await readAiStatus();
+
   return (
     <div className="workspace-page">
       <PageHeader
@@ -37,6 +66,7 @@ export default function SettingsPage() {
             Email Preferences
           </LinkButton>
         </Card>
+        <AiStatusNotice status={status} unavailable={unavailable} variant="settings" />
       </div>
     </div>
   );

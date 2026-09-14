@@ -31,6 +31,10 @@ const serviceEnvironment = {
   BUILD_SHA: 'e2e',
   EMAIL_PROVIDER: 'capture',
   EMAIL_ALLOW_LIVE_SENDS: 'false',
+  // The capture email provider appends rendered mail to the same JSON-lines
+  // store the Dockerless mailbox serves, so `waitForEmail` sees application
+  // mail as well as the Supabase-Auth-owned messages from the auth double.
+  EMAIL_CAPTURE_FILE: supabase.mailboxFile,
   ADMIN_BOOTSTRAP_ENABLED: 'false',
 };
 

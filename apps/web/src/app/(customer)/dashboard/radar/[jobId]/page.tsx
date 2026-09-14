@@ -1,4 +1,9 @@
-import { HanaplyApiError, type JobDetail } from '@hanaply/contracts';
+import {
+  HanaplyApiError,
+  type AiDeterministicMatch,
+  type JobDetail,
+  type OpportunityAnalysisResponse,
+} from '@hanaply/contracts';
 import { Card, LinkButton, PageHeader } from '@hanaply/ui';
 import { ArrowLeft, SearchX } from 'lucide-react';
 import type { Metadata } from 'next';
@@ -13,6 +18,7 @@ import {
   type TrackedApplicationSummary,
 } from '@/components/application/track-application-panel';
 import { JobIntelligence, JobOriginalPosting } from '@/components/radar/job-intelligence';
+import { OpportunityAnalysis } from '@/components/radar/opportunity-analysis';
 import { OpportunityHeader } from '@/components/radar/opportunity-header';
 import { radarErrorMessage } from '@/lib/radar-action';
 import { isUuid } from '@/lib/radar';
@@ -25,6 +31,35 @@ interface OpportunityAdditions {
   existingPack: ExistingPackSummary | null;
   /** The tracker row the API already reports for this opportunity, if any. */
   tracked: TrackedApplicationSummary | null;
+  /** The stored AI analysis read, or null when there is nothing to read. */
+  analysis: OpportunityAnalysisResponse | null;
+  /** Why the analysis read failed, when it did. */
+  analysisUnavailable: string | null;
+}
+
+/**
+ * The stored analysis, read without throwing.
+ *
+ * A failed read here is not a failed page: the AI panel says the analysis could
+ * not be read and points at the deterministic intelligence above it. Catching at
+ * the call rather than inspecting a settled rejection keeps the API's own
+ * sentence, which is the only place the real reason is stated.
+ */
+async function readStoredAnalysis(
+  client: ReturnType<typeof createAuthenticatedApiClient>,
+  jobId: string,
+): Promise<{ analysis: OpportunityAnalysisResponse | null; unavailable: string | null }> {
+  try {
+    return { analysis: (await client.storedOpportunityAnalysis(jobId)).data, unavailable: null };
+  } catch (error) {
+    return {
+      analysis: null,
+      unavailable: radarErrorMessage(
+        error,
+        'Hanaply could not read the stored AI analysis for this opportunity.',
+      ),
+    };
+  }
 }
 
 /**
@@ -38,9 +73,10 @@ async function readOpportunityAdditions(
   client: ReturnType<typeof createAuthenticatedApiClient>,
   detail: JobDetail,
 ): Promise<OpportunityAdditions> {
-  const [packsResult, trackerResult] = await Promise.allSettled([
+  const [packsResult, trackerResult, analysisResult] = await Promise.allSettled([
     client.applicationPacks(),
     client.applicationTracker(),
+    readStoredAnalysis(client, detail.id),
   ]);
 
   let existingPack: ExistingPackSummary | null = null;
@@ -63,7 +99,28 @@ async function readOpportunityAdditions(
     if (row !== null) tracked = { id: row.id, stage: row.stage };
   }
 
-  return { existingPack, tracked };
+  // This third read never rejects: it resolves to its own failure state, so the
+  // page needs no untyped settled-rejection to render the degraded panel.
+  const analysisRead = analysisResult.status === 'fulfilled' ? analysisResult.value : null;
+
+  return {
+    existingPack,
+    tracked,
+    analysis: analysisRead?.analysis ?? null,
+    analysisUnavailable: analysisRead?.unavailable ?? null,
+  };
+}
+
+/** The stored match, quoted into the shape the AI panel shows beside a report. */
+function deterministicMatchFrom(detail: JobDetail): AiDeterministicMatch | null {
+  if (detail.match === null) return null;
+  return {
+    score: detail.match.score,
+    verdict: detail.match.verdict,
+    confidence: detail.match.confidence,
+    modelVersion: detail.match.modelVersion,
+    recommendedAction: detail.match.recommendedAction,
+  };
 }
 
 export default async function OpportunityDetailPage({
@@ -143,6 +200,14 @@ export default async function OpportunityDetailPage({
             jobId={detail.id}
           />
         }
+      />
+
+      <OpportunityAnalysis
+        analysis={additions.analysis}
+        careerProfileId={detail.careerProfileId}
+        fallbackMatch={deterministicMatchFrom(detail)}
+        jobId={detail.id}
+        unavailable={additions.analysisUnavailable}
       />
 
       <TrackApplicationPanel

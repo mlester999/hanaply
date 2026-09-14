@@ -1,3 +1,4 @@
+import { createAiProvider, type AiProvider } from '@hanaply/ai';
 import type { ApiEnvironment } from '@hanaply/config';
 import { Module, type DynamicModule } from '@nestjs/common';
 import { APP_GUARD, Reflector } from '@nestjs/core';
@@ -8,6 +9,10 @@ import { HanaplyService } from './app.service.js';
 import { AdminJobsController } from './admin-jobs.controllers.js';
 import { AdminJobsRepository } from './admin-jobs.repository.js';
 import { AdminJobsService } from './admin-jobs.service.js';
+import { AiController } from './ai.controllers.js';
+import { AiMeter } from './ai-meter.js';
+import { AiRepository } from './ai.repository.js';
+import { AiService } from './ai.service.js';
 import { InsightsController } from './insights.controllers.js';
 import { InsightsRepository } from './insights.repository.js';
 import { InsightsService } from './insights.service.js';
@@ -24,7 +29,7 @@ import { CareerService } from './career.service.js';
 import { PaymentRepository } from './payment.repository.js';
 import { PaymentService } from './payment.service.js';
 import { HanaplyRepository } from './repository.js';
-import { API_ENVIRONMENT } from './tokens.js';
+import { AI_PROVIDER_TOKEN, API_ENVIRONMENT } from './tokens.js';
 
 export interface ApiRuntimeOverrides {
   repository?: unknown;
@@ -33,6 +38,13 @@ export interface ApiRuntimeOverrides {
   adminJobsRepository?: unknown;
   insightsRepository?: unknown;
   authService?: unknown;
+  /** The AI database boundary, so a test can run the routes without a database. */
+  aiRepository?: unknown;
+  /**
+   * The resolved AI provider. A test injects `FakeAiProvider` here to exercise
+   * generation, refusals, and provider failures without a network or a key.
+   */
+  aiProvider?: AiProvider;
 }
 
 @Module({})
@@ -52,10 +64,22 @@ export class AppModule {
         AdminPaymentController,
         AdminJobsController,
         InsightsController,
+        AiController,
         DocumentationController,
       ],
       providers: [
         { provide: API_ENVIRONMENT, useValue: environment },
+        /**
+         * The provider is resolved once per application, and it never throws:
+         * a malformed environment, a selected provider with no credential, and a
+         * missing base URL each produce a `DisabledAiProvider` that reports why.
+         * A caller therefore always has a provider to ask, and the answer to
+         * "can a model generate?" is a value rather than an exception.
+         */
+        {
+          provide: AI_PROVIDER_TOKEN,
+          useValue: overrides.aiProvider ?? createAiProvider(environment),
+        },
         overrides.repository
           ? { provide: HanaplyRepository, useValue: overrides.repository }
           : HanaplyRepository,
@@ -71,11 +95,16 @@ export class AppModule {
         overrides.insightsRepository
           ? { provide: InsightsRepository, useValue: overrides.insightsRepository }
           : InsightsRepository,
+        overrides.aiRepository
+          ? { provide: AiRepository, useValue: overrides.aiRepository }
+          : AiRepository,
         HanaplyService,
         PaymentService,
         CareerService,
         AdminJobsService,
         InsightsService,
+        AiMeter,
+        AiService,
         overrides.authService
           ? { provide: SupabaseAuthService, useValue: overrides.authService }
           : SupabaseAuthService,

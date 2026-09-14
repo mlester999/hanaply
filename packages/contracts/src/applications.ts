@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { packGenerationAiSchema } from './ai.js';
 import { jobCardSchema } from './jobs.js';
 
 /**
@@ -209,6 +210,14 @@ export const applicationPackGenerationSchema = applicationPackDetailSchema.exten
   /** True when every requested artifact existed and the pack was marked ready. */
   finalized: z.boolean(),
   generatedKinds: z.array(applicationArtifactKindSchema),
+  /**
+   * Which generator ran, and what it produced.
+   *
+   * Required rather than optional: a response that does not say whether a model
+   * wrote the artifacts or Hanaply's deterministic engine composed them is a
+   * response that cannot be labelled honestly.
+   */
+  ai: packGenerationAiSchema,
 });
 
 export const trackApplicationSchema = z
