@@ -57,22 +57,19 @@ import { runJobWorkerCycle } from './worker-cycle.js';
  * over rows the seed already wrote, and the one external provider the worker can
  * reach — email — is the stack's capture provider.
  *
- * One defect this file records rather than fixes: `public.jobs.updated_at` is
- * not a content revision. `public.refresh_job_freshness`
+ * A note on what used to be recorded here rather than fixed: `public.jobs.updated_at`
+ * is not a content revision. `public.refresh_job_freshness`
  * (`supabase/migrations/20260915090000_job_ingestion_foundation.sql:1187-1189`)
  * stamps `freshness_checked_at` on every job on every pass, and the generic
  * `jobs_set_updated_at` trigger (same file, lines 1226-1228) turns that
- * bookkeeping write into a new `updated_at`. `matching_job_candidates` compares
- * that column against the revision stored on a result
- * (`20260917090000_match_computation_support.sql:178`), so a stored
- * `job_updated_at` never equals the posting's current one, and the documented
- * "already-scored jobs are only revisited when the profile or the posting
- * changed" is wider than it reads: the worker's own maintenance cycle re-opens
- * every posting on the next due pass. The behaviour is real but changing it is a
- * design decision about what a job's content revision means, so the spec asserts
- * the part that is guaranteed — the recorded revision is a real timestamp from
- * this run and never ahead of the posting's current revision — instead of an
- * equality that the schema cannot honour.
+ * bookkeeping write into a new `updated_at`, so comparing it against the revision
+ * stored on a result re-opened every posting on the next due pass. The eligibility
+ * decision now reads `public.jobs.content_hash`, a canonical fingerprint that
+ * moves only when meaningful content moves
+ * (`supabase/migrations/20260928090000_job_content_hash.sql`), and this spec still
+ * asserts a bound rather than an equality on `job_updated_at` because that column
+ * remains what it always was: a real record of when the posting row was written,
+ * which the freshness cycle legitimately advances after matching has run.
  */
 test.describe.configure({ mode: 'serial' });
 
@@ -391,11 +388,13 @@ test('the matching worker runs its cycles once and the deterministic result is p
    * The stored revision is bounded rather than equated with the posting's
    * current `updated_at`.
    *
-   * It cannot be an equality: the freshness cycle runs after matching in the
-   * same pass, it stamps `freshness_checked_at` on every job, and the generic
-   * `set_updated_at` trigger on `public.jobs` treats that bookkeeping write as a
-   * change to the posting. So the revision the match was scored against is
-   * always at or before the current one, and never anything this spec invented.
+   * It cannot be an equality, and not for the reason it once could not: the
+   * freshness cycle runs after matching in the same pass, it stamps
+   * `freshness_checked_at` on every job, and the generic `set_updated_at` trigger
+   * on `public.jobs` treats that bookkeeping write as a change to the posting row.
+   * That is what the column is for, and none of it is read as a content revision
+   * any more. So the revision the match was scored against is always at or before
+   * the current one, and never anything this spec invented.
    */
   const scoredAgainst = Date.parse(stored.job_updated_at);
   expect(Number.isNaN(scoredAgainst)).toBe(false);

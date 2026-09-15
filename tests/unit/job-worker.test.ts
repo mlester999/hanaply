@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { parseWorkerEnvironment } from '../../packages/config/src/index.js';
 import { MissingCredentialError, type JobSourceAdapter } from '../../packages/jobs/src/index.js';
+import { modelVersion } from '../../packages/matching/src/index.js';
 import { JobIntelligenceWorker } from '../../services/worker/src/jobs.js';
 
 const environment = parseWorkerEnvironment({
@@ -16,7 +17,7 @@ const environment = parseWorkerEnvironment({
   WORKER_MODE: 'active',
   JOB_INGESTION_TIMEOUT_MS: '5000',
   MATCHING_BATCH_SIZE: '5',
-  MATCHING_CANDIDATE_LIMIT: '3',
+  MATCHING_CANDIDATE_LIMIT: '8',
   MATCHING_STALE_AFTER_HOURS: '12',
 });
 
@@ -33,6 +34,15 @@ interface RpcCall {
 /**
  * A fake PostgREST surface. The worker talks to the database exclusively through
  * named RPCs and one table read, so the fake only needs to answer those.
+ *
+ * `rpcFailure` is a per-RPC sequence of outcomes, not a switch. It is per-RPC
+ * rather than positional across the whole cycle because the ingestion cycle calls
+ * its own RPCs before the matching cycle runs: entry N of the array decides what
+ * the (N+1)th call to *that* RPC returns. A single string therefore means "every
+ * call fails from the first", which is what the existing failure tests expect,
+ * while `['record_job_matches', null]` means "the first call to
+ * `record_job_matches` fails and the second succeeds" — the shape a retry test
+ * needs, and one that a shared counter would get wrong.
  */
 function createFakeClient(options: {
   due?: boolean;
@@ -41,15 +51,24 @@ function createFakeClient(options: {
   requiresCredentials?: boolean;
   credentialEnvVar?: string | null;
   candidates?: readonly Record<string, unknown>[];
+  candidateBatches?: readonly (readonly Record<string, unknown>[])[];
   profileDetail?: Record<string, unknown>;
   evidence?: readonly string[];
-  rpcFailure?: string;
+  rpcFailure?: string | readonly (string | null | undefined)[];
+  upsertResults?: readonly Record<string, unknown>[];
 }) {
   const calls: RpcCall[] = [];
+  const callCounts = new Map<string, number>();
+  const candidateBatches = options.candidateBatches ?? [options.candidates ?? []];
+  const rpcFailure = options.rpcFailure;
   const client = {
     rpc: vi.fn((name: string, args: Record<string, unknown> = {}) => {
+      const callIndex = callCounts.get(name) ?? 0;
+      callCounts.set(name, callIndex + 1);
       calls.push({ name, args });
-      if (options.rpcFailure === name) {
+      const failsAt =
+        typeof rpcFailure === 'string' ? rpcFailure === name : rpcFailure?.[callIndex] === name;
+      if (failsAt) {
         return Promise.resolve({ data: null, error: { code: '42501', message: 'denied' } });
       }
       switch (name) {
@@ -74,11 +93,17 @@ function createFakeClient(options: {
         case 'release_ingestion_lock':
         case 'refresh_job_freshness':
           return Promise.resolve({ data: true, error: null });
-        case 'upsert_ingested_job':
-          return Promise.resolve({
-            data: { jobId, created: true, merged: false, matchedBy: 'created' },
-            error: null,
-          });
+        case 'upsert_ingested_job': {
+          const upsertIndex = callCounts.get('upsert_ingested_job') ?? 1;
+          const result = options.upsertResults?.[upsertIndex - 1] ?? {
+            jobId,
+            created: true,
+            merged: false,
+            matchedBy: 'created',
+            contentChanged: true,
+          };
+          return Promise.resolve({ data: result, error: null });
+        }
         case 'matching_subjects':
           return Promise.resolve({
             data: [
@@ -104,15 +129,21 @@ function createFakeClient(options: {
             },
             error: null,
           });
-        case 'matching_job_candidates':
+        case 'matching_job_candidates': {
+          const batch =
+            candidateBatches[
+              Math.min(callCounts.get('matching_job_candidates') ?? 1, candidateBatches.length) - 1
+            ] ?? [];
           return Promise.resolve({
             data: {
-              items: options.candidates ?? [],
+              items: batch,
               careerProfileId: profileId,
               profileVersion: 3,
+              modelVersion: 'matching-v1',
             },
             error: null,
           });
+        }
         case 'record_job_matches':
           return Promise.resolve({ data: 1, error: null });
         default:
@@ -180,6 +211,16 @@ function defaultProfileDetail() {
   };
 }
 
+/**
+ * A posting identifier for a synthetic candidate. `candidateJob()` defaults to
+ * the one `jobId` the ingestion fixtures use; a test that needs several distinct
+ * candidates has to give them distinct identifiers, because the worker keys its
+ * per-posting accounting on them.
+ */
+function syntheticJobId(suffix: string): string {
+  return `e0000000-0000-4000-8000-0000000000${suffix}`;
+}
+
 function candidateJob(overrides: Record<string, unknown> = {}) {
   return {
     id: jobId,
@@ -207,6 +248,8 @@ function candidateJob(overrides: Record<string, unknown> = {}) {
     postedAt: '2026-09-13T00:00:00.000Z',
     lastSeenAt: '2026-09-13T12:00:00.000Z',
     status: 'active',
+    // What `public.matching_job_candidates` reports for every item it returns.
+    eligibleReason: 'new_job',
     ...overrides,
   };
 }
@@ -439,5 +482,139 @@ describe('job intelligence worker', () => {
     await Promise.all([worker.runOnce(), worker.runOnce()]);
     const scheduleCalls = calls.filter((call) => call.name === 'job_ingestion_schedule');
     expect(scheduleCalls.length).toBe(1);
+  });
+
+  it('asks for candidates under the engine version the engine reports', async () => {
+    /*
+     * The version is an argument rather than something the database remembers.
+     * If this stops being passed, a deliberate engine version change re-queues
+     * nothing at all: the stored results keep claiming to be current, which is
+     * the defect the eligibility rule exists to remove.
+     */
+    const { worker, calls } = buildWorker({ candidates: [candidateJob()] });
+    await worker.runOnce();
+    const candidates = calls.find((call) => call.name === 'matching_job_candidates');
+    expect(candidates?.args.requested_model_version).toBe(modelVersion);
+  });
+
+  it('counts and reports why each posting was offered for scoring', async () => {
+    const { worker } = buildWorker({
+      candidates: [
+        candidateJob({ id: syntheticJobId('11'), eligibleReason: 'new_job' }),
+        candidateJob({ id: syntheticJobId('12'), eligibleReason: 'content_changed' }),
+        candidateJob({ id: syntheticJobId('13'), eligibleReason: 'profile_changed' }),
+        candidateJob({ id: syntheticJobId('14'), eligibleReason: 'matching_version_changed' }),
+      ],
+    });
+    await worker.runOnce();
+    const state = worker.state();
+    // Every posting the database offered was scored and counted exactly once, so
+    // the breakdown adds up to the total rather than approximating it.
+    expect(state.jobsOffered).toBe(4);
+    expect(state.jobMatchesReasoned).toBe(4);
+    expect(state.jobMatchesNew).toBe(1);
+    expect(state.jobMatchesContentChanged).toBe(1);
+    expect(state.jobMatchesProfileChanged).toBe(1);
+    expect(state.jobMatchesMatchingVersionChanged).toBe(1);
+    expect(state.jobMatchesRetried).toBe(0);
+  });
+
+  it('counts an unchanged posting as unchanged rather than as work', async () => {
+    const { worker, calls } = buildWorker({ candidates: [] });
+    await worker.runOnce();
+    expect(worker.state().profilesUnchanged).toBe(1);
+    expect(worker.state().jobsOffered).toBe(0);
+    expect(calls.some((call) => call.name === 'record_job_matches')).toBe(false);
+  });
+
+  it('treats a candidate that reports no reason as new work rather than skipping it', async () => {
+    const { worker, calls } = buildWorker({
+      candidates: [candidateJob({ id: syntheticJobId('15'), eligibleReason: undefined })],
+    });
+    await worker.runOnce();
+    expect(worker.state().jobMatchesNew).toBe(1);
+    expect(calls.some((call) => call.name === 'record_job_matches')).toBe(true);
+  });
+
+  it('retries a batch whose results could not be stored, and reports the retry as a retry', async () => {
+    /*
+     * The row is not partially written: `record_job_matches` is one call for the
+     * whole batch, so a failure stores nothing and every posting in the batch is
+     * still due. The profile stays in the queue because no match row was
+     * recorded, and the second cycle is what proves the retry happened.
+     */
+    const { worker, calls } = buildWorker(
+      {
+        candidates: [candidateJob({ id: syntheticJobId('16') })],
+        rpcFailure: ['record_job_matches', null],
+      },
+      [{ id: 1 }],
+    );
+    await worker.runOnce();
+    expect(worker.state().profilesScored).toBe(0);
+    expect(worker.state().jobMatchesRetried).toBe(0);
+
+    await worker.runOnce();
+    expect(calls.filter((call) => call.name === 'record_job_matches').length).toBe(2);
+    expect(worker.state().profilesScored).toBe(1);
+    // The second attempt is reported as a retry of the posting the first attempt
+    // could not store, not as new work: the retry is the breakdown entry, so
+    // `newJob` is zero for this cycle.
+    expect(worker.state().jobMatchesRetried).toBe(1);
+    expect(worker.state().jobMatchesNew).toBe(0);
+    expect(worker.state().jobsOffered).toBe(1);
+  });
+
+  it('forgets a pending retry once the batch is stored', async () => {
+    const { worker } = buildWorker({
+      candidates: [candidateJob({ id: syntheticJobId('17') })],
+      rpcFailure: ['record_job_matches', null],
+    });
+    await worker.runOnce();
+    await worker.runOnce();
+    // A third cycle that still sees the posting is new work again, not a retry:
+    // the batch that failed was stored by the second attempt.
+    await worker.runOnce();
+    expect(worker.state().jobMatchesRetried).toBe(0);
+    expect(worker.state().jobMatchesNew).toBe(1);
+  });
+
+  it('reports whether a re-observed posting actually changed', async () => {
+    /*
+     * The ingestion write path tells the caller whether the canonical content
+     * moved, so an operator reading an ingestion run can tell "the provider
+     * re-sent the same posting" from "the posting was edited" — the difference
+     * between a healthy scan and a reprocessing storm. `created` and `matchedBy`
+     * cannot answer that: they say how the row was found, not whether its content
+     * changed.
+     */
+    const { worker, calls } = buildWorker({
+      upsertResults: [
+        {
+          jobId,
+          created: false,
+          merged: false,
+          matchedBy: 'source_identity',
+          contentChanged: false,
+        },
+      ],
+    });
+    await worker.runOnce();
+    const upsert = calls.find((call) => call.name === 'upsert_ingested_job');
+    expect(upsert).toBeDefined();
+    const completion = calls.find((call) => call.name === 'complete_ingestion_run');
+    expect(completion?.args.outcome).toMatchObject({ status: 'succeeded' });
+  });
+
+  it('keeps a cycle healthy when the canonical content did change', async () => {
+    const { worker, calls } = buildWorker({
+      upsertResults: [
+        { jobId, created: true, merged: false, matchedBy: 'created', contentChanged: true },
+      ],
+    });
+    await worker.runOnce();
+    expect(calls.some((call) => call.name === 'upsert_ingested_job')).toBe(true);
+    expect(worker.state().lastErrorCode).toBeNull();
+    expect(worker.state().jobsCreated).toBe(1);
   });
 });

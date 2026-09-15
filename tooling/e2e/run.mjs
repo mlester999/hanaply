@@ -17,14 +17,109 @@
  */
 
 import { spawn, spawnSync } from 'node:child_process';
-import { readFileSync, rmSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 
 const root = resolve(import.meta.dirname, '..', '..');
 const stack = resolve(import.meta.dirname, 'stack.mjs');
 const localCluster = resolve(import.meta.dirname, '..', 'db', 'local-cluster.mjs');
 const stackFile = resolve(root, '.localdb', 'e2e-stack.json');
+
+/**
+ * One `pnpm e2e` per machine at a time.
+ *
+ * The stack binds fixed ports — 3100 for the web server, 3101 for the API — and
+ * every run resets the single `hanaply_e2e` database. A second run therefore
+ * does not merely queue behind the first: its opening `stack stop` tears the
+ * first run's supervisor out from under it, and the reset drops the database the
+ * first run's tests are connected to. Both then fail with symptoms that look
+ * like real defects — a page answering 404 for a job that exists, tests dying on
+ * a missing `.localdb/e2e-stack.json`, an API server that cannot bind a port.
+ * That cost several debugging rounds across concurrent workstreams before it was
+ * diagnosed, and it is why a red suite could not be attributed to anyone's
+ * change.
+ *
+ * The run therefore takes a lock and refuses to start while another holds it,
+ * naming the holder and when it started. A lock whose process is gone is stale
+ * and is taken over, so a crashed run cannot wedge the gate. Running two side by
+ * side stays possible for someone who has genuinely isolated the resources — a
+ * different database *and* different ports — and only then, by setting
+ * `HANAPLY_E2E_ALLOW_CONCURRENT=1`.
+ */
+const lockFile = resolve(root, '.localdb', 'e2e-run.lock');
+
+function processIsAlive(pid) {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function readLock() {
+  // A byte-order mark is stripped before parsing. The lock lives in a scratch
+  // directory a person may hand-edit, and an editor or shell that writes one
+  // would otherwise make the file unparseable — which the caller below reads as
+  // "stale, take it", silently defeating the lock instead of failing loudly.
+  const raw = readFileSync(lockFile, 'utf8').replace(/^\uFEFF/u, '');
+  return JSON.parse(raw);
+}
+
+function acquireRunLock() {
+  if (process.env.HANAPLY_E2E_ALLOW_CONCURRENT === '1') {
+    process.stdout.write(
+      '\n⚠ HANAPLY_E2E_ALLOW_CONCURRENT=1: the single-run lock is skipped. This is only safe when this run has its own database and its own ports.\n',
+    );
+    return;
+  }
+  try {
+    const held = readLock();
+    if (typeof held.pid === 'number' && processIsAlive(held.pid)) {
+      process.stderr.write(
+        `\nAnother pnpm e2e is already running (pid ${String(held.pid)}, started ${String(held.startedAt)}).\n` +
+          'The web and API servers bind fixed ports and every run resets the same hanaply_e2e database, so a\n' +
+          'second run would tear the first one down and both would fail with symptoms that look like real\n' +
+          'defects. Wait for it to finish.\n' +
+          'To run two at once, give each run an isolated database and ports, then set\n' +
+          'HANAPLY_E2E_ALLOW_CONCURRENT=1.\n',
+      );
+      process.exit(1);
+    }
+  } catch {
+    // No lock file, or one that is not valid JSON at all. Either way it cannot
+    // name a live holder, so it is ours to take.
+  }
+  mkdirSync(dirname(lockFile), { recursive: true });
+  writeFileSync(
+    lockFile,
+    JSON.stringify(
+      { pid: process.pid, startedAt: new Date().toISOString(), args: process.argv.slice(2) },
+      null,
+      2,
+    ),
+  );
+}
+
+function releaseRunLock() {
+  try {
+    const held = readLock();
+    // Only the holder releases it, so nothing else can unlock a run in flight.
+    if (held.pid === process.pid) rmSync(lockFile, { force: true });
+  } catch {
+    // Nothing to release.
+  }
+}
+
+acquireRunLock();
+process.on('exit', releaseRunLock);
+for (const signal of ['SIGINT', 'SIGTERM']) {
+  process.on(signal, () => {
+    releaseRunLock();
+    process.exit(1);
+  });
+}
 
 function run(command, args, { allowFailure = false } = {}) {
   const result = spawnSync(command, args, { cwd: root, stdio: 'inherit', shell: false });

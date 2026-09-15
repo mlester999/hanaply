@@ -30,6 +30,7 @@
     "db:demo": "node tooling/db/local-cluster.mjs demo",
     "db:harness:stop": "node tooling/db/local-cluster.mjs stop",
     "db:verify": "node tooling/db/local-cluster.mjs reset && node tooling/db/local-cluster.mjs test",
+    "db:concurrency:check": "node tooling/db/concurrent-ingestion-check.mjs",
     "db:types": "node tooling/db/generate-types.mjs --write",
     "db:types:check": "node tooling/db/generate-types.mjs --check",
     "admin:bootstrap": "node tooling/bootstrap-super-admin.mjs",
@@ -45,7 +46,7 @@
     "validate": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm tokens:check && pnpm build && pnpm openapi:check && pnpm secrets:check",
     "validate:local": "pnpm validate && pnpm db:reset && pnpm db:lint && pnpm db:test && pnpm db:types:check && pnpm e2e",
     "validate:db": "pnpm db:verify",
-    "validate:dockerless": "pnpm validate && pnpm db:verify && pnpm db:types:check",
+    "validate:dockerless": "pnpm validate && pnpm db:verify && pnpm db:concurrency:check && pnpm db:types:check",
     "validate:launch": "pnpm validate && pnpm db:verify && pnpm db:types:check && pnpm audit:prod && pnpm e2e"
   },
   "devDependencies": {

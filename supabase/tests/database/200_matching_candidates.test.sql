@@ -25,9 +25,15 @@ $$;
 --
 -- These assertions execute the function rather than describe it: the ordering
 -- expression that could not be resolved, the filters that decide what is due,
--- the batch bound, the authorization, and the two ways a posting becomes due
--- again — a changed profile and changed content.
-select plan(17);
+-- the batch bound, the authorization, and the ways a posting becomes due again —
+-- a changed profile, a changed canonical content hash, and a matching-engine
+-- version change.
+--
+-- The defect this file was written around is now asserted as a negative rather
+-- than recorded: `jobs.updated_at` is not a content revision, so a write that
+-- touches only bookkeeping — `last_seen_at`, `freshness_checked_at`, or
+-- `updated_at` itself — must not make an already-scored posting eligible.
+select plan(37);
 
 -- ---------------------------------------------------------------------------
 -- Fixtures
@@ -204,7 +210,11 @@ select 'job-dismissed', (public.upsert_ingested_job(
   gen_random_uuid()
 ) ->> 'jobId')::uuid;
 
--- The one posting that already has a stored result.
+-- The one posting that already has a stored result. It is written by
+-- `record_job_matches` exactly as a scoring pass writes it, which means the row
+-- records the canonical content revision it was computed from — `job-scored`
+-- would otherwise be eligible for every profile on the "the revision I recorded
+-- is not the posting's" branch.
 select public.record_job_matches(
   'c0000000-0000-4000-8000-000000000001',
   pg_catalog.jsonb_build_object(
@@ -235,16 +245,64 @@ select public.record_job_feedback(
 /**
  * The candidate read for the fixture profile, so each assertion reads like the
  * question it is asking rather than repeating a five-line call.
+ *
+ * `requested_model_version` defaults to the engine version the fixtures store on
+ * their results, so an assertion that is not about the version does not have to
+ * restate it. The version is an argument rather than a constant the database
+ * remembers: it belongs to the engine, and the worker passes its own.
  */
-create or replace function pg_temp.candidates(batch integer default 60)
+create or replace function pg_temp.candidates(batch integer default 60, model text default 'matching-v1')
 returns jsonb
 language sql
 as $$
   select public.matching_job_candidates(
     'c0000000-0000-4000-8000-000000000001',
     (select value from pg_temp.candidate_ids where key = 'profile-a'),
-    batch
+    batch,
+    model
   );
+$$;
+
+/**
+ * Every posting this profile currently has a stored result for is recorded as
+ * scored against the revision it actually has, which is what a real scoring pass
+ * leaves behind. Called between phases rather than once, because a phase that
+ * changes content has to re-score before the next phase means anything.
+ */
+create or replace function pg_temp.score_candidates()
+returns integer
+language plpgsql
+as $$
+declare
+  written integer;
+begin
+  select public.record_job_matches(
+    'c0000000-0000-4000-8000-000000000001',
+    pg_catalog.jsonb_build_object(
+      'careerProfileId', (select value from pg_temp.candidate_ids where key = 'profile-a'),
+      'items', (
+        select coalesce(
+          pg_catalog.jsonb_agg(pg_catalog.jsonb_build_object(
+            'jobId', entry ->> 'id',
+            'score', 70,
+            'verdict', 'good_match',
+            'confidence', 'medium',
+            'modelVersion', 'matching-v1',
+            'recommendedAction', 'Apply, and address the gap in your summary honestly rather than leaving it unexplained.',
+            'evidenceFactIds', '[]'::jsonb,
+            'dataQuality', '{}'::jsonb
+          )),
+          '[]'::jsonb
+        )
+        from pg_catalog.jsonb_array_elements(pg_temp.candidates() -> 'items') as entry
+      )
+    ),
+    gen_random_uuid()
+  )
+  into written;
+
+  return written;
+end;
 $$;
 
 -- ---------------------------------------------------------------------------
@@ -255,6 +313,11 @@ select is(
   pg_catalog.jsonb_array_length(pg_temp.candidates() -> 'items'),
   2,
   'only postings that are unscored and not dismissed are candidates'
+);
+select is(
+  pg_temp.candidates() -> 'items' -> 0 ->> 'eligibleReason',
+  'new_job',
+  'a posting that has never been scored says why it is a candidate'
 );
 select is(
   pg_temp.candidates() -> 'items' -> 0 ->> 'id',
@@ -353,25 +416,10 @@ select is(
   'a posting already scored returns when the profile changed'
 );
 
-select public.record_job_matches(
-  'c0000000-0000-4000-8000-000000000001',
-  pg_catalog.jsonb_build_object(
-    'careerProfileId', (select value from candidate_ids where key = 'profile-a'),
-    'items', (
-      select pg_catalog.jsonb_agg(pg_catalog.jsonb_build_object(
-        'jobId', entry ->> 'id',
-        'score', 70,
-        'verdict', 'good_match',
-        'confidence', 'medium',
-        'modelVersion', 'matching-v1',
-        'recommendedAction', 'Apply, and address the gap in your summary honestly rather than leaving it unexplained.',
-        'evidenceFactIds', '[]'::jsonb,
-        'dataQuality', '{}'::jsonb
-      ))
-      from pg_catalog.jsonb_array_elements(pg_temp.candidates() -> 'items') as entry
-    )
-  ),
-  gen_random_uuid()
+select is(
+  pg_temp.score_candidates(),
+  3,
+  'the changed profile is re-scored, recording the revision each result was computed from'
 );
 select is(
   pg_catalog.jsonb_array_length(pg_temp.candidates() -> 'items'),
@@ -379,21 +427,143 @@ select is(
   'nothing is offered once every posting has been scored against the current profile'
 );
 
+-- ---------------------------------------------------------------------------
+-- The defect: bookkeeping is not content
+-- ---------------------------------------------------------------------------
+
+/*
+ * Everything below moves an observation timestamp or a bookkeeping column on the
+ * canonical row and nothing else. All of them are writes the worker's own
+ * maintenance cycle performs, and each one used to re-open every posting in the
+ * database because `matching_job_candidates` compared `jobs.updated_at` against
+ * the revision stored on the result.
+ *
+ * The content revision is captured before the writes and compared after, which is
+ * the question that matters: did the maintenance pass change what a match score
+ * would be computed from?
+ */
+create temporary table observation_snapshot on commit drop as
+select
+  jobs.id,
+  jobs.content_hash,
+  jobs.content_changed_at,
+  jobs.freshness_checked_at,
+  jobs.last_verified_at
+from public.jobs as jobs
+where jobs.id in (
+  select value from candidate_ids where key in ('job-scored', 'job-undated', 'job-recent')
+);
+
+/*
+ * Why this is a `do` block rather than an assertion: the three writes above stamp
+ * columns with `now()`, and `now()` is fixed for the whole transaction, so a
+ * column a write stamped reads identically before and after the write. A
+ * timestamp comparison cannot show that the writes ran, and a pgTAP assertion
+ * that cannot fail is worse than none. This block asks the database for the row
+ * count of each write instead, and raises — failing the file — if any of them
+ * touched nothing, because then the negative result below would prove nothing.
+ *
+ * The positive evidence that the defect is fixed is assertion 1: after all of
+ * this, a posting that a bookkeeping-only write touched is still offered as
+ * `new_job` only when it has never been scored, and the scored one is not offered
+ * at all.
+ */
+do $bookkeeping$
+declare
+  changed integer;
+begin
+  update public.jobs set last_seen_at = now() + interval '5 minutes'
+  where id = (select value from candidate_ids where key = 'job-scored');
+  get diagnostics changed = row_count;
+  if changed <> 1 then
+    raise exception 'the last_seen_at bookkeeping write matched % rows, not one', changed;
+  end if;
+
+  update public.jobs set freshness_checked_at = now() + interval '5 minutes'
+  where id = (select value from candidate_ids where key = 'job-undated');
+  get diagnostics changed = row_count;
+  if changed <> 1 then
+    raise exception 'the freshness_checked_at bookkeeping write matched % rows, not one', changed;
+  end if;
+
+  update public.jobs set updated_at = now() + interval '5 minutes', last_verified_at = now()
+  where id = (select value from candidate_ids where key = 'job-recent');
+  get diagnostics changed = row_count;
+  if changed <> 1 then
+    raise exception 'the updated_at bookkeeping write matched % rows, not one', changed;
+  end if;
+end;
+$bookkeeping$;
+
+select is(
+  pg_catalog.jsonb_array_length(pg_temp.candidates() -> 'items'),
+  0,
+  'updating last_seen_at, freshness_checked_at, or updated_at alone makes no scored posting eligible again'
+);
+
+select is(
+  (select count(*)::integer
+   from public.jobs as jobs
+   join observation_snapshot as before on before.id = jobs.id
+   where jobs.content_hash is not distinct from before.content_hash
+     and jobs.content_changed_at is not distinct from before.content_changed_at),
+  3,
+  'and the maintenance writes left every canonical content revision untouched'
+);
+/*
+ * The three writes above stamp `now()`, which is fixed for the whole transaction,
+ * so a timestamp comparison cannot show they happened — the `do` block that ran
+ * them already asserted that each one touched exactly one row. What is asserted
+ * here is the thing that matters: none of them produced a revision, and the queue
+ * is still empty.
+ */
+select is(
+  (select count(*)::integer
+   from public.jobs as jobs
+   join observation_snapshot as before on before.id = jobs.id
+   where jobs.content_hash is not distinct from before.content_hash),
+  3,
+  'and the maintenance writes produced no revision for the queue to act on'
+);
+select is(
+  pg_catalog.jsonb_array_length(pg_temp.candidates() -> 'items'),
+  0,
+  'and the queue is still empty after the maintenance writes'
+);
+select is(
+  (select count(*)::integer
+   from public.jobs as jobs
+   join observation_snapshot as before on before.id = jobs.id
+   where before.content_changed_at is not null
+     and jobs.content_changed_at = jobs.created_at),
+  3,
+  'and nothing in the maintenance pass claimed a content change that never happened'
+);
+
+select ok(
+  public.refresh_job_freshness(now() + interval '5 minutes') is not null,
+  'the freshness cycle runs over every posting'
+);
+select is(
+  pg_catalog.jsonb_array_length(pg_temp.candidates() -> 'items'),
+  0,
+  'and a freshness pass that stamps freshness_checked_at on every posting queues no recomputation'
+);
+
+-- ---------------------------------------------------------------------------
+-- Real changes still make a posting due again
+-- ---------------------------------------------------------------------------
+
 update public.jobs
 set title = title || ' (revised)'
 where id = (select value from candidate_ids where key = 'job-scored');
 
--- The queue sees a content change as "the posting is newer than the result
--- stored for it". Inside one transaction `now()` does not advance, so the update
--- above cannot move `jobs.updated_at` on its own; the stored revision is put an
--- hour into the past instead, which is exactly the state a content change leaves
--- behind a result computed in an earlier transaction.
-update public.job_matches
-set job_updated_at = job_updated_at - interval '1 hour'
-where user_id = 'c0000000-0000-4000-8000-000000000001'
-  and career_profile_id = (select value from candidate_ids where key = 'profile-a')
-  and job_id = (select value from candidate_ids where key = 'job-scored');
-
+select ok(
+  (select content_changed_at is not null
+   from public.jobs
+   where id = (select value from candidate_ids where key = 'job-scored')),
+  'a meaningful change moves the canonical content revision'
+);
 select is(
   pg_catalog.jsonb_array_length(pg_temp.candidates() -> 'items'),
   1,
@@ -405,9 +575,81 @@ select is(
   'and the posting that returns is the one that changed'
 );
 select is(
+  pg_temp.candidates() -> 'items' -> 0 ->> 'eligibleReason',
+  'content_changed',
+  'and it says the content is why'
+);
+select is(
   pg_temp.candidates() -> 'items' -> 0 ->> 'title',
   'Already Scored Posting (revised)',
   'and the candidate carries the revised content'
+);
+
+select is(
+  pg_temp.score_candidates(),
+  1,
+  'the changed posting is re-scored'
+);
+select is(
+  pg_catalog.jsonb_array_length(pg_temp.candidates() -> 'items'),
+  0,
+  'and the queue is empty again afterwards'
+);
+
+-- ---------------------------------------------------------------------------
+-- A deliberate engine version change
+-- ---------------------------------------------------------------------------
+
+select is(
+  pg_catalog.jsonb_array_length(pg_temp.candidates(60, 'matching-v1') -> 'items'),
+  0,
+  'the same engine version re-queues nothing'
+);
+select is(
+  pg_catalog.jsonb_array_length(pg_temp.candidates(60, 'matching-v2') -> 'items'),
+  3,
+  'a new engine version re-queues every posting whose content and profile are unchanged'
+);
+select is(
+  pg_temp.candidates(60, 'matching-v2') -> 'items' -> 0 ->> 'eligibleReason',
+  'matching_version_changed',
+  'and the reason names the version rather than the content'
+);
+select is(
+  pg_temp.candidates(60, 'matching-v2') ->> 'modelVersion',
+  'matching-v2',
+  'the read reports the engine version it was asked for'
+);
+
+-- ---------------------------------------------------------------------------
+-- A profile change does not touch the job's content revision
+-- ---------------------------------------------------------------------------
+
+select public.upsert_career_record(
+  'c0000000-0000-4000-8000-000000000001',
+  (select value from candidate_ids where key = 'profile-a'),
+  'skill', null, '{"name":"supabase","skillKind":"tool"}'::jsonb, gen_random_uuid()
+);
+
+select is(
+  pg_catalog.jsonb_array_length(pg_temp.candidates() -> 'items'),
+  3,
+  'a profile change re-queues every posting for that profile'
+);
+select is(
+  pg_temp.candidates() -> 'items' -> 0 ->> 'eligibleReason',
+  'profile_changed',
+  'and the reason names the profile'
+);
+select is(
+  (select count(*)::integer
+   from public.jobs
+   where id in (
+     select value from candidate_ids where key in ('job-scored', 'job-undated', 'job-recent')
+   )
+     and content_hash is not null),
+  3,
+  'and every posting still carries a canonical content revision'
 );
 
 select * from finish();

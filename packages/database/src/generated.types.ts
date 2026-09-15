@@ -1852,6 +1852,7 @@ export type Database = {
           evidence_fact_ids: string[]
           gaps: Json
           id: string
+          job_content_hash: string | null
           job_id: string
           job_updated_at: string
           model_version: string
@@ -1876,6 +1877,7 @@ export type Database = {
           evidence_fact_ids?: string[]
           gaps?: Json
           id?: string
+          job_content_hash?: string | null
           job_id: string
           job_updated_at: string
           model_version: string
@@ -1900,6 +1902,7 @@ export type Database = {
           evidence_fact_ids?: string[]
           gaps?: Json
           id?: string
+          job_content_hash?: string | null
           job_id?: string
           job_updated_at?: string
           model_version?: string
@@ -2077,7 +2080,9 @@ export type Database = {
           canonical_url: string
           city: string | null
           company_id: string
+          content_changed_at: string | null
           content_fingerprint: string
+          content_hash: string
           country_code: string | null
           created_at: string
           dedup_key: string
@@ -2119,7 +2124,9 @@ export type Database = {
           canonical_url: string
           city?: string | null
           company_id: string
+          content_changed_at?: string | null
           content_fingerprint: string
+          content_hash: string
           country_code?: string | null
           created_at?: string
           dedup_key: string
@@ -2161,7 +2168,9 @@ export type Database = {
           canonical_url?: string
           city?: string | null
           company_id?: string
+          content_changed_at?: string | null
           content_fingerprint?: string
+          content_hash?: string
           country_code?: string | null
           created_at?: string
           dedup_key?: string
@@ -4146,6 +4155,7 @@ export type Database = {
           actor_user_id: string
           target_career_profile_id: string
           batch_size?: number
+          requested_model_version?: string
         }
         Returns: Json
       }

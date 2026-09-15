@@ -10,7 +10,7 @@ This document describes every validation command, what it proves, and which gate
 | `pnpm validate:dockerless` | `validate`, plus the database is rebuilt from migrations and all pgTAP suites pass against the Dockerless cluster                        | No                            |
 | `pnpm validate:local`      | `validate`, plus local Supabase reset, schema lint, pgTAP through the Supabase CLI, generated-type drift, and the browser suite          | Yes                           |
 | `pnpm db:harness:reset`    | A throwaway PostgreSQL cluster is rebuilt from the Supabase baseline, every migration, and the seed                                      | No                            |
-| `pnpm db:harness:test`     | All 18 pgTAP suites pass against the Dockerless cluster                                                                                  | No                            |
+| `pnpm db:harness:test`     | All 23 pgTAP suites pass against the Dockerless cluster                                                                                  | No                            |
 | `pnpm test`                | Unit, component, email, and API integration suites pass                                                                                  | No                            |
 | `pnpm e2e`                 | Real browser acceptance, responsive, reduced-motion, keyboard, and Axe checks pass against a live web app, API, Supabase, and local mail | Yes                           |
 | `pnpm db:types:check`      | `packages/database/src/generated.types.ts` matches the live schema                                                                       | No, if the harness is running |
@@ -39,9 +39,9 @@ Verified in this repository: yes.
 pnpm validate && pnpm db:verify
 ```
 
-`db:verify` is `db:harness:reset && db:harness:test`. The pair proves everything `validate` proves **and** that the migration chain applies cleanly to an empty database and that all 725 pgTAP assertions pass. This is the complete gate set available without a container runtime.
+`db:verify` is `db:harness:reset && db:harness:test`. The pair proves everything `validate` proves **and** that the migration chain applies cleanly to an empty database and that all 959 pgTAP assertions pass. This is the complete gate set available without a container runtime.
 
-Verified in this repository: `pnpm validate` components were each run individually and passed; `pnpm db:harness:test` passed with 18 files and 725 assertions.
+Verified in this repository: `pnpm validate` components were each run individually and passed; `pnpm db:harness:test` passed with 23 files and 959 assertions, and `pnpm db:concurrency:check` passed against the same cluster.
 
 ### `pnpm validate:local`
 
@@ -57,7 +57,7 @@ Not run here: needs Docker Desktop and local Supabase.
 
 `node tooling/db/local-cluster.mjs reset`. In order, it resolves a port, initializes the cluster if `.localdb/pgdata` has no `PG_VERSION`, starts it, ensures pgTAP is available, drops and recreates the database, applies `tooling/db/supabase-base.sql`, installs the `pgtap` extension, applies every file in `supabase/migrations` in filename order inside a single transaction with `ON_ERROR_STOP=1`, records each in `supabase_migrations.schema_migrations`, and applies `supabase/seed.sql` when it is non-empty.
 
-Verified in this repository: the harness reported `All 18 pgTAP files passed (725 assertions)` after applying the chain, and `db:types:check` passed against it.
+Verified in this repository: the harness reported `All 23 pgTAP files passed (959 assertions)` after applying the chain, and `db:types:check` passed against it.
 
 ### `pnpm db:harness:test`
 
@@ -123,6 +123,33 @@ Slowest and most relevant suites:
 13. Axe scans and security headers on core routes.
 
 Not run here: needs Docker Desktop, local Supabase, Mailpit, and Chromium.
+
+### `pnpm e2e` is single-occupancy per machine
+
+A second concurrent `pnpm e2e` on one machine is **unsupported**. Three fixed resources are shared by every run on a host, and none of them can be shared safely:
+
+- The web server binds **port 3100** and the API binds **port 3101**. Two runs cannot both own them, and the second one to start either fails to bind or, worse, attaches to the first run's servers and tests a build it did not make.
+- Both runs use the single **`hanaply_e2e`** database, and the stack supervisor **resets** it during startup. A reset while another run is mid-suite deletes the accounts, sessions, and fixtures that run is asserting on, so the failure surfaces as an unrelated assertion rather than as a collision.
+- `tooling/e2e/stack.mjs` writes one set of stack state (ports, PIDs, mailbox file) per host, so the second run's supervisor and the first run's supervisor fight over the same records.
+
+Running E2E jobs in parallel therefore requires **an isolated database and isolated ports per runner**. On GitHub-hosted runners that isolation is implicit — each run gets a fresh machine — which is why the CI workflow's `concurrency` group is enough there and why `.github/workflows/ci.yml` records that a self-hosted runner would need the same per-run isolation instead.
+
+Locally the rule is enforced rather than documented: `tooling/e2e/run.mjs` takes a run lock at `.localdb/e2e-run.lock` and refuses to start while another run holds it, naming the holder and when it started. A lock whose process is gone is treated as stale and taken over. `HANAPLY_E2E_ALLOW_CONCURRENT=1` skips the lock and prints a warning; it is only safe when the run has its own database and its own ports.
+
+### `pnpm db:concurrency:check`
+
+`node tooling/db/concurrent-ingestion-check.mjs`. It drives **two real `psql` sessions** against the harness cluster to prove the property the canonical content revision exists for: two ingestion executions that see the same changed posting must not both conclude that they are the one that changed it, because that would re-queue one provider edit twice.
+
+A genuine race between two unbounded sessions is not reproducible, and a check that only sometimes overlaps proves nothing when it passes, so the interleaving is forced. Session A opens a transaction, takes the canonical row with `select ... for update`, and sleeps. Session B opens its own transaction and calls `public.upsert_ingested_job` for the same source record, which blocks on A's lock. The check waits: if B produced a result while A was still inside its transaction, the two never overlapped and the check **fails** rather than passing. Only then does A commit, and B proceeds.
+
+The assertion is what the two sessions then report: exactly one of them reports `contentChanged = true`, the audit trail records one change and one observation that found nothing new, the canonical row carries the changed content, and the source record still has exactly one provenance row and one canonical posting.
+
+Two properties of the check are worth knowing before changing it:
+
+- It reads a database clock before it starts and counts only the audit rows newer than that. `public.audit_events` is append-only by design — a trigger refuses to delete or rewrite a row — so the check cannot clean up its audit trail and must not try.
+- It **does** clean up everything else it created, including the probe job source and the employer row, because it runs against the same harness database the pgTAP suites use and those suites assert on real counts. A fixture left behind is a changed schema for every suite that runs afterwards.
+
+Verified in this repository: exit 0, `the transactions overlapped … 1 of 2 reported the content change, audits 1 change / 1 observation, 1 provenance row.`
 
 ### `pnpm db:types:check`
 
@@ -208,7 +235,7 @@ The net effect is that `create extension pgtap` resolves to a locally generated 
 
 ## pgTAP suites
 
-`supabase/tests/database` holds 14 suites. Assertion counts are the `select plan(N);` value in each file.
+`supabase/tests/database` holds 23 suites. Assertion counts are the `select plan(N);` value in each file.
 
 | File                                      | Assertions | Subject                                                                                                                 |
 | ----------------------------------------- | ---------: | ----------------------------------------------------------------------------------------------------------------------- |
@@ -231,9 +258,9 @@ The net effect is that `create extension pgtap` resolves to a locally generated 
 | `160_cross_user_isolation.test.sql`       |         50 | Adversarial cross-user reads and writes across every customer table                                                     |
 | `170_pack_generation.test.sql`            |         19 | Generation ownership, the frozen evidence set, and refusing to mark a pack ready with no artifact                       |
 
-**Total: 725 assertions across 18 files.**
+**Total: 959 assertions across 23 files.**
 
-Verified in this repository: all 18 files passed, 725 of 725 assertions.
+Verified in this repository: all 23 files passed, 959 of 959 assertions.
 
 ## What needs Docker
 

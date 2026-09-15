@@ -11,8 +11,35 @@ permissions:
 concurrency:
   group: phase-1-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
+  # Two things keep the browser suite from colliding with another run, and both
+  # have to hold:
+  #
+  #   1. This group cancels a superseded run of the *same* ref, so one pull
+  #      request never has two suites in flight at once.
+  #   2. The job runs on a GitHub-hosted runner, which is a fresh machine per
+  #      run, so runs of *different* refs cannot see each other's ports or
+  #      database even though they execute in parallel.
+  #
+  # The suite binds fixed ports (3100 web, 3101 API) and resets one
+  # `hanaply_e2e` database, so it is deliberately single-occupancy per machine.
+  # On a self-hosted runner both properties are lost: give each concurrent run
+  # its own ports and its own database, or run them one at a time. Locally the
+  # same rule is enforced by a lock in `tooling/e2e/run.mjs`, which refuses to
+  # start a second `pnpm e2e` while one is running and names the holder.
 
 jobs:
+  # Two properties, together, are what keep this run from colliding with another
+  # one — see the note on `concurrency` above. The group cancels a superseded run
+  # of the same ref; `runs-on: ubuntu-latest` gives every run of every ref its own
+  # machine, so the fixed ports (3100 web, 3101 API) and the single `hanaply_e2e`
+  # database this job resets belong to exactly one run at a time.
+  #
+  # A self-hosted runner loses the second property: parallel runs would share the
+  # machine, and with it the ports and the database. Moving this workflow to a
+  # self-hosted runner therefore requires the same isolation per runner that the
+  # step describes — distinct ports and a distinct database for each concurrent
+  # run — or serialising the runs. Making the job self-hosted without that is not
+  # a configuration change, it is a flaky suite.
   validate:
     name: Validate authentication and SaaS core
     runs-on: ubuntu-latest

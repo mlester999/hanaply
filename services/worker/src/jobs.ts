@@ -15,7 +15,12 @@ import {
   type JobSourceAdapter,
   type NormalizedJobInput,
 } from '@hanaply/jobs';
-import { scoreMatch, type MatchingCareerProfile, type MatchingJob } from '@hanaply/matching';
+import {
+  modelVersion as matchingModelVersion,
+  scoreMatch,
+  type MatchingCareerProfile,
+  type MatchingJob,
+} from '@hanaply/matching';
 import { createLogger } from '@hanaply/observability';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
@@ -23,6 +28,58 @@ type ScheduledSource = Database['public']['Functions']['job_ingestion_schedule']
 type MatchingSubject = Database['public']['Functions']['matching_subjects']['Returns'][number];
 type ClaimedOpportunityNotification =
   Database['public']['Functions']['claim_notification_outbox']['Returns'][number];
+
+/**
+ * Why a posting was offered for scoring, as `public.matching_job_candidates`
+ * reports it. The database decides eligibility; the worker only reports it.
+ *
+ * `retry` is not on this list. The database keeps no record of a scoring attempt
+ * that failed, so a posting whose computation failed is indistinguishable there
+ * from one that was never attempted; only the worker knows it has already tried,
+ * and it substitutes `retry` for whatever the database said when it has.
+ */
+type EligibilityReason =
+  'new_job' | 'content_changed' | 'profile_changed' | 'matching_version_changed';
+
+/** Every reason the worker can report, `retry` included. */
+const eligibilityReasons = [
+  'new_job',
+  'content_changed',
+  'profile_changed',
+  'matching_version_changed',
+  'retry',
+] as const;
+
+type ReportedReason = (typeof eligibilityReasons)[number];
+
+type MutableMatchReasonCounts = Record<ReportedReason, number> & { unchanged: number };
+
+function emptyMatchReasons(): MutableMatchReasonCounts {
+  return {
+    new_job: 0,
+    content_changed: 0,
+    profile_changed: 0,
+    matching_version_changed: 0,
+    retry: 0,
+    unchanged: 0,
+  };
+}
+
+/**
+ * Reads the reason the database attached to a candidate.
+ *
+ * A candidate that arrives without one — an older database, a cached response —
+ * is still scored, because refusing to score it would be a worse failure than
+ * reporting it imprecisely. It is counted as `new_job`, the reason that claims
+ * the least about what is already known.
+ */
+function eligibilityReasonOf(value: unknown): EligibilityReason {
+  return value === 'content_changed' ||
+    value === 'profile_changed' ||
+    value === 'matching_version_changed'
+    ? value
+    : 'new_job';
+}
 
 /**
  * Retry pacing for a released notification claim. The delay uses full jitter
@@ -55,6 +112,20 @@ export interface JobWorkerState {
   lastErrorCode: string | null;
   sourcesAttempted: number;
   jobsCreated: number;
+  /**
+   * Cycle-scoped counters for why a profile was or was not scored. They reset at
+   * the start of every match cycle, so each one describes that cycle and never a
+   * lifetime total. `profilesScored` and `jobMatchesReasoned` are the two
+   * aggregates; everything else is a breakdown of the second.
+   */
+  jobsOffered: number;
+  jobMatchesReasoned: number;
+  jobMatchesNew: number;
+  jobMatchesContentChanged: number;
+  jobMatchesProfileChanged: number;
+  jobMatchesMatchingVersionChanged: number;
+  jobMatchesRetried: number;
+  profilesUnchanged: number;
   profilesScored: number;
   notificationsQueued: number;
   notificationsDelivered: number;
@@ -112,6 +183,14 @@ export class JobIntelligenceWorker {
     lastErrorCode: null,
     sourcesAttempted: 0,
     jobsCreated: 0,
+    jobsOffered: 0,
+    jobMatchesReasoned: 0,
+    jobMatchesNew: 0,
+    jobMatchesContentChanged: 0,
+    jobMatchesProfileChanged: 0,
+    jobMatchesMatchingVersionChanged: 0,
+    jobMatchesRetried: 0,
+    profilesUnchanged: 0,
     profilesScored: 0,
     notificationsQueued: 0,
     notificationsDelivered: 0,
@@ -121,6 +200,18 @@ export class JobIntelligenceWorker {
   private activeCycle: Promise<void> | null = null;
   private lastFreshnessValue = 0;
   private lastDigestQueueValue = 0;
+  /**
+   * Postings whose scoring was attempted and whose results could not be stored,
+   * keyed by profile. The database keeps no record of a failed attempt, so this
+   * is the only place the retry can be told apart from a first attempt.
+   *
+   * It is in-memory by design: it exists to explain a retry in the log, not to
+   * drive one. A restarted worker loses the distinction and reports the retry as
+   * whatever the database says, while the retry itself still happens because the
+   * profile stays in the queue. Losing an explanation is acceptable; losing the
+   * retry would not be.
+   */
+  private readonly pendingRetries = new Map<string, Set<string>>();
 
   constructor(
     private readonly environment: WorkerEnvironment,
@@ -338,12 +429,18 @@ export class JobIntelligenceWorker {
       created?: boolean;
       merged?: boolean;
       matchedBy?: string;
+      contentChanged?: boolean;
     };
     return {
       jobId: outcome.jobId ?? '',
       created: outcome.created === true,
       merged: outcome.merged === true,
       matchedBy: outcome.matchedBy ?? 'created',
+      // Whether the canonical content moved. A re-observation that changed
+      // nothing is reported as such, so an ingestion run can be read as "N
+      // observed, M changed" rather than "N written" — the difference between
+      // the two is the whole reason the canonical revision exists.
+      contentChanged: outcome.contentChanged === true,
     };
   }
 
@@ -359,6 +456,17 @@ export class JobIntelligenceWorker {
   // -------------------------------------------------------------------------
 
   private async runMatchingCycle(): Promise<void> {
+    // Cycle-scoped: each counter describes this pass, never a lifetime total.
+    const reasons = emptyMatchReasons();
+    this.stateValue.jobsOffered = 0;
+    this.stateValue.jobMatchesReasoned = 0;
+    this.stateValue.jobMatchesNew = 0;
+    this.stateValue.jobMatchesContentChanged = 0;
+    this.stateValue.jobMatchesProfileChanged = 0;
+    this.stateValue.jobMatchesMatchingVersionChanged = 0;
+    this.stateValue.jobMatchesRetried = 0;
+    this.stateValue.profilesUnchanged = 0;
+
     const subjects = await this.client.rpc('matching_subjects', {
       batch_size: this.environment.MATCHING_BATCH_SIZE,
       stale_after_hours: this.environment.MATCHING_STALE_AFTER_HOURS,
@@ -377,13 +485,51 @@ export class JobIntelligenceWorker {
     );
 
     for (const subject of due) {
-      await this.scoreSubject(subject);
+      await this.scoreSubject(subject, reasons);
     }
 
+    this.stateValue.jobsOffered = countReasons(reasons);
+    this.stateValue.jobMatchesReasoned = countReasons(reasons);
+    this.stateValue.jobMatchesNew = reasons.new_job;
+    this.stateValue.jobMatchesContentChanged = reasons.content_changed;
+    this.stateValue.jobMatchesProfileChanged = reasons.profile_changed;
+    this.stateValue.jobMatchesMatchingVersionChanged = reasons.matching_version_changed;
+    this.stateValue.jobMatchesRetried = reasons.retry;
+    this.stateValue.profilesUnchanged = reasons.unchanged;
     this.stateValue.lastMatchingAt = new Date().toISOString();
+
+    // Why work was offered, in one line. A burst of reprocessing that a version
+    // bump explains and a burst that a content change explains are the same
+    // number of writes and completely different operational events.
+    this.logger.info(
+      {
+        dueSubjects: due.length,
+        jobsOffered: this.stateValue.jobsOffered,
+        newJob: reasons.new_job,
+        contentChanged: reasons.content_changed,
+        profileChanged: reasons.profile_changed,
+        matchingVersionChanged: reasons.matching_version_changed,
+        retried: reasons.retry,
+        profilesScored: this.stateValue.profilesScored,
+        profilesUnchanged: reasons.unchanged,
+      },
+      'Match computation cycle completed',
+    );
   }
 
-  private async scoreSubject(subject: MatchingSubject): Promise<void> {
+  /**
+   * Scores one subject's candidate batch and records why each posting was in it.
+   *
+   * `profilesUnchanged` counts a subject the queue returned whose candidate set
+   * came back empty: its stored results already match the posting's content
+   * revision, the profile version, and the engine version. That is the state the
+   * eligibility rule exists to produce, so it is reported as a distinct outcome
+   * rather than as silence.
+   */
+  private async scoreSubject(
+    subject: MatchingSubject,
+    reasons: MutableMatchReasonCounts,
+  ): Promise<void> {
     const detail = await this.client.rpc('career_profile_detail', {
       actor_user_id: subject.user_id,
       target_profile_id: subject.career_profile_id,
@@ -418,6 +564,11 @@ export class JobIntelligenceWorker {
       actor_user_id: subject.user_id,
       target_career_profile_id: subject.career_profile_id,
       batch_size: this.environment.MATCHING_CANDIDATE_LIMIT,
+      // The engine's version, stated by the engine. A version the database
+      // remembered instead would go stale silently the first time the engine was
+      // deployed without a migration, and a deliberate version bump would
+      // re-queue nothing — which is exactly what it used to do.
+      requested_model_version: matchingModelVersion,
     });
     if (candidates.error || !candidates.data) {
       this.logger.warn(
@@ -427,20 +578,48 @@ export class JobIntelligenceWorker {
       return;
     }
 
-    const items = ((candidates.data as { items?: readonly MatchingJob[] }).items ?? []).slice(
-      0,
-      this.environment.MATCHING_CANDIDATE_LIMIT,
-    );
+    const candidateItems = (candidates.data as { items?: readonly MatchingJob[] }).items ?? [];
+    const items = candidateItems.slice(0, this.environment.MATCHING_CANDIDATE_LIMIT);
     if (items.length === 0) {
       // Nothing to score is a legitimate outcome: the profile has no unscored
       // candidate. It is reported so an empty radar can be told apart from a
       // cycle that never looked.
+      reasons.unchanged += 1;
       this.logger.info(
-        { profileId: subject.career_profile_id },
-        'No unscored opportunity candidates for this profile',
+        { profileId: subject.career_profile_id, reason: 'unchanged' },
+        'No opportunity candidates are due for this profile',
       );
       return;
     }
+
+    const retries = this.pendingRetries.get(subject.career_profile_id);
+    const reasonsByJob = new Map<string, ReportedReason>();
+    for (const job of items) {
+      const databaseReason = eligibilityReasonOf(
+        (job as { readonly eligibleReason?: unknown }).eligibleReason,
+      );
+      // A posting this worker already tried and failed to store is a retry,
+      // whatever the database reports: the database cannot see the attempt.
+      const reported = retries?.has(job.id) === true ? 'retry' : databaseReason;
+      reasonsByJob.set(job.id, reported);
+      reasons[reported] += 1;
+    }
+
+    applyReasonCounters(this.stateValue, reasons);
+
+    // One line per subject, naming the postings and why they were due. Posting
+    // identifiers and reasons only: no title, no description, no provider
+    // payload ever reaches a log.
+    this.logger.info(
+      {
+        profileId: subject.career_profile_id,
+        candidates: items.length,
+        modelVersion: matchingModelVersion,
+        reasons: countReportedReasons(reasonsByJob),
+        jobIdsByReason: groupJobIdsByReason(reasonsByJob),
+      },
+      'Opportunity candidates offered for scoring',
+    );
 
     const now = this.clock();
     const results = items.map((job) => {
@@ -476,12 +655,23 @@ export class JobIntelligenceWorker {
       action_request_id: randomUUID(),
     });
     if (stored.error) {
+      // The write is all-or-nothing, so a failed call stored nothing for this
+      // profile: every posting in the batch is still due, and the profile stays
+      // in the queue for the next cycle. Remembering which postings they were is
+      // what lets the next attempt be reported as a retry rather than as new
+      // work, and it changes nothing about whether the retry happens.
+      this.pendingRetries.set(subject.career_profile_id, new Set(reasonsByJob.keys()));
       this.logger.warn(
-        { profileId: subject.career_profile_id, errorCode: stored.error.code },
-        'Match results could not be stored',
+        {
+          profileId: subject.career_profile_id,
+          errorCode: stored.error.code,
+          jobIds: [...reasonsByJob.keys()],
+        },
+        'Match results could not be stored; every posting in the batch stays due',
       );
       return;
     }
+    this.pendingRetries.delete(subject.career_profile_id);
     this.stateValue.profilesScored += 1;
   }
 
@@ -737,6 +927,49 @@ function notificationOutboxVariables(value: Json): Record<string, unknown> {
     throw new Error('notification_variables_invalid');
   }
   return { ...value };
+}
+
+/** How many postings this cycle offered for scoring, across every reason. */
+function countReasons(reasons: MutableMatchReasonCounts): number {
+  return eligibilityReasons.reduce((total, reason) => total + reasons[reason], 0);
+}
+
+/**
+ * Copies the reason counters onto the worker's reported state after each subject,
+ * so a long cycle that fails halfway still reports the work it explained rather
+ * than only the subjects it finished.
+ */
+function applyReasonCounters(state: JobWorkerState, reasons: MutableMatchReasonCounts): void {
+  state.jobsOffered = countReasons(reasons);
+  state.jobMatchesReasoned = countReasons(reasons);
+  state.jobMatchesNew = reasons.new_job;
+  state.jobMatchesContentChanged = reasons.content_changed;
+  state.jobMatchesProfileChanged = reasons.profile_changed;
+  state.jobMatchesMatchingVersionChanged = reasons.matching_version_changed;
+  state.jobMatchesRetried = reasons.retry;
+  state.profilesUnchanged = reasons.unchanged;
+}
+
+/** How many postings were offered for each reason, omitting the empty ones. */
+function countReportedReasons(
+  reasonsByJob: ReadonlyMap<string, ReportedReason>,
+): Record<string, number> {
+  const counted: Record<string, number> = {};
+  for (const reason of reasonsByJob.values()) {
+    counted[reason] = (counted[reason] ?? 0) + 1;
+  }
+  return counted;
+}
+
+/** The posting identifiers behind each reason, so a log line can be acted on. */
+function groupJobIdsByReason(
+  reasonsByJob: ReadonlyMap<string, ReportedReason>,
+): Record<string, string[]> {
+  const grouped: Record<string, string[]> = {};
+  for (const [jobId, reason] of reasonsByJob) {
+    (grouped[reason] ??= []).push(jobId);
+  }
+  return grouped;
 }
 
 /** The queueing functions return the number of rows they inserted. */
