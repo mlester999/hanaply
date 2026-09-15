@@ -15,7 +15,9 @@
  *   2. **Numbers.** Every numeric literal in generated prose must already exist
  *      in the evidence: a confirmed fact's statement or structured metric, the
  *      deterministic match analysis, or the posting's own text. A model may
- *      quote a figure; it may never compute, round, scale, or invent one.
+ *      quote a figure; it may never compute, round, scale, or invent one. The
+ *      unit the evidence attached to that figure travels with it, so "20" from
+ *      a fact about "20%" never licenses "20 hours per week".
  *   3. **First-person experience.** A sentence that asserts what the member has
  *      done - "I led", "I have eight years", "my experience with" - must be
  *      backed by a confirmed fact. An uncited one is rejected, which is the
@@ -402,8 +404,229 @@ function parseNumberLiteral(literal: string): number | null {
 }
 
 /**
+ * The unit spellings that mean the same unit.
+ *
+ * One table, applied to both sides of the comparison - the unit the evidence
+ * attached and the unit the claim attaches - so equivalent spellings can never
+ * be a false positive and different units can never be an escape hatch.
+ */
+const unitSynonyms: Readonly<Record<string, string>> = Object.freeze({
+  '%': 'percent',
+  pct: 'percent',
+  percent: 'percent',
+  percentage: 'percent',
+  '₱': 'php',
+  php: 'php',
+  peso: 'php',
+  pesos: 'php',
+  $: 'usd',
+  usd: 'usd',
+  dollar: 'usd',
+  dollars: 'usd',
+  year: 'year',
+  yr: 'year',
+  yrs: 'year',
+  month: 'month',
+  mo: 'month',
+  week: 'week',
+  wk: 'week',
+  day: 'day',
+  hour: 'hour',
+  hr: 'hour',
+  hrs: 'hour',
+  person: 'person',
+  people: 'person',
+  staff: 'person',
+  headcount: 'person',
+});
+
+/** A currency symbol, or a currency code such as PHP, USD, or ₱. */
+const currencyToken = /^(?:[$₱]|php|usd|peso|pesos|dollar|dollars)$/u;
+
+/**
+ * The adverb a period is written as, so "paid monthly" names the same unit as
+ * "per month" and a claim cannot move a monthly figure to an annual one.
+ */
+const unitAdverbs: Readonly<Record<string, string>> = Object.freeze({
+  hourly: 'hour',
+  daily: 'day',
+  weekly: 'week',
+  monthly: 'month',
+  quarterly: 'quarter',
+  yearly: 'year',
+  annually: 'year',
+});
+
+/** The tails a plural or abbreviation leaves behind, longest first. */
+const unitSuffixes: readonly string[] = ['rs', 's'];
+
+/**
+ * The normalised unit a token names, or null when it names no unit.
+ *
+ * The same fold is applied to both sides of the comparison, so "percent" and
+ * "%", "PHP" and "₱", and "years" and "yrs" are one unit while two different
+ * units stay different. A trailing plural is forgiven - the whole tail is
+ * dropped at once, so "hours" loses only its "s" - because the evidence and the
+ * claim are written by different processes.
+ */
+function normalizeUnitToken(token: string): string | null {
+  const symbol = token.trim().charAt(0);
+  if (symbol === '%' || symbol === '₱' || symbol === '$') {
+    return unitSynonyms[symbol] ?? null;
+  }
+  const stripped = token.toLowerCase().replace(/^[^a-z]+/u, '');
+  if (stripped.length === 0) return null;
+  const direct = unitSynonyms[stripped] ?? unitAdverbs[stripped];
+  if (direct !== undefined) return direct;
+  for (const suffix of unitSuffixes) {
+    if (!stripped.endsWith(suffix)) continue;
+    const singular = stripped.slice(0, stripped.length - suffix.length);
+    const found = unitSynonyms[singular] ?? unitAdverbs[singular];
+    if (found !== undefined) return found;
+  }
+  return null;
+}
+
+/** Trims the punctuation that separates a token from the text beside it. */
+function trimToken(text: string): string {
+  return text.replace(/^[^\p{L}\p{N}%$₱]+/u, '').replace(/[^\p{L}\p{N}%$₱]+$/u, '');
+}
+
+/**
+ * The word token ending at `end`, ignoring the whitespace and punctuation
+ * between it and whatever the caller measured.
+ *
+ * Stepping over the separator is what makes the token the word beside the
+ * figure rather than the figure itself: the character just before a space is
+ * the digit of the number, and a scan that stopped there would read "20 hours"
+ * as a currency-free "20".
+ */
+function tokenEndingAt(text: string, end: number): string | null {
+  let stop = Math.min(end, text.length);
+  while (stop > 0 && /[\s.,;:!?)\]}"'’”]/u.test(text.charAt(stop - 1))) stop -= 1;
+  let start = stop;
+  while (start > 0 && /[\p{L}\p{N}]/u.test(text.charAt(start - 1))) start -= 1;
+  if (start === stop) return null;
+  const token = trimToken(text.slice(start, stop));
+  return token.length === 0 ? null : token;
+}
+
+/** A unit word that begins at `start` and ends at a word boundary or a hyphen. */
+function unitWordAt(text: string, start: number): string | null {
+  let end = start;
+  while (end < text.length && /[\p{L}\p{N}]/u.test(text.charAt(end))) end += 1;
+  return end === start ? null : text.slice(start, end);
+}
+
+/**
+ * True when the digits at `start` are a fragment of an identifier rather than a
+ * figure: a run inside a fact identifier, a content hash, a URL, or a snake_case
+ * token.
+ *
+ * A fact identifier such as `...-0000000000f1` contains the literal "0", and
+ * "0" must not become a claimable figure merely because an identifier was
+ * indexed. "1,200" stays a figure because a comma is how the number itself is
+ * written, and "40-person" stays one because its hyphenated tail is its unit.
+ */
+function isEmbeddedInIdentifier(text: string, start: number, length: number): boolean {
+  let tokenStart = start;
+  while (tokenStart > 0 && !/\s/u.test(text.charAt(tokenStart - 1))) tokenStart -= 1;
+  let tokenEnd = start + length;
+  while (tokenEnd < text.length && !/\s/u.test(text.charAt(tokenEnd))) tokenEnd += 1;
+  const token = text.slice(tokenStart, tokenEnd);
+  const prefix = text.slice(Math.max(tokenStart - 8, 0), tokenStart);
+  if (/(?:^|\s)(?:https?:\/\/|www\.)$/u.test(prefix) || prefix.endsWith('__')) return true;
+  if (!token.includes('-')) return false;
+  // A hyphen is the separator in every identifier shape this gate indexes - a
+  // fact id, a content hash, a URL slug - and a comma is not, which is what
+  // keeps "1,200" a figure.
+  if (token.includes(',')) return false;
+  return (token.match(/[0-9a-f]/giu)?.length ?? 0) >= 8;
+}
+
+/**
+ * The little words a writer puts between a figure and the unit it is counted
+ * in, from "20 hours per week" to "500000, reviewed yearly".
+ */
+const unitConnectors = new Set([
+  'per',
+  'a',
+  'an',
+  'the',
+  'each',
+  'every',
+  'paid',
+  'payable',
+  'reviewed',
+  'valued',
+  'worth',
+  'is',
+  'are',
+  'was',
+  'were',
+  'at',
+  'of',
+  'about',
+  'roughly',
+  'approximately',
+]);
+
+/**
+ * The unit a figure carries in the words that follow it, reading past the
+ * little words that join a figure to its unit: "per", "a", "an", and the filler
+ * a writer puts between them ("paid monthly").
+ *
+ * The search stops at the first recognised unit, so "20 hours per week" is read
+ * as "hour" - the unit the figure is counted in - and "PHP 500000 monthly" as
+ * "month" even though the currency is what sits beside the digits.
+ */
+function unitAfterFigure(text: string, start: number): string | null {
+  let cursor = start;
+  let skips = 0;
+  while (cursor < text.length && skips < 4) {
+    while (cursor < text.length && /[\s.,;:!?([{"'’”/-]/u.test(text.charAt(cursor))) cursor += 1;
+    const word = unitWordAt(text, cursor);
+    if (word === null) return null;
+    const token = trimToken(word);
+    const normalised = normalizeUnitToken(token);
+    if (normalised !== null) return normalised;
+    if (!unitConnectors.has(token)) return null;
+    cursor += word.length;
+    skips += 1;
+  }
+  return null;
+}
+
+/**
+ * The units a figure carries in the text around it: the token after it when
+ * that token is a unit word or symbol ("20%", "20 percent", "40-person"), and
+ * the token before it when that token is a currency ("₱20", "PHP 9000000").
+ *
+ * `end` is one past the figure's last character, so the caller passes
+ * `offset + literal.length`.
+ */
+function unitsAround(text: string, offset: number, end: number): string[] {
+  const units: string[] = [];
+  const before = tokenEndingAt(text, offset);
+  if (before !== null && currencyToken.test(before.toLowerCase())) {
+    const normalised = normalizeUnitToken(before);
+    if (normalised !== null) units.push(normalised);
+  }
+  // A unit symbol is written against the figure with no separator at all
+  // ("20%", "₱20"), so it is read from the character at `end` directly.
+  const attached = normalizeUnitToken(text.charAt(end));
+  if (attached !== null) units.push(attached);
+  // The unit the figure is counted in, which is the token after it, or the
+  // token after a joining word when the unit is written as a phrase.
+  const after = unitAfterFigure(text, end);
+  if (after !== null) units.push(after);
+  return units;
+}
+
+/**
  * Indexes figures so "1,200", "1200", and "1200.0" are one value and a new one
- * cannot be created by respelling an old one.
+ * cannot be created by respelling an old one, and records the unit each figure
+ * carried so a respelled *unit* is caught too.
  *
  * `withDerivedForms` is the difference between prose and a structured field. A
  * confirmed fact's statement is prose, so "20" in it is a claimable figure
@@ -411,32 +634,94 @@ function parseNumberLiteral(literal: string): number | null {
  * contributing 97" is a report about the engine, and its fragments are not
  * admissible answers to anything, so only the exact literal is indexed and a
  * model cannot borrow "12" from the word "weight 12" to justify "12 years".
+ *
+ * `units` is for a field whose number and unit are separate properties rather
+ * than one run of text. It is applied verbatim, because a metric is already a
+ * number-and-unit pair and must not be read for units a second time.
  */
-function indexNumbers(text: string, into: Set<string>, withDerivedForms = true): void {
+function indexNumbers(
+  text: string,
+  into: Set<string>,
+  withDerivedForms = true,
+  units: Map<string, Set<string>> | null = null,
+  explicitUnit: string | null = null,
+): void {
+  const record = (literal: string, carried: readonly string[]): void => {
+    into.add(literal);
+    if (units === null) return;
+    const normalised = carried
+      .map((unit) => normalizeUnitToken(unit))
+      .filter((unit): unit is string => unit !== null);
+    if (normalised.length === 0) return;
+    const existing = units.get(literal);
+    if (existing === undefined) {
+      units.set(literal, new Set(normalised));
+      return;
+    }
+    for (const unit of normalised) existing.add(unit);
+  };
+
   for (const match of text.matchAll(numberPattern)) {
     const literal = match[0];
-    into.add(literal);
-    if (!withDerivedForms) continue;
-    into.add(literal.replace(/,/gu, ''));
-    const parsed = parseNumberLiteral(literal);
-    if (parsed !== null) into.add(String(parsed));
+    const offset = match.index ?? 0;
+    // A digit run inside a fact identifier was already indexed as the
+    // identifier it is; it is not a figure and licenses no figure.
+    if (isEmbeddedInIdentifier(text, offset, literal.length)) continue;
+    const carried = units === null ? [] : unitsAround(text, offset, offset + literal.length);
+    if (explicitUnit !== null) carried.push(explicitUnit);
+    // Every spelling of one figure is that same figure in the same unit: "0" is
+    // a form of the figure in "40-person", so it carries "person" too and can
+    // never be restated as "0 days".
+    const variants =
+      units === null
+        ? [literal]
+        : withDerivedForms
+          ? [literal, literal.replace(/,/gu, ''), String(parseNumberLiteral(literal) ?? literal)]
+          : [literal];
+    for (const variant of new Set(variants)) record(variant, carried);
   }
   if (!withDerivedForms) return;
   for (const match of text.matchAll(wordNumberPattern)) {
     const word = match[1];
     if (word === undefined) continue;
     const value = wordNumbers[word.toLowerCase()];
-    if (value !== undefined) into.add(String(value));
+    if (value === undefined) continue;
+    const offset = match.index ?? 0;
+    const carried = units === null ? [] : unitsAround(text, offset, offset + word.length);
+    if (explicitUnit !== null) carried.push(explicitUnit);
+    record(String(value), carried);
   }
+}
+
+/**
+ * The units the evidence attached to a figure, normalised. Empty means the
+ * evidence attached no unit, which is a licence for the bare number alone.
+ */
+function evidenceUnitsFor(literal: string, index: EvidenceIndex): Set<string> {
+  const units = new Set<string>();
+  const add = (value: string | undefined): void => {
+    if (value === undefined) return;
+    for (const unit of index.numberUnits.get(value) ?? []) units.add(unit);
+  };
+  add(literal);
+  add(literal.replace(/,/gu, ''));
+  const parsed = parseNumberLiteral(literal);
+  if (parsed !== null) add(String(parsed));
+  return units;
 }
 
 // ---------------------------------------------------------------------------
 // Evidence index
 // ---------------------------------------------------------------------------
-
 export interface EvidenceIndex {
   readonly factIds: ReadonlySet<string>;
   readonly numbers: ReadonlySet<string>;
+  /**
+   * The normalised units the evidence attached to each indexed figure. A
+   * literal that is absent recorded no unit, so the bare literal stays
+   * admissible and ordinary prose is not broken.
+   */
+  readonly numberUnits: ReadonlyMap<string, ReadonlySet<string>>;
   readonly unigrams: ReadonlySet<string>;
   readonly bigrams: ReadonlySet<string>;
   readonly factStatements: readonly { readonly id: string; readonly normalized: string }[];
@@ -472,6 +757,7 @@ export function buildEvidenceIndex(context: GroundingContext): EvidenceIndex {
   // context only: it must not become citable merely by being passed in.
   const factIds = new Set<string>(context.deterministic.admissibleFactIds);
   const numbers = new Set<string>();
+  const numberUnits = new Map<string, Set<string>>();
   const unigrams = new Set<string>();
   const bigrams = new Set<string>();
   const factStatements: { id: string; normalized: string }[] = [];
@@ -479,20 +765,22 @@ export function buildEvidenceIndex(context: GroundingContext): EvidenceIndex {
   for (const fact of context.facts) {
     indexVocabulary(`${fact.statement} ${fact.category}`, unigrams, bigrams);
     factStatements.push({ id: fact.id, normalized: normalizeText(fact.statement) });
-    indexNumbers(fact.statement, numbers);
+    indexNumbers(fact.statement, numbers, true, numberUnits);
     // The identifier itself is structural: a response that echoes it is citing
     // evidence, not asserting a figure about anyone.
     indexNumbers(fact.id, numbers);
     const metricValue = fact.metricValue;
-    if (metricValue !== null && metricValue !== undefined) {
-      indexNumbers(String(metricValue), numbers);
-    }
     const unit = fact.metricUnit;
+    if (metricValue !== null && metricValue !== undefined) {
+      // A metric is already a number-and-unit pair. It is registered as such,
+      // rather than re-read for a unit the statement may not contain.
+      indexNumbers(String(metricValue), numbers, true, numberUnits, unit ?? null);
+    }
     if (unit !== null && unit !== undefined) indexVocabulary(unit, unigrams, bigrams);
     const metricContext = fact.metricContext;
     if (metricContext !== null && metricContext !== undefined) {
       indexVocabulary(metricContext, unigrams, bigrams);
-      indexNumbers(metricContext, numbers);
+      indexNumbers(metricContext, numbers, true, numberUnits);
     }
   }
 
@@ -513,10 +801,12 @@ export function buildEvidenceIndex(context: GroundingContext): EvidenceIndex {
   ]) {
     if (value === null) continue;
     indexVocabulary(value, unigrams, bigrams);
-    indexNumbers(value, numbers);
+    indexNumbers(value, numbers, true, numberUnits);
   }
   // The published compensation is structured, and a range is two figures rather
-  // than one run of digits, so both ends are indexed exactly as published.
+  // than one run of digits, so both ends are indexed exactly as published. Its
+  // figures carry no unit because the field is a pair of amounts, not prose: a
+  // response may quote the posting's own figure without re-denominating it.
   if (job.salaryText !== null) {
     indexVocabulary(job.salaryText, unigrams, bigrams);
     for (const literal of job.salaryText.match(numberPattern) ?? []) numbers.add(literal);
@@ -539,11 +829,11 @@ export function buildEvidenceIndex(context: GroundingContext): EvidenceIndex {
     match.recommendedAction,
   ]) {
     indexVocabulary(value, unigrams, bigrams);
-    indexNumbers(value, numbers);
+    indexNumbers(value, numbers, true, numberUnits);
   }
   for (const value of [...match.dimensionDetails, ...match.requirementStatements]) {
     indexVocabulary(value, unigrams, bigrams);
-    indexNumbers(value, numbers, false);
+    indexNumbers(value, numbers, false, numberUnits);
   }
 
   for (const value of [
@@ -565,7 +855,7 @@ export function buildEvidenceIndex(context: GroundingContext): EvidenceIndex {
     indexNumbers(String(profileIdentity.totalYearsExperience), numbers);
   }
 
-  return { factIds, numbers, unigrams, bigrams, factStatements };
+  return { factIds, numbers, numberUnits, unigrams, bigrams, factStatements };
 }
 
 // ---------------------------------------------------------------------------
@@ -685,9 +975,10 @@ export interface ExtractClaimsOptions {
  * Extracts every claim from one prose value.
  *
  * Numbers are checked first: they are unit-attached and unambiguous, so a
- * figure the model produced stands out even when the sentence around it is
- * fluent. Named entities come next, then first-person assertions resolved
- * against the facts that could support them.
+ * figure the model produced - or a real figure in a unit the evidence never
+ * used for it - stands out even when the sentence around it is fluent. Named
+ * entities come next, then first-person assertions resolved against the facts
+ * that could support them.
  */
 export function extractClaims(
   value: string,
@@ -699,17 +990,35 @@ export function extractClaims(
     for (const match of sentence.matchAll(numberPattern)) {
       const literal = match[0];
       if (isStructuralNumber(sentence, match.index, literal)) continue;
+      // A digit run inside an identifier is the identifier, not a figure the
+      // sentence asserts, so it is neither a claim nor a licence for one.
+      if (isEmbeddedInIdentifier(sentence, match.index ?? 0, literal.length)) continue;
       const variants = [literal, literal.replace(/,/gu, '')];
       const parsed = parseNumberLiteral(literal);
       if (parsed !== null) variants.push(String(parsed));
       const supported = variants.some((variant) => index.numbers.has(variant));
+
+      // The invariant: a number is admissible only together with a unit the
+      // evidence attached to that same number, unless the evidence attached no
+      // unit at all. Every unit the claim attaches has to be one of the
+      // evidence's, so "20" from a fact about "20%" cannot be restated as
+      // "20 hours", and a figure the posting prices in PHP cannot be restated
+      // in USD or moved from a monthly period to an annual one.
+      const stated = evidenceUnitsFor(literal, index);
+      const claimed = unitsAround(sentence, match.index ?? 0, (match.index ?? 0) + literal.length)
+        .map((unit) => normalizeUnitToken(unit))
+        .filter((unit): unit is string => unit !== null);
+      const reunit = supported && stated.size > 0 && !claimed.every((unit) => stated.has(unit));
+
       claims.push({
         kind: 'numeric',
         text: literal,
-        status: supported ? 'supported' : 'rejected',
-        reason: supported
-          ? null
-          : `The figure ${literal} appears in no confirmed career fact, in no deterministic match analysis, and in no supplied posting text.`,
+        status: supported && !reunit ? 'supported' : 'rejected',
+        reason: !supported
+          ? `The figure ${literal} appears in no confirmed career fact, in no deterministic match analysis, and in no supplied posting text.`
+          : reunit
+            ? `The figure ${literal} is evidenced only as ${[...stated].sort().join(' or ')}, so it cannot be restated as ${claimed.join(' or ') || 'a bare number'}. Quote it with the unit the evidence uses.`
+            : null,
         factId: null,
       });
     }

@@ -48,7 +48,19 @@ Every page receives a per-request CSP nonce with restricted scripts, explicit AP
 
 The NestJS/Fastify API uses Helmet, explicit non-credentialed CORS, a 256 KiB JSON body limit plus one 8 MiB-or-smaller multipart image, Zod input/output validation, safe versioned envelopes, UUID request IDs, and structured redacted logging. Validation/provider exceptions are mapped to allowlisted client messages. Payment images are checked against magic bytes, declared MIME type, filename extension, dimensions, pixel count, and single-page limits, then re-encoded before storage.
 
-Local/test API throttling is in memory. Production startup intentionally fails until a distributed rate-limit adapter is selected and `RATE_LIMIT_STORE` no longer uses memory. Wildcard CORS and insecure production application/API URLs fail environment validation. OpenAPI/docs are unavailable in production regardless of the local flag.
+## API rate limiting
+
+Every API route is limited, and the bucket is chosen from what the request can prove rather than from the address it arrives on. The web application calls the API server-to-server with the member's access token, so keying on the address gave every member one shared allowance: one member's burst answered 429 to unrelated members. That shared bucket no longer exists.
+
+- An authenticated route is keyed by the user id from the verified session — the token is checked against Supabase, the session's liveness and the account's status are read from PostgreSQL — so one member's traffic cannot spend another member's allowance.
+- A public route is keyed by client address, the correct scope when there is no identity to key on.
+- An authentication route that takes a submitted identifier is keyed by the address _and_ the identifier, so one account cannot be sprayed from many addresses and many addresses cannot be used to spray one account. This API terminates no such route: credential entry, verification resend, password recovery, and token refresh are Supabase Auth operations the web server performs directly, and `apps/web/src/lib/rate-limit.ts` applies that address-plus-subject policy through `consume_auth_rate_limit`. The scope is configured and tested here so a route added later inherits it by declaring it.
+- Model, document, and generation routes carry a second, tighter per-member ceiling that no single route's decorator can loosen.
+- Per-route `@Throttle` decorators are unchanged and still decide their route's limit and window; only the key changed. A refusal is a 429 with the standard `RATE_LIMITED` envelope and a `Retry-After`, and the window resets as configured.
+
+Every limit and window is environment-validated (`RATE_LIMIT_AUTHENTICATED_*`, `RATE_LIMIT_ANONYMOUS_*`, `RATE_LIMIT_SENSITIVE_*`, `RATE_LIMIT_EXPENSIVE_*`); see `.env.example`. Tokens and submitted identifiers are never logged, and a tracker is hashed before it reaches the store.
+
+Local/test API throttling is in memory, and the store is per process: with two API instances each keeps its own buckets, so a member's effective allowance is the configured limit times the number of instances. Production startup intentionally fails until a distributed rate-limit adapter is selected and `RATE_LIMIT_STORE` no longer uses memory. Wildcard CORS and insecure production application/API URLs fail environment validation. OpenAPI/docs are unavailable in production regardless of the local flag.
 
 ## Database and service-role controls
 

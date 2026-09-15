@@ -156,6 +156,7 @@ export async function createTestUsers(): Promise<void> {
   const payments = await createUser(testAccounts.payments, 'Payments', 'Member');
   const coach = await createUser(testAccounts.coach, 'Coach', 'Member');
   const packs = await createUser(testAccounts.packs, 'Packs', 'Member');
+  const matching = await createUser(testAccounts.matching, 'Matching', 'Member');
 
   const plans = await readPlans();
   const plus = requirePlan(plans, 'plus_monthly');
@@ -171,6 +172,7 @@ export async function createTestUsers(): Promise<void> {
     [payments, plus],
     [packs, plus],
     [coach, pro],
+    [matching, plus],
   ] as const) {
     await grantSubscription(user.id, plan.id);
   }

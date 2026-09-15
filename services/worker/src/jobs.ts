@@ -367,7 +367,16 @@ export class JobIntelligenceWorker {
       throw new Error('matching_subjects_unavailable');
     }
 
-    for (const subject of subjects.data ?? []) {
+    const due = subjects.data ?? [];
+    // The queue is the database's decision, and "nothing to do" and "everything
+    // I tried failed" look identical from the outside unless the cycle says
+    // which it was.
+    this.logger.info(
+      { dueSubjects: due.length, batchSize: this.environment.MATCHING_BATCH_SIZE },
+      'Match computation queue read',
+    );
+
+    for (const subject of due) {
       await this.scoreSubject(subject);
     }
 
@@ -383,7 +392,20 @@ export class JobIntelligenceWorker {
       actor_user_id: subject.user_id,
       target_profile_id: subject.career_profile_id,
     });
-    if (detail.error || !detail.data || evidence.error || !evidence.data) return;
+    if (detail.error || !detail.data || evidence.error || !evidence.data) {
+      // A subject whose profile cannot be read is skipped, and the reason has to
+      // be reported: the profile stays in the queue for the next cycle, so a
+      // silent skip here is an endless, invisible retry.
+      this.logger.warn(
+        {
+          profileId: subject.career_profile_id,
+          detailErrorCode: detail.error?.code ?? null,
+          evidenceErrorCode: evidence.error?.code ?? null,
+        },
+        'A matching subject could not be read',
+      );
+      return;
+    }
 
     const profile = toMatchingProfile(
       detail.data as Record<string, unknown>,
@@ -397,13 +419,28 @@ export class JobIntelligenceWorker {
       target_career_profile_id: subject.career_profile_id,
       batch_size: this.environment.MATCHING_CANDIDATE_LIMIT,
     });
-    if (candidates.error || !candidates.data) return;
+    if (candidates.error || !candidates.data) {
+      this.logger.warn(
+        { profileId: subject.career_profile_id, errorCode: candidates.error?.code ?? null },
+        'Match candidates could not be read',
+      );
+      return;
+    }
 
     const items = ((candidates.data as { items?: readonly MatchingJob[] }).items ?? []).slice(
       0,
       this.environment.MATCHING_CANDIDATE_LIMIT,
     );
-    if (items.length === 0) return;
+    if (items.length === 0) {
+      // Nothing to score is a legitimate outcome: the profile has no unscored
+      // candidate. It is reported so an empty radar can be told apart from a
+      // cycle that never looked.
+      this.logger.info(
+        { profileId: subject.career_profile_id },
+        'No unscored opportunity candidates for this profile',
+      );
+      return;
+    }
 
     const now = this.clock();
     const results = items.map((job) => {

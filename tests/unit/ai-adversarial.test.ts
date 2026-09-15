@@ -479,14 +479,11 @@ describe('the truth gate on figures and units', () => {
   });
 
   it('rejects the same number in a unit the evidence never states', () => {
-    // The documented rule is that an index figure cannot be respelled into a new
-    // one, and this is the limitation of that rule stated as a test: the literal
-    // is checked against the evidence, and the *unit* attached to it is not. A
-    // bare "0" is indexed because a fact mentions "40-person", so "0 days" and
-    // "20 hours" both pass. The number is still the number the evidence carries,
-    // which is the property the gate promises — a genuinely new figure is caught
-    // in the next case — but a claim can be re-denominated, and a caller that
-    // cares about units has to check them.
+    // The rule used to check only the literal, and this test used to assert the
+    // hole that left: a bare "20" was indexed by the fact about "20%", so
+    // "20 hours" and "0 days" were admitted as if the evidence had said them.
+    // The rule now carries the unit with the figure, so re-denominating an
+    // evidenced number is refused in the same way an invented one is.
     const mismatched = gate({
       ...groundedOpportunityReport(),
       gaps: ['You cut manual onboarding handling time by 20 hours per week.'],
@@ -496,14 +493,23 @@ describe('the truth gate on figures and units', () => {
       gaps: ['You reduced onboarding effort by 0 days per hire.'],
     });
 
-    expect(mismatched.accepted).toBe(true);
-    expect(mismatched.report.rejections).toHaveLength(0);
-    expect(reunit.accepted).toBe(true);
-    expect(reunit.report.rejections).toHaveLength(0);
+    expect(mismatched.accepted).toBe(false);
+    expect(rejectionFor(mismatched.report.rejections, 'numeric')).toBe(true);
+    expect(
+      mismatched.report.rejections.some((rejection) => rejection.detail.includes('percent')),
+    ).toBe(true);
+    expect(reunit.accepted).toBe(false);
+    expect(rejectionFor(reunit.report.rejections, 'numeric')).toBe(true);
 
-    // The check that does hold: a figure the evidence does not contain is
-    // refused, in the same unit-bearing position.
-    expect(rejectionFor(mismatched.report.rejections, 'numeric')).toBe(false);
+    // The figure the evidence *does* state, in the unit it states it in, is
+    // still admitted in the same position, so the rule discriminates between
+    // units rather than rejecting every figure.
+    const grounded = gate({
+      ...groundedOpportunityReport(),
+      gaps: ['Your confirmed record shows you cut manual onboarding handling time by 20%.'],
+    });
+    expect(grounded.accepted).toBe(true);
+    expect(grounded.report.rejections).toHaveLength(0);
   });
 
   it('rejects a unit-bearing figure the evidence does not contain', () => {

@@ -1,4 +1,5 @@
 import { testAccounts } from './accounts.js';
+import { ensureAnalysedRadar } from './analysis-fixture.js';
 import { expect, openFirstOpportunity, signIn, test } from './product.js';
 
 /**
@@ -9,8 +10,22 @@ import { expect, openFirstOpportunity, signIn, test } from './product.js';
  * The demo postings the stack seeds through the real ingestion writer are the
  * fixture, so the feed exercises deduplication, provenance, and freshness
  * rather than a fabricated row.
+ *
+ * The matching worker now participates in this suite, so this file asserts the
+ * analysed radar rather than the unanalysed one it used to. `beforeAll` gives
+ * this account the career profile the worker scores and then runs the worker
+ * through its real entry point (`tests/e2e/worker-cycle.ts`, the same
+ * `WORKER_MODE=once` run of `services/worker/dist/main.js` a deployment starts),
+ * waiting on the stored rows rather than on a sleep. The analysis therefore does
+ * not depend on another spec file having run first: whichever order Playwright
+ * picks, the state every assertion below describes has been produced before it
+ * is read.
  */
 test.describe.configure({ mode: 'serial' });
+
+test.beforeAll(async () => {
+  await ensureAnalysedRadar(testAccounts.radar);
+});
 
 const opportunityTitles = [
   'Workflow Automation Engineer',
@@ -37,6 +52,10 @@ test('lists the seeded opportunities with their counts, freshness, and source', 
   await expect(stats.getByText('Not analysed yet', { exact: true })).toBeVisible();
   await expect(page.getByText('Radar counts are unavailable')).toHaveCount(0);
   await expect(stats.locator('strong').first()).toHaveText('5');
+  // The worker analysed every seeded posting in one cycle, so the count the
+  // third card promises is a real zero — the number the assertion this file used
+  // to make about the unanalysed card implied was five.
+  await expect(stats.locator('strong').nth(2)).toHaveText('0');
 
   for (const title of opportunityTitles) {
     await expect(page.getByRole('link', { name: title, exact: true })).toBeVisible();
@@ -44,8 +63,25 @@ test('lists the seeded opportunities with their counts, freshness, and source', 
 
   const firstCard = page.locator('.radar-card').first();
   await expect(firstCard.locator('.radar-absolute-date')).toContainText('Posted or last seen');
-  await expect(firstCard.getByText('Not analysed yet')).toBeVisible();
-  await expect(firstCard.getByText('No score exists for this opportunity yet.')).toBeVisible();
+  /*
+   * The stronger assertion that replaced the honest "not analysed yet" one.
+   *
+   * Every card in this feed carries a stored result now, so a card states the
+   * verdict and the score the ranking stored — with the confidence it derived
+   * from the evidence behind it — and no card in the feed says it has not been
+   * analysed. Nothing here is a placeholder: `matching.spec.ts` asserts the
+   * stored row these render from.
+   */
+  await expect(page.locator('.radar-card')).toHaveCount(5);
+  await expect(page.locator('.radar-card-verdict .h-badge')).toHaveCount(5);
+  await expect(page.locator('.radar-card', { hasText: 'Not analysed yet' })).toHaveCount(0);
+  await expect(page.getByText('No score exists for this opportunity yet.')).toHaveCount(0);
+  await expect(firstCard.locator('.radar-card-verdict .h-badge')).toHaveText(
+    /^(Strong match|Good match|Stretch opportunity|Weak match|Not recommended) · \d{1,3}\/100$/u,
+  );
+  await expect(firstCard.locator('.radar-confidence')).toHaveText(
+    /^(High|Medium|Low) confidence$/u,
+  );
 });
 
 test('a filter changes the result set and is reflected in the URL', async ({ page }) => {
@@ -83,18 +119,28 @@ test('an opportunity opens with its freshness and source data', async ({ page })
 
   /*
    * The scored explanation ("Why this fits", the match breakdown, the
-   * requirement mapping) is rendered from a stored match result, and nothing in
-   * the Dockerless stack computes one: the matching engine lives in the worker,
-   * which `pnpm e2e` does not start, and no API route records a match. So this
-   * asserts what the product actually shows for every opportunity here — an
-   * explicit, honest unanalysed state — rather than a heading that can never
-   * appear. The gap is reported rather than papered over.
+   * requirement mapping) is rendered from a stored match result. This file used
+   * to assert the opposite — an explicit, honest unanalysed state — because the
+   * matching engine lives in the worker, which `pnpm e2e` did not start, and no
+   * API route recorded a match. The worker now runs before this file's first
+   * assertion (see `beforeAll`), so the coverage is replaced with the stronger
+   * claim rather than deleted: this opportunity carries the analysis the worker
+   * stored, and the unanalysed panel is gone.
    */
   await expect(
     page.getByRole('heading', { name: 'This opportunity has not been analysed yet' }),
-  ).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Why this fits' })).toHaveCount(0);
-  await expect(page.getByText('No score exists for this opportunity yet.')).toBeVisible();
+  ).toHaveCount(0);
+  await expect(page.getByText('No score exists for this opportunity yet.')).toHaveCount(0);
+  await expect(page.locator('.radar-detail-verdict .h-badge')).toHaveText(
+    /^(Strong match|Good match|Stretch opportunity|Weak match|Not recommended) · \d{1,3}\/100$/u,
+  );
+  await expect(page.locator('.radar-detail-verdict')).toContainText(
+    /(High|Medium|Low) confidence/u,
+  );
+  await expect(page.getByRole('heading', { name: 'Why this fits' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Match breakdown' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Requirements mapping' })).toBeVisible();
+  await expect(page.locator('.radar-dimension-table tbody tr')).toHaveCount(9);
 
   const facts = page.locator('.radar-detail-facts');
   await expect(facts.getByText('Freshness', { exact: true })).toBeVisible();

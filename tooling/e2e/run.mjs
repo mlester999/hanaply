@@ -53,11 +53,16 @@ run(process.execPath, [stack, 'stop'], { allowFailure: true });
 process.stdout.write('\n▶ Rebuilding the local database from the migration chain\n');
 run(process.execPath, [localCluster, 'reset']);
 
-// The API and web dev servers resolve workspace packages through their built
-// `dist` entry points, so a clean checkout needs those before Playwright starts
-// them. Turbo caches this, so repeat runs are cheap. A failure here is reported
-// but not fatal: an existing `dist` can still serve the suite, and Playwright
-// fails loudly if a server genuinely cannot start.
+// The API, web, and worker processes resolve workspace packages through their
+// built `dist` entry points, so a clean checkout needs those before Playwright
+// starts them. The worker is built here for the same reason the servers are: the
+// matching spec starts it through its real production entry point
+// (`services/worker/dist/main.js`, `WORKER_MODE=once`), which cannot run from
+// source without the transpiler the services do not need.
+//
+// Turbo caches this, so repeat runs are cheap. A failure here is reported but
+// not fatal: an existing `dist` can still serve the suite, and Playwright fails
+// loudly if a server genuinely cannot start.
 process.stdout.write('\n▶ Building workspace packages the servers import\n');
 const buildStatus = run(
   process.execPath,
@@ -67,6 +72,7 @@ const buildStatus = run(
     'build',
     '--filter=@hanaply/api',
     '--filter=@hanaply/web',
+    '--filter=@hanaply/worker',
   ],
   { allowFailure: true },
 );

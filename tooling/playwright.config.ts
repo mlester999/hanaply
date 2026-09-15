@@ -27,15 +27,27 @@ const serviceEnvironment = {
   API_PORT: '3101',
   CORS_ALLOWED_ORIGINS: appUrl,
   RATE_LIMIT_STORE: 'memory',
-  // The throttle keys on the caller's address, and the whole web server calls
-  // the API from one address, so the production default of 100 requests a
-  // minute is shared by every page in the suite: a single walk through the
-  // Career Profile, the radar, and the documents library exceeds it and the
-  // product starts answering 429. Raising the bucket keeps the guard in place
-  // (the per-route limits are unchanged) while letting one browser do the work
-  // a single member does.
-  RATE_LIMIT_GLOBAL_LIMIT: '100000',
-  RATE_LIMIT_GLOBAL_TTL_MS: '60000',
+  // The throttle keys an authenticated route on the verified member and an
+  // anonymous one on the client address, so no member's walk is charged to
+  // another member. See tests/integration/rate-limit.test.ts for the behaviour
+  // this relies on; that suite proves the isolation, and it sets its own budgets,
+  // so the limits here do not affect what the isolation proof covers.
+  //
+  // The authenticated ceiling is raised for the browser suite, and only here.
+  // The suite is not a person: `layout-health` alone walks eleven surfaces at
+  // three widths, and `requireUser()` calls `GET /v1/me` on every protected
+  // render, so a single spec can issue an order of magnitude more calls per
+  // minute than any human would. On the production default that surfaced as a
+  // 429 on `/v1/me`, which the web layer does not special-case, so the truth
+  // ledger page failed to render rather than redirecting, and two specs failed
+  // with a missing heading rather than an obvious throttling error.
+  //
+  // This is deliberately the scoped knob and not the blanket
+  // `RATE_LIMIT_GLOBAL_LIMIT` the earlier workaround used. That variable no
+  // longer exists, and raising it would have hidden the shared-bucket defect
+  // instead of fixing it. Production configuration is unchanged.
+  RATE_LIMIT_AUTHENTICATED_LIMIT: '20000',
+  RATE_LIMIT_AUTHENTICATED_TTL_MS: '60000',
   OPENAPI_ENABLED: 'true',
   BUILD_SHA: 'e2e',
   EMAIL_PROVIDER: 'capture',

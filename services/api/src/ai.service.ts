@@ -1046,6 +1046,32 @@ export class AiService {
     const detail = await this.repository.coachConversationDetail(userId, conversationId);
     const careerProfileId = parsed.data.careerProfileId ?? detail.conversation.careerProfileId;
 
+    /*
+     * Entitlement and quota are settled before anything is written.
+     *
+     * This used to run after the member's message had been appended, so a
+     * subscriber whose plan does not include the coach, or who had used their
+     * allowance, had their text persisted by a request that was then refused.
+     * A refusal must leave no trace: nothing generated, nothing charged, and
+     * nothing stored.
+     *
+     * The reservation is still released on the paths below that produce no
+     * generation, so an entitled member whose provider is down, or whose thread
+     * has no career profile, keeps the message and pays nothing.
+     */
+    const meterKey = operationKey([
+      'coach_message',
+      userId,
+      conversationId,
+      bodyDigest(parsed.data.body),
+    ]);
+    const decision = await this.meter.consume({
+      userId,
+      feature: 'coach_message',
+      idempotencyKey: meterKey,
+      units: 1,
+    });
+
     await this.repository.appendCoachMessage({
       userId,
       conversationId,
@@ -1061,6 +1087,9 @@ export class AiService {
     });
 
     if (!this.available()) {
+      // Nothing was generated, so the reservation goes back. The member keeps
+      // their message and pays nothing for a provider that is down.
+      this.meter.release(meterKey);
       await this.appendAssistantNotice(
         userId,
         conversationId,
@@ -1072,6 +1101,7 @@ export class AiService {
     if (careerProfileId === null) {
       // Without a career profile there is no confirmed ledger, so the coach has
       // no admissible evidence and must not assert anything. It says so.
+      this.meter.release(meterKey);
       await this.appendAssistantNotice(
         userId,
         conversationId,
@@ -1081,18 +1111,6 @@ export class AiService {
     }
 
     const context = await this.coachContext(userId, careerProfileId, parsed.data.jobId ?? null);
-    const meterKey = operationKey([
-      'coach_message',
-      userId,
-      conversationId,
-      bodyDigest(parsed.data.body),
-    ]);
-    const decision = await this.meter.consume({
-      userId,
-      feature: 'coach_message',
-      idempotencyKey: meterKey,
-      units: 1,
-    });
 
     const coachRequest = buildCoachRequest({
       requestId,

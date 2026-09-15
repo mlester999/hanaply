@@ -2,7 +2,7 @@ import { createAiProvider, type AiProvider } from '@hanaply/ai';
 import type { ApiEnvironment } from '@hanaply/config';
 import { Module, type DynamicModule } from '@nestjs/common';
 import { APP_GUARD, Reflector } from '@nestjs/core';
-import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
+import { ThrottlerModule, type ThrottlerStorage } from '@nestjs/throttler';
 
 import { AdminAuthorizationGuard, SupabaseAuthGuard, SupabaseAuthService } from './auth.js';
 import { HanaplyService } from './app.service.js';
@@ -29,6 +29,12 @@ import { CareerRepository } from './career.repository.js';
 import { CareerService } from './career.service.js';
 import { PaymentRepository } from './payment.repository.js';
 import { PaymentService } from './payment.service.js';
+import {
+  createThrottlerStorage,
+  isExpensiveRequest,
+  routeDeclaredNothing,
+  ScopedThrottlerGuard,
+} from './rate-limit.js';
 import { HanaplyRepository } from './repository.js';
 import { AI_PROVIDER_TOKEN, API_ENVIRONMENT } from './tokens.js';
 
@@ -46,6 +52,12 @@ export interface ApiRuntimeOverrides {
    * generation, refusals, and provider failures without a network or a key.
    */
   aiProvider?: AiProvider;
+  /**
+   * The rate-limit store. Two applications that share one instance are one
+   * limiter, which is the shape a multi-instance deployment needs; the default
+   * is one in-process store per application.
+   */
+  throttlerStorage?: ThrottlerStorage;
 }
 
 /**
@@ -68,13 +80,40 @@ export class AppModule {
     return {
       module: AppModule,
       imports: [
-        ThrottlerModule.forRoot([
-          {
-            name: 'default',
-            ttl: environment.RATE_LIMIT_GLOBAL_TTL_MS,
-            limit: environment.RATE_LIMIT_GLOBAL_LIMIT,
-          },
-        ]),
+        /**
+         * Two named throttlers, one decision each.
+         *
+         * `default` carries every route. Its module-level limit and window are a
+         * sentinel: the guard replaces them with the scope's configured policy
+         * when the route declares nothing, and a route's own
+         * `@Throttle({ default: { limit, ttl } })` still wins where it exists —
+         * the library reads that decorator exactly as it did before, only the
+         * bucket key changed. The key is the verified member when there is one
+         * and the client address when there is not; see
+         * `services/api/src/rate-limit.ts` for the scopes and
+         * `packages/config/src/index.ts` for the values.
+         *
+         * `expensive` is a second, independent ceiling on the model and
+         * generation routes, skipped everywhere else, so a member cannot spend an
+         * unbounded amount of model time no matter how generous a single route's
+         * decorator is.
+         */
+        ThrottlerModule.forRoot({
+          storage: overrides.throttlerStorage ?? createThrottlerStorage(environment),
+          throttlers: [
+            {
+              name: 'default',
+              limit: routeDeclaredNothing,
+              ttl: routeDeclaredNothing,
+            },
+            {
+              name: 'expensive',
+              limit: environment.RATE_LIMIT_EXPENSIVE_LIMIT,
+              ttl: environment.RATE_LIMIT_EXPENSIVE_TTL_MS,
+              skipIf: (context) => !isExpensiveRequest(context.switchToHttp().getRequest()),
+            },
+          ],
+        }),
       ],
       controllers: [
         PublicController,
@@ -132,7 +171,16 @@ export class AppModule {
         SupabaseAuthGuard,
         AdminAuthorizationGuard,
         Reflector,
-        { provide: APP_GUARD, useClass: ThrottlerGuard },
+        {
+          provide: APP_GUARD,
+          /**
+           * A global guard runs before a controller guard, so this resolves the
+           * caller itself, through the same `SupabaseAuthService` the controller's
+           * `SupabaseAuthGuard` uses, and that service verifies a request once:
+           * the bucket knows the member without paying for the session twice.
+           */
+          useClass: ScopedThrottlerGuard,
+        },
       ],
     };
   }

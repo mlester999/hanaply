@@ -68,6 +68,17 @@ describe('the evidence index', () => {
     expect(index.numbers.has('777')).toBe(false);
   });
 
+  it('indexes the unit the evidence attached to each figure', () => {
+    const index = buildEvidenceIndex(groundingContext());
+
+    expect([...(index.numberUnits.get('20') ?? [])]).toEqual(['percent']);
+    expect([...(index.numberUnits.get('40') ?? [])]).toEqual(['person']);
+    // A figure the evidence states without a unit records none, so the bare
+    // literal stays admissible and ordinary prose is not broken.
+    expect(index.numbers.has('9000000')).toBe(true);
+    expect(index.numberUnits.has('9000000')).toBe(false);
+  });
+
   it('never lets a fictional employer look evidenced', () => {
     const index = buildEvidenceIndex(groundingContext());
 
@@ -523,5 +534,192 @@ describe('claim extraction', () => {
       'opportunity_analysis',
     );
     expect(decision.accepted).toBe(true);
+  });
+});
+
+/**
+ * The defect these tests close: the numeric rule used to be "the literal is
+ * somewhere in the evidence", so a fact saying "20 percent" licensed "20 hours
+ * per week" about the member. The rule is now "the literal *and its unit*".
+ */
+describe('the truth gate on figures and units', () => {
+  /** Prose that the gate must judge, in an evidence field so a rejection is a refusal. */
+  function claim(value: string): ReturnType<typeof gate> {
+    return gate({ ...groundedOpportunityReport(), gaps: [value] }, 'opportunity_analysis');
+  }
+
+  it('accepts the unit the evidence states and rejects the same number in another unit', () => {
+    // `metricFactId` is "Cut manual onboarding handling time by 20%", with
+    // `metricValue: 20` and `metricUnit: percent`.
+    const grounded = gate(
+      {
+        ...groundedOpportunityReport(),
+        gaps: [
+          'Your confirmed record shows you cut manual onboarding handling time by 20 percent.',
+        ],
+      },
+      'opportunity_analysis',
+    );
+
+    expect(grounded.accepted).toBe(true);
+    expect(grounded.report.rejections).toHaveLength(0);
+  });
+
+  it('rejects "20 hours per week" against evidence that states 20 percent', () => {
+    const decision = claim('You cut manual onboarding handling time by 20 hours per week.');
+
+    expect(decision.accepted).toBe(false);
+    expect(decision.value).toBeNull();
+    expect(rejectionFor(decision.report, 'numeric')).toBe(true);
+    const rejection = decision.report.rejections.find((entry) => entry.code === 'numeric');
+    expect(rejection?.detail).toContain('percent');
+    expect(rejection?.detail).toContain('hour');
+  });
+
+  it('rejects "0 days per hire" against evidence that states a 40-person team', () => {
+    const decision = claim('You reduced onboarding effort by 0 days per hire.');
+
+    expect(decision.accepted).toBe(false);
+    expect(rejectionFor(decision.report, 'numeric')).toBe(true);
+    expect(
+      decision.report.rejections.some(
+        (entry) => entry.code === 'numeric' && entry.detail.includes('0'),
+      ),
+    ).toBe(true);
+    expect(
+      decision.report.claims.some(
+        (entry) => entry.kind === 'numeric' && entry.text === '0' && entry.status === 'rejected',
+      ),
+    ).toBe(true);
+  });
+
+  it('still rejects a genuinely new figure rather than only re-denominated ones', () => {
+    const decision = claim('Your automation saved 70 engineer-days per quarter.');
+
+    expect(decision.accepted).toBe(false);
+    expect(decision.report.rejections.some((entry) => entry.detail.includes('70'))).toBe(true);
+    expect(
+      decision.report.rejections.some((entry) =>
+        entry.detail.includes('appears in no confirmed career fact'),
+      ),
+    ).toBe(true);
+  });
+
+  it('treats equivalent unit spellings as the same unit', () => {
+    // "%" in the evidence against "percent" in the claim.
+    expect(claim('You cut manual onboarding handling time by 20 percent.').accepted).toBe(true);
+
+    const index = buildEvidenceIndex(
+      groundingContext({
+        facts: [
+          ...confirmedFacts(),
+          {
+            id: 'c1000000-0000-4000-8000-0000000000f5',
+            category: 'metric',
+            statement: 'Annual package of ₱500000, paid monthly.',
+          },
+          {
+            id: 'c1000000-0000-4000-8000-0000000000f6',
+            category: 'experience',
+            statement: 'Held the role for 3 yrs.',
+          },
+        ],
+      }),
+    );
+
+    // "₱" is to "PHP" what "yrs" is to "years": the same unit, spelled twice.
+    const peso = extractClaims('Your confirmed package is ₱500000 a month.', index).find((entry) =>
+      entry.text.startsWith('500000'),
+    );
+    expect(peso?.status).toBe('supported');
+    const years = extractClaims('Held the role for 3 years.', index).find(
+      (entry) => entry.text === '3',
+    );
+    expect(years?.status).toBe('supported');
+  });
+
+  it('does not let one currency or period license another', () => {
+    const index = buildEvidenceIndex(
+      groundingContext({
+        facts: [
+          ...confirmedFacts(),
+          {
+            id: 'c1000000-0000-4000-8000-0000000000f7',
+            category: 'metric',
+            statement: 'Annual package of PHP 500000, reviewed yearly.',
+          },
+        ],
+      }),
+    );
+
+    // The figure is denominated in PHP and in years. Neither the currency nor
+    // the period may be swapped for another one.
+    const currency = extractClaims('Your package is 500000 USD a year.', index).find(
+      (entry) => entry.text === '500000',
+    );
+    expect(currency?.status).toBe('rejected');
+    expect(currency?.reason).toContain('php');
+
+    const period = extractClaims('Your package is PHP 500000 monthly.', index).find(
+      (entry) => entry.text === '500000',
+    );
+    expect(period?.status).toBe('rejected');
+    expect(period?.reason).toContain('year');
+
+    const grounded = extractClaims('Your package is PHP 500000 yearly.', index).find(
+      (entry) => entry.text === '500000',
+    );
+    expect(grounded?.status).toBe('supported');
+  });
+
+  it('still validates a bare number when the evidence records no unit for it', () => {
+    // "40" is stated without any unit word ("40 members" names no unit this
+    // gate knows), so the evidence attached no unit at all and the bare literal
+    // stays admissible. Ordinary prose is not broken by the unit rule.
+    const index = buildEvidenceIndex({
+      ...groundingContext(),
+      facts: [
+        {
+          id: 'c1000000-0000-4000-8000-0000000000f8',
+          category: 'responsibility',
+          statement: 'The team grew to 40 members.',
+        },
+      ],
+    });
+
+    expect(index.numberUnits.has('40')).toBe(false);
+    const bare = extractClaims('The team grew to 40 members.', index).find(
+      (entry) => entry.text === '40',
+    );
+    expect(bare?.status).toBe('supported');
+  });
+
+  it('still passes a fully grounded response end to end', () => {
+    const decision = gate(groundedOpportunityReport(), 'opportunity_analysis');
+
+    expect(decision.accepted).toBe(true);
+    expect(decision.value).not.toBeNull();
+    expect(decision.report.status).toBe('passed');
+    expect(decision.report.rejections).toHaveLength(0);
+    expect(decision.report.numericClaimsChecked).toBeGreaterThan(0);
+  });
+
+  it('reports a re-denominated figure as a dropped claim with a reason in an advice field', () => {
+    const decision = gate(
+      {
+        ...groundedOpportunityReport(),
+        whyInteresting: ['This role could cut your onboarding time by 20 hours per week.'],
+      },
+      'opportunity_analysis',
+    );
+
+    expect(decision.accepted).toBe(true);
+    expect(decision.report.status).toBe('partial');
+    const dropped = decision.report.claims.find(
+      (entry) => entry.kind === 'numeric' && entry.text === '20',
+    );
+    expect(dropped?.status).toBe('dropped');
+    expect(dropped?.reason).toContain('percent');
+    expect(dropped?.reason).toContain('hour');
   });
 });

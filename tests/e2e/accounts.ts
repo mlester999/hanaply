@@ -52,4 +52,15 @@ export const testAccounts = Object.freeze({
     email: 'phase1.packs@hanaply.test',
     password: 'Hanaply-Packs-2026!',
   },
+  /**
+   * Owns the end-to-end matching fixture: the career profile the worker scores
+   * and the opportunity `matching.spec.ts` follows from ingestion to the
+   * browser. It is separate from the radar account because that spec asserts the
+   * analysed feed for its own member, and two files writing matches for one
+   * account would make each one's expectations depend on the other's run.
+   */
+  matching: {
+    email: 'phase1.matching@hanaply.test',
+    password: 'Hanaply-Matching-2026!',
+  },
 });

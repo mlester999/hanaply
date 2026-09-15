@@ -44,6 +44,18 @@ function authenticationError(message = 'Authentication is required'): AppError {
 export class SupabaseAuthService {
   private readonly verificationClient;
 
+  /**
+   * One verification per request, shared by its callers.
+   *
+   * The throttler resolves the caller before the authentication guard does,
+   * because a bucket keyed by member has to know the member: `ScopedThrottlerGuard`
+   * runs first as a global guard and `SupabaseAuthGuard` runs later, on the
+   * controller. Both await this promise, so a request verifies its session
+   * exactly as often as it did before scoped limiting existed — once. Nothing is
+   * cached across requests, so a revoked session is still refused on the next one.
+   */
+  private readonly authentications = new WeakMap<AuthenticatedRequest, Promise<void>>();
+
   constructor(
     @Inject(API_ENVIRONMENT) environment: ApiEnvironment,
     @Inject(HanaplyRepository) private readonly repository: HanaplyRepository,
@@ -55,6 +67,12 @@ export class SupabaseAuthService {
   }
 
   async authenticate(request: AuthenticatedRequest): Promise<void> {
+    const pending = this.authentications.get(request) ?? this.verify(request);
+    this.authentications.set(request, pending);
+    return pending;
+  }
+
+  private async verify(request: AuthenticatedRequest): Promise<void> {
     const authorization = request.headers.authorization;
     if (!authorization?.startsWith('Bearer ')) throw authenticationError();
     const accessToken = authorization.slice('Bearer '.length).trim();

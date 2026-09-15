@@ -98,6 +98,7 @@ Slowest and most relevant suites:
 | `tests/unit/request-integrity.test.ts`     | Same-origin mutation origin acceptance and rejection cases                                                                                                                                              |
 | `tests/unit/tasks.test.ts`                 | Task envelope defaults, full-jitter retry delay, retryability classification, in-memory queue dead-lettering, disabled adapter                                                                          |
 | `tests/integration/api.test.ts`            | The real Nest app over `app.inject`: health, readiness, version, meta, plans, profile, preferences, sessions, entitlements, admin directory and audit, OpenAPI generation, rate limiting                |
+| `tests/integration/rate-limit.test.ts`     | Rate-limit scopes over the real app and explicit client addresses: member isolation, the address fallback, the expensive ceiling, the window reset, the storage seam                                    |
 | `tests/integration/payments-api.test.ts`   | Payment methods, subscription, paginated submissions, draft validation and optimistic conflicts, real multipart image upload, proof access, admin permissions, review outcomes, subscription correction |
 | `tests/component/ui.test.tsx`              | Accessible `@hanaply/ui` primitives in jsdom: button loading state, dialog keyboard and focus behavior, tabs, switch, dropdown menu                                                                     |
 

@@ -94,7 +94,7 @@ Keep `EMAIL_PROVIDER=capture`, `EMAIL_ALLOW_LIVE_SENDS=false`, and `ADMIN_BOOTST
 | Local SMTP       | `127.0.0.1:55424`        | Supabase CLI local mail catcher port      |
 | Harness Postgres | `127.0.0.1:55433`        | Dockerless harness, database `hanaply`    |
 
-The worker defaults to `WORKER_MODE=idle` and only serves health. Set `WORKER_MODE=active` with a local database and reviewed email configuration to run the four job-intelligence cycles (ingestion, match computation, freshness, opportunity notification delivery) and the payment maintenance cycles (subscription expiry and reminders, payment notification delivery, private-object cleanup). A production deployment still needs health probes, retry/dead-letter monitoring, and owner-approved provider configuration; see [Owner actions](docs/owner-actions.md).
+The worker defaults to `WORKER_MODE=idle` and only serves health. Set `WORKER_MODE=active` with a local database and reviewed email configuration to run the four job-intelligence cycles (ingestion, match computation, freshness, opportunity notification delivery) and the payment maintenance cycles (subscription expiry and reminders, payment notification delivery, private-object cleanup). `WORKER_MODE=once` runs the four job-intelligence cycles a single time and exits, printing its own state as the last line of stdout, so a caller can set the worker environment, run `node services/worker/dist/main.js`, and then assert on what it stored; `pnpm e2e` does exactly that. A production deployment still needs health probes, retry/dead-letter monitoring, and owner-approved provider configuration; see [Owner actions](docs/owner-actions.md).
 
 ## What you can do in the web app today
 

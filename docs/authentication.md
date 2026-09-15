@@ -43,7 +43,7 @@ Verification resend is server-rate-limited and calls Supabase's `resend` API. Th
 
 Admin intent adds an authoritative `/v1/admin/me` check. An active Supabase session without active database membership and permissions is signed out and receives a generic admin-denial message. JWT user/app metadata is never consulted for admin authority.
 
-Invalid credentials use one generic response. Login is limited to 10 attempts per 15-minute database window for both a hashed source-address key and a hashed address/email key. Production requires a strong `AUTH_RATE_LIMIT_PEPPER`.
+Invalid credentials use one generic response. Login is limited to 10 attempts per 15-minute database window for both a hashed source-address key and a hashed address/email key. Production requires a strong `AUTH_RATE_LIMIT_PEPPER`. The API carries the same policy as a declared scope: a route that takes a submitted identifier is keyed by address and identifier, and it is configured by `RATE_LIMIT_SENSITIVE_*` (see `docs/security.md`), so an authentication route added to the API inherits the rule rather than re-deriving it.
 
 ## Session refresh, validation, and logout
 

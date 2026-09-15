@@ -26,6 +26,7 @@ import {
 import { AppError } from './app-error.js';
 import { HanaplyService } from './app.service.js';
 import { successEnvelope, type AuthenticatedRequest } from './http.js';
+import { RateLimitScope } from './rate-limit.js';
 
 const adminUserPath = apiContract.adminUser.path.replace('{userId}', ':userId');
 const adminSuspendUserPath = apiContract.adminSuspendUser.path.replace('{userId}', ':userId');
@@ -35,7 +36,16 @@ const adminRevokeUserSessionsPath = apiContract.adminRevokeUserSessions.path.rep
   ':userId',
 );
 
+/**
+ * The routes that answer without a session.
+ *
+ * They are limited by client address, which is the right scope when there is no
+ * identity to key on: an unauthenticated caller can only be charged for the
+ * address it reaches the API from. Health, readiness, version, and the local
+ * documentation endpoints opt out of the limiter entirely with `@SkipThrottle`.
+ */
 @Controller()
+@RateLimitScope('anonymous')
 export class PublicController {
   constructor(@Inject(HanaplyService) private readonly service: HanaplyService) {}
 

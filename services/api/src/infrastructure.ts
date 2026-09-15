@@ -13,7 +13,7 @@ import {
   type NestInterceptor,
 } from '@nestjs/common';
 import type { ApiEnvironment } from '@hanaply/config';
-import type { ErrorCode } from '@hanaply/contracts';
+import { ResponseContractViolationError, type ErrorCode } from '@hanaply/contracts';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { defer, type Observable } from 'rxjs';
 import { ZodError } from 'zod';
@@ -87,6 +87,44 @@ export class ApiExceptionFilter implements ExceptionFilter {
     const reply = host.switchToHttp().getResponse<FastifyReply>();
     const requestId = request.id || randomUUID();
 
+    /**
+     * A response that fails its own declared schema is an internal defect.
+     *
+     * This case must be checked before the bare `ZodError` branch below, because
+     * the wrapper in `defineRoute` is what throws it. It is reported as 500 with a
+     * fixed message: the failing paths are logged for the operator and never sent
+     * to the caller, since they describe the server's internals and the values
+     * behind them are subscriber data.
+     */
+    if (exception instanceof ResponseContractViolationError) {
+      this.logger.error({
+        requestId,
+        event: 'response_contract_violation',
+        operationId: exception.operationId,
+        issues: exception.issues,
+      });
+      void reply
+        .status(500)
+        .send(
+          errorEnvelope(
+            requestId,
+            'INTERNAL_ERROR',
+            'Hanaply could not produce a valid response for this request. The failure has been recorded.',
+          ),
+        );
+      return;
+    }
+
+    /**
+     * A bare `ZodError` is a request-validation failure.
+     *
+     * Request parsing in this codebase is deliberately split: the overwhelming
+     * majority of it uses `safeParse` and raises a typed `AppError` with a 400,
+     * and the remainder calls `parse` directly on query, param, or body values.
+     * Response parsing used to arrive here too, which is why a server defect was
+     * reported as a client error; it now throws `ResponseContractViolationError`
+     * and is handled above.
+     */
     if (exception instanceof ZodError) {
       const details = exception.issues.map((issue) => ({
         path: issue.path.map((segment) =>

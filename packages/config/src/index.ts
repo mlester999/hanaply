@@ -213,15 +213,39 @@ const apiEnvironmentSchema = sharedServerEnvironmentSchema
     API_PORT: portFromEnvironment.default(3101),
     RATE_LIMIT_STORE: z.literal('memory').default('memory'),
     /**
-     * The default bucket every API route shares.
+     * The API's rate limits, per scope.
      *
-     * The throttle keys on the caller's address, and the web application calls
-     * the API server-to-server, so one address carries every member's requests.
-     * The default is the production posture; a local or single-tenant
-     * deployment can raise it rather than disabling the guard.
+     * The old shape was one bucket for every route, keyed by the caller's
+     * address. The web application reaches the API server-to-server, so that one
+     * address carried every member's traffic and one member's burst refused
+     * unrelated members. These are the same numbers in different buckets; see
+     * `services/api/src/rate-limit.ts` for the scope each one applies to.
+     *
+     * `AUTHENTICATED` is the per-member default for a route that requires a
+     * session, and the 100-per-minute posture is the value the shared bucket used
+     * to carry — now spent by one member rather than by everybody.
+     * `ANONYMOUS` is what an unproven caller (no session, or an unusable one)
+     * gets, keyed by address.
+     * `SENSITIVE` is for an authentication route that takes a submitted
+     * identifier, keyed by address and identifier; it mirrors the
+     * ten-attempts-per-fifteen-minutes policy `docs/authentication.md` records
+     * for credential entry.
+     * `EXPENSIVE` is a second, tighter ceiling on the model and generation
+     * routes, keyed by member.
      */
-    RATE_LIMIT_GLOBAL_LIMIT: z.coerce.number().int().min(1).max(1_000_000).default(100),
-    RATE_LIMIT_GLOBAL_TTL_MS: z.coerce.number().int().min(1_000).max(3_600_000).default(60_000),
+    RATE_LIMIT_AUTHENTICATED_LIMIT: z.coerce.number().int().min(1).max(1_000_000).default(100),
+    RATE_LIMIT_AUTHENTICATED_TTL_MS: z.coerce
+      .number()
+      .int()
+      .min(1_000)
+      .max(3_600_000)
+      .default(60_000),
+    RATE_LIMIT_ANONYMOUS_LIMIT: z.coerce.number().int().min(1).max(1_000_000).default(60),
+    RATE_LIMIT_ANONYMOUS_TTL_MS: z.coerce.number().int().min(1_000).max(3_600_000).default(60_000),
+    RATE_LIMIT_SENSITIVE_LIMIT: z.coerce.number().int().min(1).max(1_000_000).default(10),
+    RATE_LIMIT_SENSITIVE_TTL_MS: z.coerce.number().int().min(1_000).max(3_600_000).default(900_000),
+    RATE_LIMIT_EXPENSIVE_LIMIT: z.coerce.number().int().min(1).max(1_000_000).default(60),
+    RATE_LIMIT_EXPENSIVE_TTL_MS: z.coerce.number().int().min(1_000).max(3_600_000).default(60_000),
     CORS_ALLOWED_ORIGINS: nonEmptyString.transform((value) =>
       value
         .split(',')
@@ -262,7 +286,17 @@ const apiEnvironmentSchema = sharedServerEnvironmentSchema
 
 const workerEnvironmentSchema = sharedServerEnvironmentSchema.extend({
   WORKER_HEALTH_PORT: portFromEnvironment.default(3102),
-  WORKER_MODE: z.enum(['idle', 'active']).default('idle'),
+  /**
+   * `idle` serves health only, `active` runs the cycles on the poll timer, and
+   * `once` runs every cycle exactly once and exits.
+   *
+   * `once` exists because match computation is otherwise only exercised by a
+   * process nobody can wait on: a deterministic gate needs to run the real
+   * orchestration and then observe the rows it produced. It is the same
+   * `JobIntelligenceWorker` and the same cycles as `active`, started from the
+   * same entry point, so what it proves is what a deployment runs.
+   */
+  WORKER_MODE: z.enum(['idle', 'active', 'once']).default('idle'),
   WORKER_POLL_INTERVAL_MS: z.coerce.number().int().min(1_000).max(60_000).default(5_000),
   WORKER_MAINTENANCE_INTERVAL_MS: z.coerce
     .number()

@@ -1058,13 +1058,22 @@ describe('AI routes under attack', () => {
     expect(response.status).toBe(403);
     expect(apiErrorEnvelopeSchema.parse(response.json()).error.code).toBe('ENTITLEMENT_REQUIRED');
 
-    // Nothing was generated and nothing was charged. The member's own text is
-    // saved first, deliberately, so it survives a refusal — what must not exist
-    // is an assistant reply, an invocation row, or a provider call.
+    /*
+     * A refusal leaves no trace at all.
+     *
+     * This test previously asserted the opposite — that the member's own text
+     * was saved before the entitlement check so it survived the refusal. That
+     * was a description of the defect, not a requirement: a request refused for
+     * entitlement wrote the member's message into the thread first, so "nothing
+     * was generated" was true while "nothing was stored" was not. Entitlement and
+     * quota now settle before anything is written, so an unentitled or
+     * over-allowance send persists nothing: no member message, no assistant
+     * reply, no invocation row, no provider call.
+     */
     expect(provider.requests).toHaveLength(0);
     expect(invocations).toHaveLength(0);
     const thread = messages.get(attacker.conversationId) ?? [];
-    expect(thread.map((message) => message.role)).toEqual(['user']);
+    expect(thread).toHaveLength(0);
   });
 
   it('refuses an artifact generation the plan does not include, and writes nothing', async () => {

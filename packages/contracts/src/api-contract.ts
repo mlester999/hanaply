@@ -389,8 +389,69 @@ export type AdminUserSummary = z.infer<typeof adminUserSummarySchema>;
 export type AdminUserDetail = z.infer<typeof adminUserDetailSchema>;
 export type AdminAuditEvent = z.infer<typeof adminAuditEventSchema>;
 
+/**
+ * A response that does not satisfy the contract its own route declares.
+ *
+ * This is deliberately a distinct type from `ZodError`. Request validation
+ * failures are the caller's fault and belong in a 4xx; a response that fails its
+ * declared schema means the server broke its own contract, which is an internal
+ * defect and belongs in a 5xx. Both used to arrive as a bare `ZodError`, and the
+ * API reported every one of them as `400 Request validation failed` - so a
+ * server bug was blamed on the caller and hidden from monitoring.
+ *
+ * The issues are carried as plain path-plus-code strings. A response violation
+ * is logged, never returned, so the values are not needed and keeping them out
+ * means subscriber data cannot reach a log line by this route.
+ */
+export class ResponseContractViolationError extends Error {
+  readonly operationId: string;
+  readonly issues: readonly string[];
+
+  constructor(operationId: string, issues: readonly string[]) {
+    super(`The response for ${operationId} does not satisfy its declared contract`);
+    this.name = 'ResponseContractViolationError';
+    this.operationId = operationId;
+    this.issues = issues;
+  }
+}
+
+/**
+ * Wraps a route's response schema so a violation is distinguishable from a
+ * request-validation failure.
+ *
+ * The wrapper is built with `Object.create`, so the prototype chain is intact
+ * and everything else that reads the schema - the OpenAPI generator, type
+ * inference, `safeParse`, `shape` - behaves exactly as before. Only `parse` is
+ * replaced, and it is replaced by an own property so the shared schema object is
+ * never mutated.
+ */
+function withResponseContract<TSchema extends z.ZodType>(
+  operationId: string,
+  schema: TSchema,
+): TSchema {
+  const wrapped = Object.create(schema) as TSchema;
+  Object.defineProperty(wrapped, 'parse', {
+    value: (value: unknown): unknown => {
+      const result = schema.safeParse(value);
+      if (!result.success) {
+        throw new ResponseContractViolationError(
+          operationId,
+          result.error.issues.map((issue) => `${issue.path.join('.') || '<root>'}: ${issue.code}`),
+        );
+      }
+      return result.data;
+    },
+    enumerable: false,
+    writable: false,
+  });
+  return wrapped;
+}
+
 function defineRoute<const TRoute extends ApiRoute>(route: TRoute): TRoute {
-  return route;
+  return {
+    ...route,
+    response: withResponseContract(route.operationId, route.response),
+  };
 }
 
 export const apiContract = Object.freeze({

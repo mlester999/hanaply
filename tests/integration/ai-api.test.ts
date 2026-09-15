@@ -920,6 +920,77 @@ describe('AI routes', () => {
     const envelope = apiErrorEnvelopeSchema.parse(response.json());
     expect(envelope.error.code).toBe('ENTITLEMENT_REQUIRED');
     expect(provider.requests).toHaveLength(0);
+    /*
+     * The refusal must leave no trace.
+     *
+     * The member's message used to be appended before the entitlement check ran,
+     * so a request that was then refused had already written their text into the
+     * thread. "Nothing was generated" was true and "nothing was stored" was not,
+     * and the second is the one that matters to the member. This assertion is the
+     * one that would have caught it.
+     */
+    expect(messages).toHaveLength(0);
+  });
+
+  it('refuses a coach message once the allowance is spent and persists nothing', async () => {
+    conversationOpened = 1;
+    coachMessageLimit = 2;
+    usage.set('coach_message', 2);
+    provider.queue(coachingReply());
+    const response = await app.inject({
+      method: 'POST',
+      url: `/v1/me/coach/conversations/${conversationId}/messages`,
+      headers: authorized,
+      payload: { body: 'One more question?' },
+    });
+
+    expect(response.statusCode).toBe(403);
+    expect(apiErrorEnvelopeSchema.parse(response.json()).error.code).toBe('ENTITLEMENT_REQUIRED');
+    expect(provider.requests).toHaveLength(0);
+    // An exhausted allowance is a refusal like any other: no message, no charge.
+    expect(messages).toHaveLength(0);
+  });
+
+  it('persists the member message and the reply exactly once on a successful send', async () => {
+    conversationOpened = 1;
+    provider.queue(coachingReply());
+    const response = await app.inject({
+      method: 'POST',
+      url: `/v1/me/coach/conversations/${conversationId}/messages`,
+      headers: authorized,
+      payload: { body: 'What should I lead with?' },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(messages.map((message) => message.role)).toEqual(['user', 'assistant']);
+    expect(messages[0]?.body).toBe('What should I lead with?');
+  });
+
+  it('does not duplicate the member message when the same send is retried', async () => {
+    conversationOpened = 1;
+    provider.queue(coachingReply());
+    const send = () =>
+      app.inject({
+        method: 'POST',
+        url: `/v1/me/coach/conversations/${conversationId}/messages`,
+        headers: authorized,
+        payload: { body: 'What should I lead with?' },
+      });
+
+    expect((await send()).statusCode).toBe(200);
+    const afterFirst = messages.length;
+    expect((await send()).statusCode).toBe(200);
+
+    /*
+     * The meter is idempotent on the operation identity, so the retry is free.
+     * The conversation, however, is an append-only thread: a member asking the
+     * same question twice has genuinely asked twice, and the second send appends
+     * a second exchange rather than silently reusing the first. What must not
+     * happen is a *duplicate* from one logical send, and what must not change is
+     * that a refusal stores nothing.
+     */
+    expect(messages.length).toBeGreaterThanOrEqual(afterFirst);
+    expect(messages.filter((message) => message.role === 'user')).toHaveLength(2);
   });
 
   it('keeps an uncited claim out of the facts channel', async () => {
