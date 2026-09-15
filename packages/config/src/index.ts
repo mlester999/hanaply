@@ -22,6 +22,17 @@ const booleanFromEnvironment = z.preprocess((value) => {
   return value;
 }, z.boolean());
 const portFromEnvironment = z.coerce.number().int().min(1).max(65_535);
+/**
+ * The port a hosting platform routes traffic to.
+ *
+ * A platform injects `PORT` to tell a service which port it is targeting. This
+ * schema stays platform-neutral, so it only describes the variable; deciding
+ * that `PORT` outranks a service's own setting is `resolveServicePort`, which
+ * the service entry points call before parsing. A service that binds a port the
+ * router is not looking at starts cleanly, reports itself healthy in its own
+ * logs, and still receives no traffic.
+ */
+const platformPort = portFromEnvironment.optional();
 const mailboxSchema = z
   .string()
   .trim()
@@ -58,6 +69,7 @@ const sharedServerEnvironmentSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   HANAPLY_ENV: environmentNameSchema.default('local'),
   LOG_LEVEL: logLevelSchema.default('info'),
+  PORT: platformPort,
   APP_BASE_URL: urlSchema,
   API_BASE_URL: urlSchema,
   SUPABASE_URL: urlSchema,
@@ -212,6 +224,27 @@ const apiEnvironmentSchema = sharedServerEnvironmentSchema
   .extend({
     API_PORT: portFromEnvironment.default(3101),
     RATE_LIMIT_STORE: z.literal('memory').default('memory'),
+    /**
+     * A deliberate statement that this deployment runs exactly one API instance.
+     *
+     * The in-memory throttler store is per process, so with two instances each
+     * keeps its own buckets and a member's effective allowance is the configured
+     * limit multiplied by the instance count. Production was therefore refused
+     * outright whenever the store was `memory` - but `memory` is the only store
+     * this repository implements, so *every* production start was refused and the
+     * product could not be deployed at all. The check was right about the danger
+     * and wrong about the remedy: it blocked the safe case together with the
+     * unsafe one, and nothing caught it because no part of the validation path
+     * ever parsed a production environment.
+     *
+     * The operator now has to say which case they are in. While this is false, a
+     * production environment on the in-memory store is still refused, so a
+     * multi-instance deployment cannot be started by accident. While it is true, a
+     * single-instance launch is legal and the constraint is stated rather than
+     * implied. Scaling out means implementing a shared store and selecting it in
+     * `createThrottlerStorage`; this flag is not a substitute for that.
+     */
+    RATE_LIMIT_SINGLE_INSTANCE: booleanFromEnvironment.default(false),
     /**
      * The API's rate limits, per scope.
      *
@@ -470,20 +503,52 @@ export function parseWebServerEnvironment(input: Record<string, unknown>): WebSe
   return webServerEnvironmentSchema.parse(input);
 }
 
+/**
+ * Folds a platform-injected `PORT` into the variable a service actually reads.
+ *
+ * The variable is copied rather than read from `process.env` so this module
+ * needs no Node type definitions and stays safe to import from the browser
+ * bundle, and so the precedence is one statement a unit test can state exactly:
+ * an explicit `API_PORT`/`WORKER_HEALTH_PORT` wins, then `PORT`, then the
+ * schema's own default. A platform must be able to override the port, because a
+ * service that binds where the router is not looking never receives a request.
+ */
+function resolveServicePort(
+  input: Record<string, unknown>,
+  serviceVariable: string,
+): Record<string, unknown> {
+  const explicit = input[serviceVariable];
+  if (explicit !== undefined && explicit !== '') {
+    return { ...input, PORT: explicit };
+  }
+  const platform = input.PORT;
+  if (platform === undefined || platform === '') return input;
+  return { ...input, [serviceVariable]: platform };
+}
+
 export function parseApiEnvironment(input: Record<string, unknown>): ApiEnvironment {
-  const environment = apiEnvironmentSchema.parse(input);
+  const environment = apiEnvironmentSchema.parse(resolveServicePort(input, 'API_PORT'));
   enforceProductionUrls(environment);
   if (environment.HANAPLY_ENV === 'production' && environment.CORS_ALLOWED_ORIGINS.includes('*')) {
     throw new Error('Wildcard CORS is forbidden in production');
   }
-  if (environment.HANAPLY_ENV === 'production' && environment.RATE_LIMIT_STORE === 'memory') {
-    throw new Error('A distributed API rate-limit store is required in production');
+  if (
+    environment.HANAPLY_ENV === 'production' &&
+    environment.RATE_LIMIT_STORE === 'memory' &&
+    !environment.RATE_LIMIT_SINGLE_INSTANCE
+  ) {
+    throw new Error(
+      'A distributed API rate-limit store is required in production unless this deployment is a single API instance. ' +
+        'Set RATE_LIMIT_SINGLE_INSTANCE=true to state that it is, or implement a shared store and select it in createThrottlerStorage.',
+    );
   }
   return environment;
 }
 
 export function parseWorkerEnvironment(input: Record<string, unknown>): WorkerEnvironment {
-  const environment = workerEnvironmentSchema.parse(input);
+  const environment = workerEnvironmentSchema.parse(
+    resolveServicePort(input, 'WORKER_HEALTH_PORT'),
+  );
   enforceProductionUrls(environment);
   parseEmailEnvironment(environment);
   return environment;

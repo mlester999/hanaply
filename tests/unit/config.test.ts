@@ -23,7 +23,7 @@ const localServerEnvironment = {
 
 describe('environment schemas', () => {
   it('parses and normalizes the local API environment', () => {
-    const parsed = parseApiEnvironment(localServerEnvironment);
+    const parsed = parseApiEnvironment({ ...localServerEnvironment, API_PORT: '3101' });
     expect(parsed.API_PORT).toBe(3101);
     expect(parsed.CORS_ALLOWED_ORIGINS).toEqual(['http://localhost:3100']);
     expect(parsed.OPENAPI_ENABLED).toBe(true);
@@ -33,6 +33,33 @@ describe('environment schemas', () => {
     expect(() =>
       parseApiEnvironment({ ...localServerEnvironment, HANAPLY_ENV: 'production' }),
     ).toThrow(/HTTPS/u);
+  });
+
+  it('binds the port the hosting platform routes to', () => {
+    // A platform-injected PORT wins over the default, because a service that
+    // binds elsewhere receives no traffic no matter how healthy it reports.
+    expect(parseApiEnvironment({ ...localServerEnvironment, PORT: '8080' }).API_PORT).toBe(8080);
+    expect(
+      parseWorkerEnvironment({ ...localServerEnvironment, PORT: '8080' }).WORKER_HEALTH_PORT,
+    ).toBe(8080);
+
+    // An explicit service port still wins over PORT, so a self-hosted
+    // deployment keeps the port it was configured with.
+    expect(
+      parseApiEnvironment({ ...localServerEnvironment, PORT: '8080', API_PORT: '4100' }).API_PORT,
+    ).toBe(4100);
+    expect(
+      parseWorkerEnvironment({
+        ...localServerEnvironment,
+        PORT: '8080',
+        WORKER_HEALTH_PORT: '4200',
+      }).WORKER_HEALTH_PORT,
+    ).toBe(4200);
+
+    // With neither set, the local defaults are unchanged.
+    expect(parseApiEnvironment(localServerEnvironment).API_PORT).toBe(3101);
+    expect(parseWorkerEnvironment(localServerEnvironment).WORKER_HEALTH_PORT).toBe(3102);
+    expect(parseApiEnvironment(localServerEnvironment).PORT).toBeUndefined();
   });
 
   it('rejects wildcard production CORS', () => {
