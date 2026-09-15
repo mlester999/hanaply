@@ -50,9 +50,13 @@ Set these for the deployed project:
   string rather than optional: it still governs any cross-origin caller.
 - `APP_BASE_URL`, `NEXT_PUBLIC_APP_URL` — the deployment origin.
 - `SUPABASE_*`, `EMAIL_*`, and the AI settings — as [`.env.example`](../.env.example)
-  describes. `RATE_LIMIT_STORE=memory` remains a hard production gate in
-  `packages/config`, so a production deployment is refused until a distributed
-  store exists.
+  describes.
+- `RATE_LIMIT_STORE=memory` is a hard production gate. A production start is
+  refused unless `RATE_LIMIT_SINGLE_INSTANCE=true` states that the API really is
+  a single instance, and setting that flag on Vercel would be a false statement:
+  instances scale independently, so each would keep its own counter and the
+  published limits would not hold. A shared store is the honest configuration
+  here, and it does not exist yet.
 
 `AUTH_RATE_LIMIT_PEPPER` must be at least 32 characters when `HANAPLY_ENV` is
 `production`; the schema rejects a shorter one at startup.
